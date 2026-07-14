@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 25b8c3b7b76356a4ebf2ae1b26a33880
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Materials/M_VFX_Radial_Block_01_GS.mat
+  uploadId: 776593

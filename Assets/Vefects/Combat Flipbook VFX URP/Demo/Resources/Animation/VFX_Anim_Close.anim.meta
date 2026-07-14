@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fabc953dd6df3b74cabbeafcca39db81
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/Demo/Resources/Animation/VFX_Anim_Close.anim
+  uploadId: 776593

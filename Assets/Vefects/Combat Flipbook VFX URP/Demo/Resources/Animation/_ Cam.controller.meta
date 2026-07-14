@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: be445e3d090f4d54da06264cffd8024a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/Demo/Resources/Animation/_ Cam.controller
+  uploadId: 776593

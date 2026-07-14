@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 366e98bbc42c6e54eaf43fb256ca9602
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Particles/Loop/VFX_Radial_Burst_01_Loop.prefab
+  uploadId: 776593

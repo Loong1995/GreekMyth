@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cbce4df0792d36d46a225738c2da1ec6
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Particles/Once/VFX_Radial_Burst_01_Random_Rotate_Bunch.prefab
+  uploadId: 776593

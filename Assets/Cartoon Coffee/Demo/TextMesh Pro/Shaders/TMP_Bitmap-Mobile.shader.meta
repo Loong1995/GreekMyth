@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 1e3b057af24249748ff873be7fafee47
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197398
+  packageName: 2D Sword Slash VFX
+  packageVersion: 2.1.0
+  assetPath: Assets/Cartoon Coffee/Demo/TextMesh Pro/Shaders/TMP_Bitmap-Mobile.shader
+  uploadId: 641971

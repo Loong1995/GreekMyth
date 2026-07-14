@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 14eb328de4b8eb245bb7cea29e4ac00b
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197398
+  packageName: 2D Sword Slash VFX
+  packageVersion: 2.1.0
+  assetPath: Assets/Cartoon Coffee/Demo/TextMesh Pro/Shaders/TMP_SDF SSD.shader
+  uploadId: 641971

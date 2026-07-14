@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dd90e35012dc98143b224633e5f15da3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Materials/M_VFX_Hit_06.mat
+  uploadId: 776593

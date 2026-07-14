@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: a207b2c35a881b1488b5de0906c8373c
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures:
+  - _MaskTexture: {fileID: 2800000, guid: b1b69c961c2e3854798854b5df548783, type: 3}
+  - _DistortionTexture: {fileID: 2800000, guid: 4a897e6098e8f804a9ec44f2426669c2,
+      type: 3}
+  - _AlphaTexture: {fileID: 2800000, guid: f793340976f7177468341cc3d511ef13, type: 3}
+  - _ErosionNoise: {fileID: 2800000, guid: 4a897e6098e8f804a9ec44f2426669c2, type: 3}
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/Shared/Shaders/SH_Vefects_URP_Unlit_Combat_Flipbook_Advanced_01_WebGL.shader
+  uploadId: 776593

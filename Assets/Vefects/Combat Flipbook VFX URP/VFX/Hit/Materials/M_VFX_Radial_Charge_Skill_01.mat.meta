@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 42bd1ddf6925ca04c9875f328737e046
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Materials/M_VFX_Radial_Charge_Skill_01.mat
+  uploadId: 776593

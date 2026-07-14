@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "greekmyth://schema/battle_events/1.3.1",
+  "title": "BattleReport",
+  "description": "战斗事件流契约 v1.3.1。冻结后仅允许加法式演进。pb 字段编号见 x-pb 注记与 md 文档。",
+  "type": "object",
+  "required": ["schema_version", "core_version", "battle_id", "rng_seed", "teams", "games", "result"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "core_version": { "type": "string" },
+    "battle_id": { "type": "string" },
+    "rng_seed": { "type": "integer", "minimum": 0 },
+    "setup_metadata": { "type": "object", "description": "1.3.0 可选：影响结算的 setup.metadata（如 trait_rate_overrides），重放必需" },
+    "teams": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": { "$ref": "#/$defs/TeamSnapshot" }
+    },
+    "games": {
+      "type": "array", "minItems": 1, "maxItems": 7,
+      "items": { "$ref": "#/$defs/Game" }
+    },
+    "result": { "$ref": "#/$defs/SeriesResult" }
+  },
+  "x-pb-enums": {
+    "phase": { "SERIES_START": 0, "GAME_START": 1, "DUEL": 2, "ROUND_START": 3, "ACTION": 4, "ROUND_END": 5, "GAME_END": 6, "SERIES_END": 7 },
+    "damage_type": { "physical": 1, "magic": 2, "true": 3 },
+    "skill_trigger.kind": { "cast": 1, "prepare": 2, "release": 3, "interrupted": 4, "delayed": 5, "assist": 6 },
+    "status_remove.reason": { "expired": 1, "dispelled": 2, "source_defeated": 3, "game_end": 4 },
+    "attr_change.scope": { "temporary": 1, "game": 2, "series": 3 },
+    "troops_change.reason": { "wounded_decay": 1 },
+    "game_end.reason": { "main_hero_defeated": 1, "round_limit": 2 },
+    "battle_end.reason": { "main_hero_defeated": 1, "series_limit": 2 }
+  },
+  "x-pb-type-ids": {
+    "battle_start": 1, "game_start": 2, "round_start": 3, "action_start": 4,
+    "normal_attack": 5, "skill_trigger": 6, "damage": 7, "heal": 8,
+    "status_apply": 9, "status_refresh": 10, "status_tick": 11, "status_remove": 12,
+    "attr_change": 13, "troops_change": 14, "hero_defeated": 15,
+    "duel_challenge": 16, "duel_result": 17, "round_end": 18,
+    "game_end": 19, "battle_end": 20, "phase_start": 21, "trait_trigger": 22
+  },
+  "$defs": {
+    "AttrName": { "enum": ["force", "intelligence", "command", "speed"] },
+    "TeamSnapshot": {
+      "type": "object",
+      "required": ["team_id", "main_hero_id", "heroes"],
+      "properties": {
+        "team_id": { "type": "string" },
+        "main_hero_id": { "type": "string" },
+        "heroes": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/HeroSnapshot" } }
+      }
+    },
+    "HeroSnapshot": {
+      "type": "object",
+      "required": ["hero_id", "template_id", "position", "force", "intelligence", "command", "speed", "max_troops", "initial_troops", "skills"],
+      "properties": {
+        "hero_id": { "type": "string" },
+        "template_id": { "type": "string" },
+        "position": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "force": { "type": "integer" },
+        "intelligence": { "type": "integer" },
+        "command": { "type": "integer" },
+        "speed": { "type": "integer" },
+        "max_troops": { "type": "integer", "minimum": 1 },
+        "initial_troops": { "type": "integer", "minimum": 0 },
+        "skills": { "type": "array", "items": { "type": "string" }, "description": "下标即装配顺序，0=自带战法" },
+        "crit_rate_bps": { "type": "integer", "minimum": 0, "description": "1.3.0 可选：基础暴击率 bps" },
+        "heal_crit_rate_bps": { "type": "integer", "minimum": 0, "description": "1.3.0 可选：基础治疗暴击率 bps" },
+        "trait_id": { "type": "string", "description": "1.3.0 可选：性格 id，空=无性格" },
+        "gender": { "type": "string", "enum": ["m", "f"], "description": "1.3.0 可选" },
+        "level": { "type": "integer", "minimum": 1, "description": "1.3.0 可选：等级（四维已预算，仅存档）" }
+      }
+    },
+    "Game": {
+      "type": "object",
+      "required": ["game_no", "events", "result"],
+      "properties": {
+        "game_no": { "type": "integer", "minimum": 1, "maximum": 7 },
+        "events": { "type": "array", "items": { "$ref": "#/$defs/Event" } },
+        "result": { "$ref": "#/$defs/GameResult" }
+      }
+    },
+    "GameResult": {
+      "type": "object",
+      "required": ["winner_team_id", "reason", "end_round", "troops"],
+      "properties": {
+        "winner_team_id": { "type": ["string", "null"] },
+        "reason": { "enum": ["main_hero_defeated", "round_limit"] },
+        "end_round": { "type": "integer" },
+        "troops": { "type": "array", "items": { "$ref": "#/$defs/TroopsDelta" } }
+      }
+    },
+    "SeriesResult": {
+      "type": "object",
+      "required": ["winner_team_id", "total_games", "reason", "game_summaries", "stats"],
+      "properties": {
+        "winner_team_id": { "type": ["string", "null"] },
+        "total_games": { "type": "integer", "minimum": 1, "maximum": 7 },
+        "reason": { "enum": ["main_hero_defeated", "series_limit"] },
+        "game_summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["game_no", "winner_team_id"],
+            "properties": {
+              "game_no": { "type": "integer" },
+              "winner_team_id": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "stats": {
+          "type": "array",
+          "description": "逐武将系列统计，供列表页；禁止动态键名故用数组",
+          "items": {
+            "type": "object",
+            "required": ["hero_id", "total_damage", "total_heal", "kills", "final_troops"],
+            "properties": {
+              "hero_id": { "type": "string" },
+              "total_damage": { "type": "integer" },
+              "total_heal": { "type": "integer" },
+              "kills": { "type": "integer" },
+              "final_troops": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "LogicalTime": {
+      "type": "object",
+      "required": ["g", "r", "p", "s"],
+      "properties": {
+        "g": { "type": "integer", "minimum": 1, "maximum": 7 },
+        "r": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "p": { "type": "integer", "minimum": 0, "maximum": 7 },
+        "s": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Hint": {
+      "type": "object",
+      "properties": {
+        "intensity": { "enum": ["normal", "strong", "ultimate"] }
+      },
+      "additionalProperties": true,
+      "description": "演出提示，客户端可忽略，不参与结算"
+    },
+    "TroopsDelta": {
+      "type": "object",
+      "required": ["hero_id", "troops_before", "troops_after", "wounded_before", "wounded_after", "dead_before", "dead_after"],
+      "properties": {
+        "hero_id": { "type": "string" },
+        "troops_before": { "type": "integer", "minimum": 0 },
+        "troops_after": { "type": "integer", "minimum": 0 },
+        "wounded_before": { "type": "integer", "minimum": 0 },
+        "wounded_after": { "type": "integer", "minimum": 0 },
+        "dead_before": { "type": "integer", "minimum": 0 },
+        "dead_after": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "StatusRef": {
+      "type": "object",
+      "required": ["instance_id", "status_id", "owner_id"],
+      "properties": {
+        "instance_id": { "type": "integer" },
+        "status_id": { "type": "string" },
+        "owner_id": { "type": "string" }
+      }
+    },
+    "Event": {
+      "type": "object",
+      "required": ["seq", "t", "type", "payload"],
+      "properties": {
+        "seq": { "type": "integer", "minimum": 1 },
+        "t": { "$ref": "#/$defs/LogicalTime" },
+        "type": { "type": "string" },
+        "parent_seq": { "type": "integer", "minimum": 0 },
+        "group_id": { "type": "integer", "minimum": 0 },
+        "payload": { "type": "object" },
+        "hint": { "$ref": "#/$defs/Hint" }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "battle_start" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadBattleStart" } } } },
+        { "if": { "properties": { "type": { "const": "game_start" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadGameStart" } } } },
+        { "if": { "properties": { "type": { "enum": ["round_start", "round_end"] } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadRound" } } } },
+        { "if": { "properties": { "type": { "const": "action_start" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadActionStart" } } } },
+        { "if": { "properties": { "type": { "const": "normal_attack" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadNormalAttack" } } } },
+        { "if": { "properties": { "type": { "const": "skill_trigger" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadSkillTrigger" } } } },
+        { "if": { "properties": { "type": { "const": "damage" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadDamage" } } } },
+        { "if": { "properties": { "type": { "const": "heal" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadHeal" } } } },
+        { "if": { "properties": { "type": { "enum": ["status_apply", "status_refresh"] } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadStatusApply" } } } },
+        { "if": { "properties": { "type": { "const": "status_tick" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadStatusTick" } } } },
+        { "if": { "properties": { "type": { "const": "status_remove" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadStatusRemove" } } } },
+        { "if": { "properties": { "type": { "const": "attr_change" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadAttrChange" } } } },
+        { "if": { "properties": { "type": { "const": "troops_change" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadTroopsChange" } } } },
+        { "if": { "properties": { "type": { "const": "hero_defeated" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadHeroDefeated" } } } },
+        { "if": { "properties": { "type": { "const": "duel_challenge" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadDuelChallenge" } } } },
+        { "if": { "properties": { "type": { "const": "duel_result" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadDuelResult" } } } },
+        { "if": { "properties": { "type": { "const": "game_end" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadGameEnd" } } } },
+        { "if": { "properties": { "type": { "const": "battle_end" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadBattleEnd" } } } },
+        { "if": { "properties": { "type": { "const": "phase_start" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadPhaseStart" } } } },
+        { "if": { "properties": { "type": { "const": "trait_trigger" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/PayloadTraitTrigger" } } } }
+      ]
+    },
+    "PayloadBattleStart": {
+      "type": "object",
+      "required": ["total_max_games"],
+      "properties": { "total_max_games": { "type": "integer", "const": 7 } }
+    },
+    "PayloadGameStart": {
+      "type": "object",
+      "required": ["game_no", "troops"],
+      "properties": {
+        "game_no": { "type": "integer", "minimum": 1, "maximum": 7 },
+        "troops": { "type": "array", "items": { "$ref": "#/$defs/TroopsDelta" } }
+      }
+    },
+    "PayloadRound": {
+      "type": "object",
+      "required": ["round_no"],
+      "properties": { "round_no": { "type": "integer", "minimum": 0, "maximum": 8 } }
+    },
+    "PayloadActionStart": {
+      "type": "object",
+      "required": ["actor_id", "order_no"],
+      "properties": {
+        "actor_id": { "type": "string" },
+        "order_no": { "type": "integer", "minimum": 1 },
+        "skipped": { "type": "boolean" }
+      }
+    },
+    "TargetSelectRecord": {
+      "type": "object",
+      "required": ["reason", "candidates", "selected_id"],
+      "properties": {
+        "reason": { "type": "string" },
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["hero_id", "hit_bps"],
+            "properties": {
+              "hero_id": { "type": "string" },
+              "hit_bps": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "selected_id": { "type": "string" }
+      }
+    },
+    "PayloadNormalAttack": {
+      "type": "object",
+      "required": ["actor_id", "target_ids", "strike_no"],
+      "properties": {
+        "actor_id": { "type": "string" },
+        "target_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "strike_no": { "type": "integer", "minimum": 1 },
+        "target_select": { "type": "array", "items": { "$ref": "#/$defs/TargetSelectRecord" } }
+      }
+    },
+    "PayloadSkillTrigger": {
+      "type": "object",
+      "required": ["actor_id", "skill_id", "kind"],
+      "properties": {
+        "actor_id": { "type": "string" },
+        "skill_id": { "type": "string" },
+        "kind": { "enum": ["cast", "prepare", "release", "interrupted", "delayed", "assist"] },
+        "target_ids": { "type": "array", "items": { "type": "string" } },
+        "delay_rounds": { "type": "integer", "minimum": 1 },
+        "interrupted_by": { "$ref": "#/$defs/StatusRef" },
+        "target_select": { "type": "array", "items": { "$ref": "#/$defs/TargetSelectRecord" } }
+      }
+    },
+    "PayloadDamage": {
+      "type": "object",
+      "required": ["source_id", "target_id", "damage_type", "amount", "is_crit", "troops"],
+      "properties": {
+        "source_id": { "type": "string" },
+        "target_id": { "type": "string" },
+        "damage_type": { "enum": ["physical", "magic", "true"] },
+        "amount": { "type": "integer", "minimum": 0 },
+        "is_crit": { "type": "boolean" },
+        "troops": { "$ref": "#/$defs/TroopsDelta" },
+        "target_select": { "type": "array", "items": { "$ref": "#/$defs/TargetSelectRecord" } },
+        "mitigation": { "enum": ["block", "evade", "reflect"] },
+        "damage_class": { "enum": ["special"] }
+      }
+    },
+    "PayloadHeal": {
+      "type": "object",
+      "required": ["source_id", "target_id", "amount", "is_crit", "troops"],
+      "properties": {
+        "source_id": { "type": "string" },
+        "target_id": { "type": "string" },
+        "amount": { "type": "integer", "minimum": 0 },
+        "is_crit": { "type": "boolean" },
+        "troops": { "$ref": "#/$defs/TroopsDelta" }
+      }
+    },
+    "PayloadStatusApply": {
+      "type": "object",
+      "required": ["status", "source_id", "stacks", "duration_rounds"],
+      "properties": {
+        "status": { "$ref": "#/$defs/StatusRef" },
+        "source_id": { "type": "string" },
+        "stacks": { "type": "integer", "minimum": 1 },
+        "duration_rounds": { "type": "integer", "minimum": -1 }
+      }
+    },
+    "PayloadStatusTick": {
+      "type": "object",
+      "required": ["status", "source_id"],
+      "properties": {
+        "status": { "$ref": "#/$defs/StatusRef" },
+        "source_id": { "type": "string" }
+      }
+    },
+    "PayloadStatusRemove": {
+      "type": "object",
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "$ref": "#/$defs/StatusRef" },
+        "reason": { "enum": ["expired", "dispelled", "source_defeated", "game_end"] }
+      }
+    },
+    "PayloadAttrChange": {
+      "type": "object",
+      "required": ["hero_id", "changes", "scope"],
+      "properties": {
+        "hero_id": { "type": "string" },
+        "scope": { "enum": ["temporary", "game", "series"] },
+        "source_status": { "$ref": "#/$defs/StatusRef" },
+        "changes": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["attr", "before", "after"],
+            "properties": {
+              "attr": { "$ref": "#/$defs/AttrName" },
+              "before": { "type": "integer" },
+              "after": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "PayloadTroopsChange": {
+      "type": "object",
+      "required": ["reason", "troops"],
+      "properties": {
+        "reason": { "enum": ["wounded_decay"] },
+        "troops": { "$ref": "#/$defs/TroopsDelta" }
+      }
+    },
+    "PayloadHeroDefeated": {
+      "type": "object",
+      "required": ["hero_id", "is_main_hero"],
+      "properties": {
+        "hero_id": { "type": "string" },
+        "killer_id": { "type": "string" },
+        "is_main_hero": { "type": "boolean" }
+      }
+    },
+    "PayloadDuelChallenge": {
+      "type": "object",
+      "required": ["challenger_id", "defender_id", "challenger_force", "defender_force"],
+      "properties": {
+        "challenger_id": { "type": "string" },
+        "defender_id": { "type": "string" },
+        "challenger_force": { "type": "integer" },
+        "defender_force": { "type": "integer" }
+      }
+    },
+    "PayloadDuelResult": {
+      "type": "object",
+      "required": ["accepted"],
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "winner_id": { "type": "string" },
+        "loser_id": { "type": "string" }
+      }
+    },
+    "PayloadGameEnd": {
+      "type": "object",
+      "required": ["game_no", "winner_team_id", "reason", "end_round", "troops"],
+      "properties": {
+        "game_no": { "type": "integer" },
+        "winner_team_id": { "type": ["string", "null"] },
+        "reason": { "enum": ["main_hero_defeated", "round_limit"] },
+        "end_round": { "type": "integer" },
+        "troops": { "type": "array", "items": { "$ref": "#/$defs/TroopsDelta" } }
+      }
+    },
+    "PayloadBattleEnd": {
+      "type": "object",
+      "required": ["winner_team_id", "total_games", "reason"],
+      "properties": {
+        "winner_team_id": { "type": ["string", "null"] },
+        "total_games": { "type": "integer" },
+        "reason": { "enum": ["main_hero_defeated", "series_limit"] }
+      }
+    },
+    "PayloadTraitTrigger": {
+      "type": "object",
+      "required": ["hero_id", "trait_id", "effect", "line"],
+      "properties": {
+        "hero_id": { "type": "string" },
+        "trait_id": { "type": "string" },
+        "effect": { "type": "string" },
+        "line": { "type": "string" }
+      }
+    },
+    "PayloadPhaseStart": {
+      "type": "object",
+      "required": ["phase", "round_no"],
+      "properties": {
+        "phase": { "type": "integer", "minimum": 0, "maximum": 7 },
+        "round_no": { "type": "integer" }
+      }
+    }
+  }
+}

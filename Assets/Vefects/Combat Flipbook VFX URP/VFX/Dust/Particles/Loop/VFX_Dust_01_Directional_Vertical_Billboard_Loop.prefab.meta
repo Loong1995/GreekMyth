@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cd8bc4dd8500d0d4cb96cd46994d182a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Dust/Particles/Loop/VFX_Dust_01_Directional_Vertical_Billboard_Loop.prefab
+  uploadId: 776593

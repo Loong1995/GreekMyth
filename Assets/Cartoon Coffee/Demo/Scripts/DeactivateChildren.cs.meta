@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: de5286c54f27f9d49b99901354c09bc9
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197398
+  packageName: 2D Sword Slash VFX
+  packageVersion: 2.1.0
+  assetPath: Assets/Cartoon Coffee/Demo/Scripts/DeactivateChildren.cs
+  uploadId: 641971

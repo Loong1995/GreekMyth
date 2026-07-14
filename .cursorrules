@@ -1,0 +1,56 @@
+# GreekMyth 项目规则（.cursorrules）
+
+## 项目一句话背景
+希腊神话题材 2D 卡牌对战手游；服务器权威结算，客户端(Unity)只按事件流播放；
+当前在重写战斗核心 battlecore。
+
+## 当前阶段与 Step
+- 阶段：**Phase 2（客户端战斗表现层·事件流播放器）**，任务书
+  `docs/prompts/phase2_client.md`；客户端主文档 `docs/client/index.md`
+- Phase 2 当前 Step：**B3 代码完成 + 机器验证通过，待人工验收**
+  （演出模板 T1~T7 + 三采购特效包接入 VfxLibrary/SkillVfxTable/StatusVfxTable
+  三表配置化 + 合成占位 SFX + 阵营卡形 + 战斗 UI 最小集 + 结算面板；
+  事件覆盖表已收口 event_mapping §6；非程序员运维手册 docs/client/ops_manual.md、
+  机制流 presentation_flow.md。B2 已同步验收）。
+  Step A 已确认（C-01 横屏卡牌上下占位、C-02 付费资源已购、C-07 于 2026-07-05
+  修订：机制触发伤害默认 T7 天降特效+头像标，逐战法/状态可配置，
+  维护手册 docs/client/vfx_config.md）
+- Phase 2 红线：客户端只播放不结算，数值一律取事件 payload/状态镜像；
+  镜像更新与表现原子绑定，表现层不反向影响调度；契约不足走加法演进申请；
+  只读追加 `docs/schema/`、`docs/prompts/`；调度层纯 C#（asmdef 隔离）可脱离场景单测
+
+## Phase 1 存档（已全部验收）
+- 阶段：Phase 1（战斗事件流契约冻结 + BattleCore 重构），任务书 `docs/prompts/phase1_battlecore.md`
+- Step A~B4 已验收（契约冻结于 1.0.0，B4 加法演进至 1.1.0：target_select；
+  工具链 batch_sim/replay_dump/gen_golden + 9 份 golden + 性能达标）
+- 约定：所有 Python 测试文件必须支持 `python xx.py` 直接执行（文件头 sys.path
+  注入 + `__main__` 走 pytest.main）
+
+## 契约文件（唯一前后端共同依赖）
+- `docs/schema/battle_events.md`（总纲）+ `docs/schema/battle_events_payloads.md`（事件明细）
+- `docs/schema/battle_events.schema.json`（机器可校验）
+- 冻结后仅允许加法式演进（新增事件类型/新增可选字段），禁止修改已有字段语义
+
+## 目录约定
+- `docs/prompts/` 任务书只读存档；`docs/schema/` 契约（只读）；`docs/dev/` 分析/决策/changelog；
+  `docs/mechanics/` 机制文档(index.md+每机制一文件)；`docs/skills/` 战法三段式文档；
+  `docs/client/` Phase 2 客户端文档（index.md 主入口）
+- Phase 2 代码目录：`Assets/Scripts/Battle/Playback/`（纯 C# 调度层，asmdef 隔离）、
+  `Scripts/Battle/Presentation/`（表现层）、`Scripts/Battle/Demo/`（BattleDemoRunner）、
+  `Assets/Tests/EditMode|PlayMode/`；`Logs/` 播放日志（gitignore）
+- `battle/` 新 core 实现（tests/ 单测 + tests/golden/ 逐字节回归基准，
+  tools/ batch_sim·replay_dump·gen_golden，benchmarks/ 性能基准）
+- `battlecore/`、`reference/` **只读，禁止修改其中任何文件**
+
+## 编码红线
+- 确定性最高优先级：单一 RNG 流、种子外部注入；禁止系统时间/无序遍历等不确定源；
+  所有遍历集合必须有显式排序规则；数值一律整数/定点（概率与系数用 bps 万分比）
+- `skill_files.py` 中全部技能（含仅有描述未实现的）是标杆语义，只能照描述实现，不得改动
+- 禁止为通过测试修改已标定公式或 golden；golden 变更必须显式更新文件并在 commit 说明原因
+- core 内部错误不得静默吞掉：结算异常必须使战斗失败并输出完整上下文，禁止半截战报
+- 每个文档文件 ≤300 行，超出拆分并在 index 登记；文档与代码不同步视为任务未完成
+- 每个工作会话结束追加 `docs/dev/changelog.md`（日期 + 3-5 行）
+
+## 属性术语（定论，见 docs/dev/v0_analysis.md §四)
+force=武力/Might、intelligence=智力/Hex（谋略伤害与治疗同用此字段）、
+command=统率/Guard、speed=敏捷/Speed；四维即此四字段。

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3997e2241185407d80309a82f9148466
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 197398
+  packageName: 2D Sword Slash VFX
+  packageVersion: 2.1.0
+  assetPath: Assets/Cartoon Coffee/Demo/TextMesh Pro/Shaders/TMPro_Properties.cginc
+  uploadId: 641971

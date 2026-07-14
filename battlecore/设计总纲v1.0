@@ -1,0 +1,1310 @@
+
+我做一个SLG类的2D卡牌对战手游在全球上线，背景是希腊神话，希腊神话中的英雄战斗，有一个现代文娱视角下的希腊神话世界观，大概分为神/人/海/冥界四个阵营，每个阵营每个英雄都有不同的特点。这个游戏总体就像中国版本的三战/率土改造为2D卡牌希腊英雄对战，只是没有大地图，主打个人竞技rank赛，强化英雄特色和玩家英雄养成抽卡欲望，服务于xx类的玩家群体。客户端整体界面就是个盘子+2D卡牌立绘对战，通过一些特效和移动表达攻击等动作状态。这一项目的总体目标就是通过立绘+战法组合深度+卡牌战斗爽感取得明显区分度，以此达到吸引玩家将情感投射至英雄卡牌本身上，达到养成欲望提升的目的。因此我们需要这个商业化工业项目围绕这个目标进行。
+整个项目的总体架构是，服务器生成权威战报和反演事件流数据包后发送给客户端，由客户端执行窗口内的动画反演。目前我们battlecore是制作后端权威服务器金标准。
+
+几个硬性要求：
+单队对战最多武将3v3，可少于3。
+每场战斗最多回合数为8，还有一个开局单独的准备回合。
+每个武将最大兵力不去硬性限制，但本项目中默认考虑为10000，后续可能在特殊场景中生成一些超出10000的NPC。
+仅有主将阵亡标志战斗失败；若当前陷入平局，则每个武将伤兵不自动恢复且以残血状态自动进入下一局，直到决出胜负为止，最多7场，实在决不出来就判平。
+
+
+你的战斗核心必须满足：
+
+确定性 deterministic
+同样输入、同样 seed、同样配置版本，输出必须完全一致。
+
+无浮点依赖或弱浮点依赖
+商业化建议尽量使用整数万分比，例如：
+
+35% 记为 3500
+1.25 系数记为 12500
+最终使用整数除法和统一舍入规则。
+事件流驱动
+所有战斗结果都表达为事件：
+
+DAMAGE_APPLIED
+HEAL_APPLIED
+STATE_ADDED
+HERO_EXITED
+BATTLE_FINISHED
+技能配置化
+Skill 不应每个都硬编码一个类。
+初版可以写工厂函数，但结构要能迁移到 JSON/YAML/表格配置。
+
+BattleCore 与表现层解耦
+BattleCore 只输出事件，不关心动画、特效、音效、UI。
+
+可回放
+每个随机结果都要记录：
+
+random_index
+roll
+threshold
+source
+reason
+可审计
+每一场战斗能解释为什么赢、为什么触发、为什么失败。
+
+可热更
+技能、效果、状态尽量由配置驱动，而不是写死在代码里。
+
+二、推荐最终架构
+text
+                ┌──────────────────────┐
+                │      BattleInput      │
+                │ 队伍、武将、技能、seed │
+                └──────────┬───────────┘
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │     BattleConfig      │
+                │ 技能表、效果表、状态表 │
+                └──────────┬───────────┘
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │      BattleCore       │
+                │  纯逻辑、确定性执行器  │
+                └──────────┬───────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+ BattleEventStream   BattleSummary      BattleReplayData
+        │                  │                  │
+        ▼                  ▼                  ▼
+  客户端播放动画       战报统计展示       复盘 / 验证 / 调试
+
+你是一个资深商业化 SLG 战斗系统架构师和跨平台游戏引擎工程师。请为一个“下一代 SLG”的战斗系统设计并实现第一版 Python 原型，但注意：Python 只是规则验证和金标准实现，架构必须未来可迁移到 PC / Mac / Android / iOS 的正式商业化项目中。
+
+项目目标：
+1. 实现一个确定性、事件驱动、数据驱动、可回放、可审计、可扩展的 Battle Core。
+2. 当前用 Python 3.11+ 编写单文件可运行 Demo，但类结构、数据结构、协议设计要适合未来迁移到 C# / C++ / Rust / Go / TypeScript / Lua。
+3. 战斗核心 BattleCore 不得依赖 UI、网络、真实时间、线程、平台 API。
+4. 同样的 BattleInput + BattleConfig + seed 必须产生完全一致的 BattleEventStream。
+5. 所有概率、系数、伤害、治疗、属性修改必须优先使用整数，避免跨平台浮点误差。
+6. 百分比统一使用 basis points，万分比整数：
+   - 10000 = 100%
+   - 3500 = 35%
+   - 12500 = 125%
+7. 所有随机都必须通过 DeterministicRNG，不能直接调用 random.random()。
+8. 每一次随机判定都必须记录：
+   - rng_index
+   - roll_bps
+   - threshold_bps
+   - result
+   - reason
+9. 所有战斗变化必须通过 BattleEvent 输出，不能偷偷修改属性。
+10. 客户端未来可以只根据 BattleEventStream 播放动画。
+11. 服务端未来可以只根据 BattleSummary 入库结算。
+12. Debug 工具未来可以根据 BattleReplayData 复盘整场战斗。
+
+当前需要实现的战斗样例：
+1. 普攻：
+   - basic timing。
+   - 物理伤害。
+2. 落凤：
+   - active timing。
+   - 物理伤害 effect + 控制 effect。
+3. 治疗：
+   - active timing。
+   - heal effect。
+4. 仁德：
+   - active timing。
+   - special state grant effect。
+   - 给某个友军添加 special state。
+5. 施毒：
+   - active timing。
+   - 给敌人添加 poison dot state。
+6. 追击：
+   - pursuit timing 或 after_basic timing。
+   - damage effect。
+7. 霸气：
+   - prepare timing。
+   - 给己方全体添加 special state。
+
+必须额外实现：
+1. 兵力为 0 的 hero 退出战斗。
+2. 退出战斗的 hero 不再行动、不再成为正常目标。
+3. 如果某一方主将 hero 退出战斗，则立即判定胜负。
+4. 如果某一方所有 hero 退出战斗，则也判定胜负。
+5. 战斗结束后不再继续处理后续 timing，但可以执行必要的 BATTLE_END 结算事件。
+
+四、商业化工程约束提示词
+text
+请严格遵守以下商业化工程约束：
+
+一、核心逻辑层 BattleCore
+- 只做逻辑计算。
+- 不输出 UI。
+- 不依赖 print 作为唯一日志，print 只是 demo 展示。
+- 事件流 BattleEventStream 是权威结果。
+- 每个事件必须有递增 event_id。
+- 每个事件必须有 round_no、timing、actor_id、target_ids、source_type、source_id、payload。
+- 每个事件必须可 JSON 序列化。
+
+二、确定性
+- 不允许使用 Python 原生 random.random() 做概率。
+- 实现 DeterministicRNG。
+- 可以使用简单 LCG / XorShift / PCG 的整数实现。
+- 每次 rand_bps() 返回 0~9999 的整数。
+- 所有概率判定使用：
+  roll_bps < probability_bps 表示成功。
+- 记录每次 roll。
+
+三、整数数值
+- 属性、兵力、伤害、治疗全部用 int。
+- 系数用 bps。
+- 伤害公式示例：
+  base = actor.force 或 actor.intelligence
+  raw = base * coefficient_bps // 10000
+  final = max(1, raw - target.defense_like_value)
+- 第一版可以简化防御公式，但必须预留 DamagePipeline。
+- 不使用 float。
+
+四、配置化
+- 初版可以用 Python dict 模拟配置表。
+- 但结构要按未来 JSON / YAML / Excel 导表设计。
+- 需要至少有：
+  - SkillConfig
+  - EffectConfig
+  - StateConfig
+  - HeroConfig
+- Skill 由 effect ids 顺序组成。
+- Effect 可以配置：
+  - effect_type
+  - target_policy
+  - probability_bps
+  - coefficient_bps
+  - damage_type
+  - state_to_apply
+  - duration_rounds
+- State 可以配置：
+  - state_type
+  - trigger_mode
+  - trigger_timings
+  - listen_event_types
+  - payload
+  - duration_rounds
+  - max_stack
+
+五、扩展性
+- Skill / State 都应继承 Triggerable。
+- Effect 是原子操作。
+- BattleContext 通过 API 修改所有战斗状态：
+  - apply_damage
+  - apply_heal
+  - add_state
+  - remove_state
+  - modify_attr
+  - mark_hero_exited
+  - finish_battle
+- effect.execute() 只能调用这些 API。
+- BattleContext 负责事件队列和状态监听。
+
+六、性能
+- 不做全量属性 diff。
+- 采用事件驱动。
+- 使用 deque 事件队列。
+- 维护索引：
+  - skill_timing_index: timing -> skill instance ids
+  - active_state_timing_index: timing -> state instance ids
+  - spy_state_event_index: event_type -> state instance ids
+- 初版可以在 state 增删时重建 state index。
+- 后续可增量更新。
+- 每个 chain 有：
+  - max_chain_depth
+  - max_events_per_step
+- 防止无限触发。
+
+六、枚举设计提示词
+text
+请定义以下枚举，优先使用 str Enum 或普通 Enum，但事件序列化时输出字符串。
+
+Timing:
+- BATTLE_START
+- PREPARE
+- ROUND_START
+- BEFORE_ACTION
+- BASIC
+- AFTER_BASIC
+- PURSUIT
+- ACTIVE
+- AFTER_ACTION
+- ROUND_END
+- BATTLE_END
+
+EventType:
+- BATTLE_STARTED
+- BATTLE_FINISHED
+- ROUND_STARTED
+- ROUND_ENDED
+- TIMING_STARTED
+- TIMING_ENDED
+
+- PRE_TRIGGER_CHECK
+- TRIGGER_SUCCESS
+- TRIGGER_FAIL
+- POST_TRIGGER
+
+- PRE_EFFECT_CHECK
+- EFFECT_CHECK_SUCCESS
+- EFFECT_CHECK_FAIL
+- PRE_EFFECT_EXECUTE
+- POST_EFFECT_EXECUTE
+
+- DAMAGE_APPLIED
+- HEAL_APPLIED
+- STATE_ADDED
+- STATE_REMOVED
+- ATTR_CHANGED
+
+- HERO_EXITED
+- MAIN_HERO_EXITED
+- TEAM_DEFEATED
+
+SkillCategory:
+- BASIC
+- ACTIVE
+- PURSUIT
+- COMMAND
+- PASSIVE
+
+TriggerableType:
+- SKILL
+- STATE
+
+EffectType:
+- DAMAGE
+- TRUE_DAMAGE
+- HEAL
+- DEBUFF
+- CONTROL_APPLY
+- DOT_APPLY
+- SPECIAL_STATE_GRANT
+
+DamageType:
+- PHYSICAL
+- STRATEGY
+- TRUE
+
+StateType:
+- BUFF
+- DEBUFF
+- CONTROL
+- DOT
+- HOT
+- SPECIAL
+
+TriggerMode:
+- NONE
+- ACTIVE
+- SPY
+- BOTH
+
+TargetPolicy:
+- SELF
+- ALLY
+- ALLY_ALL
+- ALLY_LOWEST_TROOPS
+- ALLY_HIGHEST_TROOPS
+- ENEMY
+- ENEMY_ALL
+- ENEMY_LOWEST_TROOPS
+- ENEMY_HIGHEST_TROOPS
+- RANDOM_ENEMY
+- RANDOM_ALLY
+- SAME_AS_PREVIOUS_EFFECT
+- SAME_AS_LAST_BASIC_TARGET
+
+HeroRole:
+- MAIN
+- DEPUTY
+
+BattleResult:
+- TEAM_A_WIN
+- TEAM_B_WIN
+- DRAW
+- UNFINISHED
+
+七、核心数据结构提示词
+text
+请使用 dataclass 实现这些结构，所有字段尽量 JSON serializable。
+
+1. BattleInput
+字段：
+- battle_id: str
+- seed: int
+- max_rounds: int
+- team_a_heroes: List[HeroConfig]
+- team_b_heroes: List[HeroConfig]
+- config_version: str
+
+2. HeroConfig
+字段：
+- hero_id: str
+- name: str
+- team_id: str
+- role: HeroRole
+- position: int
+- max_troops: int
+- force: int
+- intelligence: int
+- command: int
+- speed: int
+- skill_ids: List[str]
+
+注意：
+- command 可以作为防御相关属性。
+- position 用于站位和默认目标选择。
+- role=MAIN 的 hero 是主将。
+
+3. SkillConfig
+字段：
+- skill_id: str
+- name: str
+- category: SkillCategory
+- level: int
+- trigger_timings: List[Timing]
+- probability_bps: int
+- effect_ids: List[str]
+- max_trigger_per_round: Optional[int]
+- max_trigger_per_battle: Optional[int]
+- valid_round_start: int
+- valid_round_end: int
+- cooldown_rounds: int
+- tags: List[str]
+- params: Dict[str, Any]
+
+4. EffectConfig
+字段：
+- effect_id: str
+- name: str
+- effect_type: EffectType
+- probability_bps: int
+- target_policy: TargetPolicy
+- target_count: int
+- coefficient_bps: int
+- based_on_attr: str
+- damage_type: Optional[DamageType]
+- state_config_id: Optional[str]
+- duration_rounds: int
+- tags: List[str]
+- params: Dict[str, Any]
+
+5. StateConfig
+字段：
+- state_config_id: str
+- name: str
+- state_type: StateType
+- trigger_mode: TriggerMode
+- trigger_timings: List[Timing]
+- listen_event_types: List[EventType]
+- duration_rounds: int
+- max_stack: int
+- dispellable: bool
+- purifiable: bool
+- tags: List[str]
+- payload: Dict[str, Any]
+
+6. BattleEvent
+字段：
+- event_id: int
+- event_type: EventType
+- round_no: int
+- timing: Optional[Timing]
+- chain_depth: int
+- rng_index: Optional[int]
+- source_type: Optional[str]
+- source_id: Optional[str]
+- actor_id: Optional[str]
+- target_ids: List[str]
+- skill_id: Optional[str]
+- effect_id: Optional[str]
+- state_instance_id: Optional[str]
+- payload: Dict[str, Any]
+
+7. TriggerCheckResult
+字段：
+- allowed: bool
+- reason: str
+- roll_bps: Optional[int]
+- threshold_bps: Optional[int]
+- rng_index: Optional[int]
+
+8. BattleSummary
+字段：
+- battle_id
+- result
+- winner_team_id
+- rounds
+- finish_reason
+- hero_summaries
+- skill_summaries
+- state_summaries
+- event_count
+- rng_count
+
+八、运行时实体提示词
+text
+请实现运行时类，不要求它们全部 JSON serializable，但 summary 必须可序列化。
+
+1. Hero
+属性：
+- instance_id
+- config_id
+- name
+- team_id
+- role
+- position
+- max_troops
+- troops
+- force
+- intelligence
+- command
+- speed
+- skills: List[Skill]
+- states: List[State]
+- exited: bool
+- exit_round: Optional[int]
+- exit_reason: Optional[str]
+
+统计：
+- damage_dealt
+- damage_taken
+- heal_done
+- heal_taken
+- kills
+- exited_enemies
+- skill_trigger_success
+- skill_trigger_fail
+- state_trigger_success
+- state_trigger_fail
+
+接口：
+- is_alive()
+- can_act()
+- is_main_hero()
+- add_skill(skill)
+- add_state(state)
+- remove_state(instance_id)
+- has_state_tag(tag)
+- get_state_payload_sum(key, default=0)
+- summary()
+
+特别要求：
+- 兵力 troops <= 0 时不直接从列表删除，而是 exited=True。
+- exited hero 仍保留在战报和事件引用中。
+- exited hero 不能行动、不能被普通 target policy 选中。
+- 某些特殊技能未来可能引用 exited hero，因此不要物理删除。
+
+九、Triggerable / Skill / State 提示词
+text
+实现 Triggerable 基类：
+
+公共属性：
+- instance_id
+- config_id
+- name
+- owner: Hero
+- triggerable_type
+- trigger_timings
+- probability_bps
+- enabled_flag
+- max_trigger_per_round
+- max_trigger_per_battle
+- trigger_count_round
+- trigger_count_battle
+- success_count
+- fail_count
+- history
+
+公共接口：
+- trigger_phase()
+- set_enabled(value)
+- enabled(context) -> TriggerCheckResult
+- can_trigger_at(context, timing) -> TriggerCheckResult
+- roll_probability(context) -> TriggerCheckResult
+- record_trigger_success(context, timing, source_event=None)
+- record_trigger_fail(context, timing, result, source_event=None)
+- reset_round_counters()
+- summary()
+
+Skill 继承 Triggerable：
+属性：
+- category
+- level
+- effects: List[Effect]
+- cooldown_rounds
+- current_cooldown
+- valid_round_start
+- valid_round_end
+- tags
+- params
+
+接口：
+- choose_actor(context)
+- execute(context, source_event=None)
+- summary()
+
+State 继承 Triggerable：
+属性：
+- state_config_id
+- state_type
+- trigger_mode
+- duration_rounds
+- remaining_rounds
+- stack
+- max_stack
+- dispellable
+- purifiable
+- tags
+- payload
+- effects: List[Effect]
+- responded_event_ids: Set[int]
+
+接口：
+- should_trigger_by_event(context, event)
+- should_trigger_by_timing(context, timing)
+- execute(context, source_event=None)
+- tick_duration(context, timing)
+- is_expired()
+- summary()
+
+重要：
+- Skill 和 State 都是 Triggerable，但 State 不直接继承 Skill。
+- State 是过程产生的临时或常驻可触发对象。
+- State trigger_mode:
+  - ACTIVE：在 timing table 中触发。
+  - SPY：监听事件触发。
+  - BOTH：两者都支持。
+
+十、Effect 系统提示词
+text
+实现 Effect 基类：
+
+公共属性：
+- instance_id
+- config_id
+- name
+- effect_type
+- owner_skill: Optional[Skill]
+- owner_state: Optional[State]
+- owner_hero: Hero
+- probability_bps
+- target_policy
+- target_count
+- coefficient_bps
+- based_on_attr
+- damage_type
+- state_config_id
+- duration_rounds
+- tags
+- params
+
+统计：
+- success_count
+- fail_count
+- total_damage
+- total_heal
+- applied_state_count
+- history
+
+接口：
+- enabled(context) -> TriggerCheckResult
+- roll_probability(context) -> TriggerCheckResult
+- select_actor(context) -> Hero
+- select_targets(context) -> List[Hero]
+- execute(context, actor, targets) -> List[BattleEvent]
+- record_success(...)
+- record_fail(...)
+- summary()
+
+实现以下 Effect 子类或通过 EffectType 分派：
+1. DamageEffect
+   - 物理 / 谋略伤害。
+   - 调用 context.apply_damage。
+
+2. TrueDamageEffect
+   - 无视防御、无视减伤。
+   - 仍属于 damage 类统计。
+   - 调用 context.apply_damage，damage_type=TRUE。
+
+3. HealEffect
+   - 调用 context.apply_heal。
+
+4. ControlApplyEffect
+   - 施加 stun / silence / disarm 之类状态。
+   - 调用 context.add_state。
+
+5. DotApplyEffect
+   - 施加 dot state。
+   - 调用 context.add_state。
+
+6. SpecialStateGrantEffect
+   - 添加 special state。
+   - 例如仁德、霸气。
+   - 调用 context.add_state。
+
+十一、BattleContext 提示词
+text
+实现 BattleContext，这是战斗核心执行器。
+
+核心属性：
+- battle_id
+- config_version
+- seed
+- rng: DeterministicRNG
+- round_no
+- current_timing
+- max_rounds
+- heroes: Dict[str, Hero]
+- teams: Dict[str, List[str]]
+- main_hero_by_team: Dict[str, str]
+- speed_order: List[str]
+- event_queue: deque[BattleEvent]
+- event_stream: List[BattleEvent]
+- human_logs: List[str]
+- battle_finished: bool
+- battle_result: BattleResult
+- winner_team_id: Optional[str]
+- finish_reason: Optional[str]
+- current_actor_id: Optional[str]
+- last_basic_target_by_actor: Dict[str, str]
+
+索引：
+- skill_timing_index: Dict[Timing, List[str]]
+- active_state_timing_index: Dict[Timing, List[str]]
+- spy_state_event_index: Dict[EventType, List[str]]
+
+注册表：
+- skill_instances: Dict[str, Skill]
+- effect_instances: Dict[str, Effect]
+- state_instances: Dict[str, State]
+
+核心接口：
+- build_from_input(battle_input, config_db)
+- build_speed_order()
+- rebuild_indexes()
+- register_skill(skill)
+- register_state(state)
+- unregister_state(state)
+- emit_event(...)
+- dispatch_events(...)
+- log(...)
+- get_alive_heroes(team_id=None)
+- get_enemy_team_id(team_id)
+- select_targets(actor, target_policy, target_count, runtime_cache=None)
+- run_battle()
+- run_timing(timing, actor=None)
+- try_trigger_triggerable(triggerable, timing, source_event=None)
+- execute_skill(skill, source_event=None)
+- execute_effect(effect, actor, targets)
+- apply_damage(actor, target, amount, damage_type, skill=None, effect=None, state=None)
+- apply_heal(actor, target, amount, skill=None, effect=None, state=None)
+- add_state(actor, target, state_config_id, source_skill=None, source_effect=None, source_state=None, duration_override=None)
+- remove_state(target, state_instance_id, reason)
+- modify_attr(actor, target, attr, delta=None, value=None, source=None)
+- mark_hero_exited(hero, reason, killer=None)
+- check_battle_finish()
+- finish_battle(result, winner_team_id, reason)
+- tick_states(timing)
+- reset_round_counters()
+- summary()
+
+十二、BattleContext 主循环完整伪代码提示词
+要求 AI IDE 必须在代码里保留这些注释，并按照这个流程实现：
+
+python
+# BattleContext.run_battle()
+# ============================================================
+# 商业化 BattleCore 主循环：
+#
+# 设计原则：
+# 1. BattleCore 是纯逻辑执行器，不关心 UI。
+# 2. 每个阶段只产生 BattleEvent 和 human readable log。
+# 3. 同样输入和 seed 必须得到同样 event_stream。
+# 4. 每次属性变化必须通过 context API，不能私自修改。
+# 5. 当 battle_finished=True 时，除必要的 BATTLE_END 外，不再推进后续 timing。
+#
+# 流程：
+# 1. emit BATTLE_STARTED。
+# 2. build_speed_order。
+# 3. rebuild_indexes。
+# 4. 执行 BATTLE_START timing。
+# 5. 执行 PREPARE timing：
+#    - 指挥、被动、开局 special state 通常在此触发。
+#    - 例如霸气。
+# 6. 检查是否已经结束。
+# 7. for round_no in 1..max_rounds:
+#    a. 如果 battle_finished，break。
+#    b. reset_round_counters。
+#    c. emit ROUND_STARTED。
+#    d. run_timing(ROUND_START)：
+#       - DOT / HOT / 回合开始状态在此触发。
+#    e. 如果 battle_finished，break。
+#    f. 按 speed_order 遍历 actor：
+#       i. 如果 battle_finished，break。
+#       ii. 如果 actor.exited 或 not actor.is_alive()，continue。
+#       iii. current_actor_id = actor.instance_id。
+#       iv. run_timing(BEFORE_ACTION, actor)。
+#       v. 如果 actor 已退出，continue。
+#       vi. run_timing(BASIC, actor)。
+#       vii. 如果 actor 已退出，continue。
+#       viii. run_timing(AFTER_BASIC, actor)。
+#       ix. 如果 actor 已退出，continue。
+#       x. run_timing(PURSUIT, actor)。
+#       xi. 如果 actor 已退出，continue。
+#       xii. run_timing(ACTIVE, actor)。
+#       xiii. run_timing(AFTER_ACTION, actor)。
+#       xiv. 每个 timing 后都 check_battle_finish。
+#    g. run_timing(ROUND_END)。
+#    h. tick_states(ROUND_END)：
+#       - 状态持续回合减少。
+#       - 移除过期状态。
+#    i. emit ROUND_ENDED。
+#    j. check_battle_finish。
+# 8. 如果 max_rounds 结束仍未分胜负：
+#    - 可按剩余总兵力判胜。
+#    - 若相同则 DRAW。
+# 9. run_timing(BATTLE_END)。
+# 10. emit BATTLE_FINISHED。
+# 11. 生成 summary。
+
+运行
+
+十三、Timing 执行完整伪代码提示词
+python
+
+查看全部
+# 1. 如果 battle_finished 且 timing != BATTLE_END，直接 return。
+# 2. 设置 current_timing。
+# 3. emit TIMING_STARTED。
+# 4. dispatch_events：
+#    - timing start 本身可能被 spy state 监听。
+# 5. 触发 active/both state：
+#    a. 从 active_state_timing_index[timing] 获取候选 state ids。
+#    b. 遍历时使用快照 list(...)，避免过程中增删 state 导致迭代错误。
+#    c. state owner 如果 exited，则通常不触发，除非 state.params.allow_after_exit=True。
+#    d. 调用 try_trigger_triggerable(state, timing)。
+#    e. 每次触发后 dispatch_events。
+#    f. 每次触发后 check_battle_finish。
+# 6. 触发 skill：
+#    a. 如果 actor 不为 None，只触发 actor 自己在该 timing 的技能。
+#    b. 如果 actor 为 None，触发全局 timing 中所有符合 timing 的技能，例如 PREPARE。
+#    c. 从 skill_timing_index[timing] 取候选 skill ids。
+#    d. 使用快照遍历。
+#    e. 跳过 owner.exited 的技能。
+#    f. 对 actor timing，跳过 owner != actor 的技能。
+#    g. 调用 try_trigger_triggerable(skill, timing)。
+#    h. 每次触发后 dispatch_events。
+#    i. 每次触发后 check_battle_finish。
+# 7. emit TIMING_ENDED。
+# 8. dispatch_events。
+
+运行
+
+十四、Trigger 判断完整伪代码提示词
+python
+
+查看全部
+#    - 调用 context.rng.rand_bps()。
+#    - 成功条件 roll_bps < probability_bps。
+#    - 记录 rng_index。
+# 10. 如果概率失败：
+#    - record fail。
+#    - emit TRIGGER_FAIL，payload 包含 roll_bps、threshold_bps。
+#    - log 概率失败。
+#    - dispatch_events。
+#    - return False。
+# 11. 如果成功：
+#    - trigger_count_round += 1。
+#    - trigger_count_battle += 1。
+#    - success_count += 1。
+#    - emit TRIGGER_SUCCESS。
+#    - log 触发成功。
+#    - dispatch_events。
+# 12. 如果是 Skill：
+#    - execute_skill(skill)。
+# 13. 如果是 State：
+#    - state.execute(context, source_event)。
+# 14. emit POST_TRIGGER。
+# 15. dispatch_events。
+# 16. check_battle_finish。
+# 17. return True。
+
+运行
+
+十五、Skill 执行完整伪代码提示词
+python
+
+查看全部
+#    f. 做 effect 概率判定：
+#       - roll_bps < effect.probability_bps 成功。
+#    g. 如果失败：
+#       - effect.record_fail。
+#       - emit EFFECT_CHECK_FAIL。
+#       - log 概率失败。
+#       - dispatch_events。
+#       - continue。
+#    h. 选择 targets：
+#       - context.select_targets(actor, effect.target_policy, effect.target_count, runtime_cache)。
+#       - 如果 targets 为空，则失败。
+#    i. emit EFFECT_CHECK_SUCCESS。
+#    j. dispatch_events。
+#    k. emit PRE_EFFECT_EXECUTE。
+#    l. dispatch_events。
+#    m. execute_effect(effect, actor, targets)。
+#       - 内部调用 effect.execute。
+#       - effect.execute 只能通过 context API 修改战斗状态。
+#    n. emit POST_EFFECT_EXECUTE。
+#    o. dispatch_events。
+#    p. 更新 runtime_cache：
+#       - previous_effect_targets = targets。
+#       - effect_targets_by_id[effect.instance_id] = targets。
+#    q. check_battle_finish。
+
+运行
+
+十六、Effect 执行和 Hero 退出机制提示词
+text
+请特别实现 hero 退出机制。
+
+1. context.apply_damage(actor, target, amount, damage_type, ...)
+流程：
+- 如果 battle_finished，return。
+- 如果 target.exited，不能造成普通伤害，直接记录失败或忽略。
+- 计算 damage pipeline：
+  a. raw_amount = amount。
+  b. 如果 damage_type != TRUE：
+     - 根据 target.command 简化减伤。
+     - 读取 actor states 的 damage_bonus_bps。
+     - 读取 target states 的 damage_taken_bonus_bps / damage_reduction_bps。
+  c. final_damage = max(1, computed)。
+- old_troops = target.troops。
+- target.troops = max(0, old_troops - final_damage)。
+- 更新统计：
+  - actor.damage_dealt += final_damage。
+  - target.damage_taken += final_damage。
+  - effect.total_damage += final_damage。
+- emit DAMAGE_APPLIED。
+- log：
+  [Round X][TIMING] actor 对 target 造成 N damage_type 伤害，target 兵力 old -> new。
+- 如果 target.troops <= 0 且 not target.exited：
+  - 调用 mark_hero_exited(target, reason="TROOPS_ZERO", killer=actor)。
+
+2. context.mark_hero_exited(hero, reason, killer=None)
+流程：
+- 如果 hero.exited，return。
+- hero.exited = True。
+- hero.exit_round = current round。
+- hero.exit_reason = reason。
+- hero.troops = max(0, hero.troops)。
+- 如果 killer 存在，killer.kills += 1。
+- emit HERO_EXITED。
+- log：
+  [Round X][TIMING] hero 兵力归零，退出战斗。
+- 如果 hero.role == MAIN：
+  - emit MAIN_HERO_EXITED。
+  - 敌方立即胜利。
+  - finish_battle(result, winner_team_id, reason="MAIN_HERO_EXITED")。
+- 否则：
+  - check_battle_finish。
+
+3. context.check_battle_finish()
+流程：
+- 如果 battle_finished，return True。
+- 对每个 team：
+  - main hero 如果 exited，则敌方胜利。
+  - 如果该队所有 hero 都 exited，则敌方胜利。
+- 如果双方同时满足失败条件：
+  - result = DRAW。
+- 如果一方失败：
+  - result = enemy team win。
+- 否则 return False。
+
+4. context.finish_battle(result, winner_team_id, reason)
+流程：
+- 如果已经 battle_finished，return。
+- battle_finished = True。
+- battle_result = result。
+- winner_team_id = winner_team_id。
+- finish_reason = reason。
+- emit BATTLE_FINISHED 或设置待 run_battle 最后统一 emit。
+- log 胜负结果。
+
+十七、事件派发完整伪代码提示词
+python
+
+查看全部
+# 流程：
+# 1. processed_count = 0。
+# 2. while event_queue:
+#    a. event = event_queue.popleft()
+#    b. processed_count += 1。
+#    c. 如果 processed_count > max_events_per_step：
+#       - log warning。
+#       - break。
+#    d. 如果 event.chain_depth > max_chain_depth：
+#       - log warning。
+#       - continue。
+#    e. 从 spy_state_event_index[event.event_type] 获取候选 state ids。
+#    f. 使用 list(...) 快照遍历。
+#    g. 对每个 state：
+#       - 如果 state 不存在，continue。
+#       - 如果 state.trigger_mode not in SPY/BOTH，continue。
+#       - 如果 event.event_id in state.responded_event_ids，continue。
+#       - 如果 state.owner.exited 且 not state.params.allow_after_exit，continue。
+#       - 如果 not state.should_trigger_by_event(context, event)，continue。
+#       - state.responded_event_ids.add(event.event_id)。
+#       - try_trigger_triggerable(state, current_timing, source_event=event)。
+#       - check_battle_finish。
+#       - 如果 battle_finished，break。
+# 3. return。
+
+运行
+
+十八、技能配置提示词
+有非常多不同类型的技能需要配置，但是初始阶段先跑通普攻版本，接下来再跑加载技能2，3...的版本。下面是你要它生成的配置内容。
+
+text
+请实现 build_demo_config_db()，返回：
+- skill_configs
+- effect_configs
+- state_configs
+
+技能一：普攻
+skill_id = "basic_attack"
+name = "普攻"
+category = BASIC
+trigger_timings = [BASIC]
+probability_bps = 10000
+effects = ["basic_attack_damage"]
+
+effect "basic_attack_damage":
+effect_type = DAMAGE
+damage_type = PHYSICAL
+probability_bps = 10000
+target_policy = RANDOM_ENEMY
+target_count = 1
+coefficient_bps = 6500
+based_on_attr = "force"
+
+技能二：落凤
+skill_id = "luofeng"
+name = "落凤"
+category = ACTIVE
+trigger_timings = [ACTIVE]
+probability_bps = 3500
+effects = ["luofeng_damage", "luofeng_stun"]
+
+effect "luofeng_damage":
+effect_type = DAMAGE
+damage_type = PHYSICAL
+probability_bps = 10000
+target_policy = RANDOM_ENEMY
+target_count = 1
+coefficient_bps = 16000
+based_on_attr = "force"
+
+effect "luofeng_stun":
+effect_type = CONTROL_APPLY
+probability_bps = 10000
+target_policy = SAME_AS_PREVIOUS_EFFECT
+target_count = 1
+state_config_id = "stun_state"
+duration_rounds = 1
+
+技能三：治疗
+skill_id = "heal"
+name = "治疗"
+category = ACTIVE
+trigger_timings = [ACTIVE]
+probability_bps = 4500
+effects = ["heal_effect"]
+
+effect "heal_effect":
+effect_type = HEAL
+probability_bps = 10000
+target_policy = ALLY_LOWEST_TROOPS
+target_count = 1
+coefficient_bps = 9000
+based_on_attr = "intelligence"
+
+技能四：仁德
+skill_id = "rende"
+name = "仁德"
+category = ACTIVE
+trigger_timings = [ACTIVE]
+probability_bps = 4000
+effects = ["rende_grant"]
+
+effect "rende_grant":
+effect_type = SPECIAL_STATE_GRANT
+probability_bps = 10000
+target_policy = ALLY_LOWEST_TROOPS
+target_count = 1
+state_config_id = "rende_state"
+duration_rounds = 2
+
+state "rende_state":
+name = "仁德"
+state_type = SPECIAL
+trigger_mode = SPY
+listen_event_types = [HEAL_APPLIED]
+duration_rounds = 2
+payload:
+  heal_taken_bonus_bps = 2000
+
+技能五：施毒
+skill_id = "poison"
+name = "施毒"
+category = ACTIVE
+trigger_timings = [ACTIVE]
+probability_bps = 4500
+effects = ["poison_apply"]
+
+effect "poison_apply":
+effect_type = DOT_APPLY
+probability_bps = 10000
+target_policy = RANDOM_ENEMY
+target_count = 1
+state_config_id = "poison_state"
+duration_rounds = 2
+
+state "poison_state":
+name = "中毒"
+state_type = DOT
+trigger_mode = ACTIVE
+trigger_timings = [ROUND_START]
+duration_rounds = 2
+payload:
+  damage_type = STRATEGY
+  coefficient_bps = 4500
+  based_on_attr = "intelligence"
+  source_snapshot_attr_value = optional
+
+技能六：追击
+skill_id = "pursuit"
+name = "追击"
+category = PURSUIT
+trigger_timings = [PURSUIT]
+probability_bps = 4000
+effects = ["pursuit_damage"]
+
+effect "pursuit_damage":
+effect_type = DAMAGE
+damage_type = PHYSICAL
+probability_bps = 10000
+target_policy = SAME_AS_LAST_BASIC_TARGET
+target_count = 1
+coefficient_bps = 8000
+based_on_attr = "force"
+
+技能七：霸气
+skill_id = "baqi"
+name = "霸气"
+category = COMMAND
+trigger_timings = [PREPARE]
+probability_bps = 10000
+max_trigger_per_battle = 1
+effects = ["baqi_grant"]
+
+effect "baqi_grant":
+effect_type = SPECIAL_STATE_GRANT
+probability_bps = 10000
+target_policy = ALLY_ALL
+target_count = 3
+state_config_id = "baqi_state"
+duration_rounds = 999
+
+state "baqi_state":
+name = "霸气"
+state_type = SPECIAL
+trigger_mode = SPY
+listen_event_types = [DAMAGE_APPLIED]
+duration_rounds = 999
+payload:
+  damage_bonus_bps = 1000
+
+控制状态：
+state "stun_state":
+name = "震慑"
+state_type = CONTROL
+trigger_mode = NONE
+duration_rounds = 1
+tags = ["stun"]
+payload:
+  forbid_basic = true
+  forbid_active = true
+  forbid_pursuit = true
+
+十九、目标选择策略提示词
+text
+请实现 context.select_targets(actor, target_policy, target_count, runtime_cache=None)。
+
+规则：
+1. SELF：
+   - 返回 actor 自己，如果未退出。
+2. ALLY：
+   - 随机一个己方存活 hero。
+3. ALLY_ALL：
+   - 返回所有己方未退出 hero。
+4. ALLY_LOWEST_TROOPS：
+   - 返回己方未退出 hero 中 troops / max_troops 比例最低者。
+5. ENEMY：
+   - 随机一个敌方存活 hero。
+6. ENEMY_ALL：
+   - 返回所有敌方未退出 hero。
+7. RANDOM_ENEMY：
+   - 使用 deterministic rng 从敌方存活 hero 中选一个。
+8. RANDOM_ALLY：
+   - 使用 deterministic rng 从己方存活 hero 中选一个。
+9. SAME_AS_PREVIOUS_EFFECT：
+   - 使用 runtime_cache.previous_effect_targets。
+   - 过滤已经 exited 的目标。
+   - 如果为空，fallback 到 RANDOM_ENEMY。
+10. SAME_AS_LAST_BASIC_TARGET：
+   - 从 context.last_basic_target_by_actor[actor_id] 中取。
+   - 如果目标存在且未退出，返回该目标。
+   - 否则 fallback 到 RANDOM_ENEMY。
+
+注意：
+- 默认 target policy 不能选择 exited hero。
+- 目标选择的随机也必须通过 DeterministicRNG，并记录选择事件或至少记录 rng_index。
+
+二十、状态持续时间提示词
+text
+请实现简单但可扩展的状态持续机制。
+
+1. State 添加时：
+   - remaining_rounds = duration_rounds。
+   - 如果同名同来源状态已存在：
+     - 初版采用刷新持续时间。
+     - stack = min(max_stack, stack + 1)。
+   - emit STATE_ADDED。
+
+2. State tick：
+   - 在 ROUND_END 后统一 tick。
+   - duration_rounds >= 999 的状态视为长期状态，不减少。
+   - remaining_rounds -= 1。
+   - 如果 remaining_rounds <= 0：
+     - remove_state，reason="EXPIRED"。
+     - emit STATE_REMOVED。
+
+3. DOT 状态：
+   - 在 ROUND_START 触发。
+   - State.execute 时根据 payload 创建一次 damage 逻辑。
+   - DOT 伤害 actor 可以是 state.source_actor 或 state.owner，初版记录 source_actor_id。
+   - 如果 source_actor 已退出，初版仍允许 DOT 生效，除非 payload.source_must_alive=True。
+
+二十一、伤害和治疗 Pipeline 提示词
+text
+请设计为 pipeline，哪怕第一版公式简单。
+
+DamagePipeline 初版：
+1. base_attr_value = getattr(actor, based_on_attr)
+2. raw = base_attr_value * coefficient_bps // 10000
+3. damage_bonus_bps = sum actor states payload.damage_bonus_bps
+4. damage_taken_bonus_bps = sum target states payload.damage_taken_bonus_bps
+5. damage_reduction_bps = sum target states payload.damage_reduction_bps
+6. if damage_type != TRUE:
+   - after_bonus = raw * (10000 + damage_bonus_bps + damage_taken_bonus_bps - damage_reduction_bps) // 10000
+   - defense = target.command // 5
+   - final = max(1, after_bonus - defense)
+7. if damage_type == TRUE:
+   - final = max(1, raw)
+8. 返回 final。
+
+HealPipeline 初版：
+1. base_attr_value = getattr(actor, based_on_attr)
+2. raw = base_attr_value * coefficient_bps // 10000
+3. heal_bonus_bps = sum actor states payload.heal_bonus_bps
+4. heal_taken_bonus_bps = sum target states payload.heal_taken_bonus_bps
+5. final = raw * (10000 + heal_bonus_bps + heal_taken_bonus_bps) // 10000
+6. final = max(1, final)
+7. 实际恢复 = min(final, target.max_troops - target.troops)
+8. 返回实际恢复。
+
+二十二、日志和事件输出提示词
+text
+请同时维护：
+1. event_stream：机器可读，未来客户端播放和战报复盘使用。
+2. human_logs：人类可读，方便开发调试。
+
+人类日志格式：
+[Battle battle_001][Round 1][PREPARE] 阿瑞斯 触发战法 霸气 成功 roll=1234 < 10000
+[Battle battle_001][Round 1][PREPARE] 阿瑞斯 为 阿瑞斯 添加状态 霸气 duration=999
+[Battle battle_001][Round 1][BASIC] 阿瑞斯 触发战法 普攻 成功 roll=100 < 10000
+[Battle battle_001][Round 1][BASIC] 阿瑞斯 对 宙斯 造成 812 PHYSICAL 伤害，宙斯兵力 3000 -> 2188
+[Battle battle_001][Round 1][BASIC] 宙斯 兵力归零，退出战斗
+[Battle battle_001][Round 1][BASIC] 宙斯 是主将，战斗结束，胜者 team_a
+
+二十三、Summary 输出提示词
+text
+summary() 必须返回 BattleSummary，并打印可读摘要。
+
+Hero summary:
+- hero_id
+- name
+- team_id
+- role
+- exited
+- exit_round
+- exit_reason
+- troops
+- max_troops
+- damage_dealt
+- damage_taken
+- heal_done
+- heal_taken
+- kills
+- remaining_states
+
+Skill summary:
+- skill_id
+- name
+- owner
+- success_count
+- fail_count
+- trigger_count_battle
+
+Effect summary:
+- effect_id
+- name
+- owner_skill
+- success_count
+- fail_count
+- total_damage
+- total_heal
+- applied_state_count
+
+State summary:
+- state_instance_id
+- name
+- owner
+- source
+- remaining_rounds
+- stack
+- trigger_count
+- expired_or_active
+
+Battle summary:
+- battle_id
+- result
+- winner_team_id
+- rounds
+- finish_reason
+- event_count
+- rng_count
+
+二十四、Demo 测试提示词
+ run_step1_basic_attack_demo()
+- 双方 3v3。
+- 每个 hero 只有普攻。
+- 一方主将血量可以稍低，确保 3 回合内可能出现退出。
+- 验证：
+  - 速度顺序。
+  - 普攻。
+  - 兵力为 0 退出。
+  - 主将退出则立即胜负。

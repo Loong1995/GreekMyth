@@ -1,0 +1,75 @@
+# 默认：自动识别文本，仓库内统一存 LF
+* text=auto eol=lf
+
+# C# / IDE / 配置文本
+*.cs text eol=lf diff=csharp
+*.csproj text eol=lf
+*.sln text eol=lf
+*.slnx text eol=lf
+*.txt text eol=lf
+*.TXT text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.XML text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+
+# Unity YAML 文本资源
+*.meta text eol=lf
+*.unity text eol=lf
+*.prefab text eol=lf
+*.asset text eol=lf
+*.mat text eol=lf
+*.anim text eol=lf
+*.controller text eol=lf
+*.overrideController text eol=lf
+*.physicsMaterial2D text eol=lf
+*.physicMaterial text eol=lf
+*.playable text eol=lf
+*.shader text eol=lf
+*.cginc text eol=lf
+*.hlsl text eol=lf
+*.uss text eol=lf
+*.uxml text eol=lf
+
+# 图片
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.psd binary
+*.tga binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.exr binary
+*.hdr binary
+
+# 模型 / 动画 / 音视频
+*.fbx binary
+*.blend binary
+*.obj binary
+*.dae binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.aiff binary
+*.mp4 binary
+*.mov binary
+*.webm binary
+
+# 字体
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# 库 / 包
+*.dll binary
+*.so binary
+*.dylib binary
+*.a binary
+*.aar binary
+*.jar binary
+*.lib binary
+*.exe binary

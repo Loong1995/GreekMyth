@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3d75fc844186e154bb076aa265f3b0a4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Materials/M_VFX_Hit_04_Directional_H_GS.mat
+  uploadId: 776593

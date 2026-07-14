@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5b400348dc09b6c498fe9411e90ebaea
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Electric/Materials/M_VFX_Electric_Impact_02_Directional_H_GS.mat
+  uploadId: 776593

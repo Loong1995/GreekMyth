@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b4684c7ad59e3cd45b64e2114d2c5cd7
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Electric/Materials/M_VFX_Electric_Discharge_01.mat
+  uploadId: 776593

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: fd1d6c513756ca74db71304b936598ef
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Particles/Once/VFX_Radial_Spiky_Hit_01_Random_Rotate.prefab
+  uploadId: 776593

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 230aabb155fb7ee4f8e6953fe4fed904
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Hit/Particles/Loop/VFX_Hit_07_Random_Rotate_Bunch_Loop_GS.prefab
+  uploadId: 776593

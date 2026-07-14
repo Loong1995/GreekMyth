@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: affb10c2c75b7d247af76dcf11059d12
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Dust/Materials/M_VFX_Dust_03_GS.mat
+  uploadId: 776593

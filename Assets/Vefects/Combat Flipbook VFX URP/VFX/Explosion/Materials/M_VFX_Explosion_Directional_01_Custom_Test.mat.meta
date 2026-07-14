@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7789b6fab33a30e4ca39f4c8b78ff3ca
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 317172
+  packageName: Combat Flipbook VFX - URP
+  packageVersion: 1.0.1
+  assetPath: Assets/Vefects/Combat Flipbook VFX URP/VFX/Explosion/Materials/M_VFX_Explosion_Directional_01_Custom_Test.mat
+  uploadId: 776593
