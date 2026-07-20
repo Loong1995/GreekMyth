@@ -59,16 +59,36 @@ def test_hit_points_match_formula_and_decay():
 
 
 def test_skill_trigger_multi_select_with_exclusion():
-    """多段选人（血性咆哮 2 目标）：skill_trigger 带 2 条记录，
+    """多段选人（测试战法 2 目标互斥）：skill_trigger 带 2 条记录，
     第 2 条候选池排除第 1 条命中者。"""
+    from dataclasses import dataclass
+
     from battle.setup import BattleSetup, TeamSetup
+    from battle.skill_common import pick_distinct_enemies
+    from battle.skills import REGISTRY, Skill, register
     from battle.tests.helpers import make_hero
+
+    @dataclass(frozen=True, slots=True)
+    class _TwoTargetStrike(Skill):
+        def select_targets(self, engine, actor):
+            return pick_distinct_enemies(engine, actor, 2, f"skill:{self.skill_id}")
+
+        def execute(self, engine, actor, targets, trigger_seq):
+            for target in targets:
+                if target.is_alive():
+                    engine.deal_damage(
+                        actor, target, damage_type="physical", rate_bps=24000,
+                        parent_seq=trigger_seq,
+                    )
+
+    if "test_two_target" not in REGISTRY:
+        register(_TwoTargetStrike(skill_id="test_two_target", trigger_rate_bps=4000))
 
     setup = BattleSetup(
         battle_id="t_multi_select",
         teams=(
             TeamSetup(team_id="A", main_hero_id="a1", heroes=(
-                make_hero("a1", 0, force=95, skills=("ares_roar",)),)),
+                make_hero("a1", 0, force=95, skills=("test_two_target",)),)),
             TeamSetup(team_id="B", main_hero_id="b1", heroes=(
                 make_hero("b1", 0, command=150),
                 make_hero("b2", 1, command=150),
@@ -80,7 +100,7 @@ def test_skill_trigger_multi_select_with_exclusion():
         report = simulate(setup, seed=seed)
         for event in flat_events(report):
             if event["type"] != "skill_trigger" or \
-                    event["payload"]["skill_id"] != "ares_roar" or \
+                    event["payload"]["skill_id"] != "test_two_target" or \
                     event["payload"]["kind"] not in ("cast", "release", "assist"):
                 continue
             selects = event["payload"].get("target_select", [])
@@ -91,6 +111,30 @@ def test_skill_trigger_multi_select_with_exclusion():
             assert first["selected_id"] not in second_pool, "第二段选人必须排除首目标"
             return
     raise AssertionError("40 个种子未见血性咆哮两段选人")
+
+
+def test_hit_weight_bias_scales_selection_weight():
+    """受击权重偏置（Phase 4 集火底层）：hit_weight_up_bps 使记录权重按倍率放大，
+    仍是加权随机（其余候选权重不变），无偏置时逐值等于受击点数。"""
+    from battle.engine import SeriesEngine
+    from battle.events import PHASE_ACTION
+    from battle.statuses import BUFF, StatusDef
+
+    engine = SeriesEngine(full_3v3_setup(), seed=5)
+    engine.writer.begin_game()
+    engine.writer.set_time(1, 1, PHASE_ACTION, 0)
+    anchor = engine.writer.emit("round_start", {"round_no": 1})
+    a1, b1 = engine.hero_by_id("a1"), engine.hero_by_id("b1")
+    base = b1.hit_points_bps()
+    engine.apply_status(a1, b1, StatusDef(
+        status_id="t_focus", kind=BUFF, duration_rounds=-1,
+        modifiers={"hit_weight_up_bps": 10000},  # 权重 ×2
+    ), parent_seq=anchor)
+    engine.select_enemy_by_hit_rate(a1, reason="t_focus")
+    record = engine._drain_target_selects()[-1]
+    weights = {c["hero_id"]: c["hit_bps"] for c in record["candidates"]}
+    assert weights["b1"] == base * 2
+    assert weights["b2"] == engine.hero_by_id("b2").hit_points_bps()  # 无偏置不变
 
 
 def test_brief_log_hides_and_all_log_shows_selection():

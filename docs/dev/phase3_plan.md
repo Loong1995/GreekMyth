@@ -1,4 +1,8 @@
-# Phase 3 Battle 大修执行计划（待人工审核）
+# Phase 3 Battle 大修执行计划【历史存档：已于 2026-07 执行完毕】
+
+> 【历史文档】本计划已全部落地（含后续 v3.2 减免定序、圣盾反弹等追加修订）。
+> 文中「现状」均指 Phase 3 动工前的旧状态；当前实况以 `docs/mechanics/index.md`
+> 与 `docs/skills/` 为准（schema 1.3.1 / core battle-0.3.1，武将池 24+2 将）。
 
 > 任务书：`docs/prompts/phase3_battlecomplete.md`（机制+武将池 v3.1）；
 > 参考：`docs/prompts/client_perform.md`（客户端演出需求，本阶段只兼容不实现）。

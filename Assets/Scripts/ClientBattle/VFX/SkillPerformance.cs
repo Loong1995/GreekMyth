@@ -21,7 +21,8 @@ namespace ClientBattle.VFX
 
         // ---------------------------------------------------------- 公共原语
 
-        /// <summary>结算一条伤害事件的通用表现：命中特效+飘字+掉血+受击顿挫+音效。</summary>
+        /// <summary>结算一条伤害事件的通用表现：命中特效+飘字+掉血+受击顿挫+音效。
+        /// 格挡/反弹/闪避（amount 可为 0）仍播出击命中反馈；仅减弱受击顿挫与震屏。</summary>
         protected static void SettleDamage(DamageEvent damage, PerformanceProfile profile,
                                            VFXContext ctx, string floatSkillName)
         {
@@ -29,19 +30,26 @@ namespace ClientBattle.VFX
             if (target == null) return;
 
             bool mitigated = !string.IsNullOrEmpty(damage.Mitigation);
+            // 出击命中帧：有专属 HitKey 时格挡/反弹也要播（「打出去了」）；无则靠 PlayMelee 斩击
+            if (!string.IsNullOrEmpty(profile.HitKey))
+                ctx.Vfx.PlayAt(profile.HitKey, target.transform.position, ctx.Scaled(0.5f));
             if (!mitigated)
             {
-                if (!string.IsNullOrEmpty(profile.HitKey))
-                    ctx.Vfx.PlayAt(profile.HitKey, target.transform.position, ctx.Scaled(0.5f));
                 target.HitReact(damage.IsCrit);
                 if (profile.CameraShakeOnHit)
                     ctx.Shake(damage.IsCrit ? 0.2f : 0.08f, 0.22f);
+            }
+            else
+            {
+                // 格挡/反弹：轻顿挫，表示打在盾/身上，而非完全无反馈
+                target.HitReact(isCrit: false);
             }
             ctx.Sfx.Play(string.IsNullOrEmpty(profile.HitSfxKey) ? "sfx_hit_default" : profile.HitSfxKey);
             ctx.Floats.ShowDamage(target, floatSkillName, damage.Amount, damage.IsCrit,
                 damage.Mitigation, damage.DamageType);
             if (damage.Troops != null)
                 target.SetTroops(damage.Troops.TroopsAfter);
+            PerformanceRunner.Instance?.NotifyDamageSettled(damage, floatSkillName);
         }
 
         /// <summary>结算一条治疗事件：绿字+回血。</summary>
@@ -86,8 +94,15 @@ namespace ClientBattle.VFX
                             new Color(1f, 0.4f, 0.2f), 1.4f);
                     }
                     break;
-                case TraitTriggerEvent trait:  // 性格台词：推送即播（聊天气泡）
-                    ctx.Bubbles.Say(ctx.Unit(trait.HeroId), trait.Line);
+                case TraitTriggerEvent:
+                    // 台词只走 TraitLine 独占组；落账路径不弹气泡，避免重叠
+                    break;
+                case MomentumChangeEvent momentum: // 势能落账 + 满档 cut-in（B1/B2）
+                    MomentumService.Apply(momentum, ctx.Unit(momentum.HeroId));
+                    if (momentum.CutIn &&
+                        MomentumService.TrackTable.TryGetValue(momentum.Track, out var style))
+                        PerformanceRunner.Instance?.RequestCutIn(
+                            $"{momentum.HeroId} 势能全开·{style.Label}！", momentum.GroupId);
                     break;
             }
         }

@@ -170,7 +170,7 @@ def scenario_oracle() -> BattleSetup:
 
 
 def scenario_sea_underworld() -> BattleSetup:
-    """海 vs 冥：震荡链/格挡/闪避 对 吸取/处决（死神镰痕为准备型战法）。"""
+    """海 vs 冥：震荡链/格挡 对 吸取/处决（v4：死神镰痕改即发单体处决）。"""
     return BattleSetup(
         battle_id="sample_sea_underworld",
         teams=(
@@ -191,14 +191,14 @@ def scenario_sea_underworld() -> BattleSetup:
 
 
 def scenario_men_gods() -> BattleSetup:
-    """人 vs 神：暴击/追加/格挡 对 反制/先攻/收割。"""
+    """人 vs 神：暴击/追加/准备（赫克托尔战吼）对 反制/先攻/收割。"""
     return BattleSetup(
         battle_id="sample_men_gods",
         teams=(
             TeamSetup(team_id="A", main_hero_id="阿喀琉斯", heroes=(
                 hero_setup("achilles", hero_id="阿喀琉斯", position=0,
                            extra_skills=("achilles_thrust",)),
-                hero_setup("perseus", hero_id="珀尔修斯", position=1),
+                hero_setup("hector", hero_id="赫克托尔", position=1),
                 hero_setup("ajax", hero_id="大埃阿斯", position=2),
             )),
             TeamSetup(team_id="B", main_hero_id="雅典娜", heroes=(
@@ -210,8 +210,40 @@ def scenario_men_gods() -> BattleSetup:
     )
 
 
+def scenario_burst_tactics() -> BattleSetup:
+    """Phase 4 演示：连发 + 预设战术（B 批播放验收入口用）。
+
+    - 连发源：赫克托尔（忠烈：施放自带 +15%/层连发率，最多 2 层）、
+      特里同（忠勇：波塞冬存活时海嗣号角连发率 +30%）。
+    - 预设战术（经理人 P4-C，不发 tactic_applied 事件）：
+      A 队集火哈迪斯（受击 ×2）、B 队攻势倾向 +1。"""
+    return BattleSetup(
+        battle_id="sample_burst_tactics",
+        teams=(
+            TeamSetup(team_id="A", main_hero_id="波塞冬", heroes=(
+                hero_setup("poseidon", hero_id="波塞冬", position=0),
+                hero_setup("triton", hero_id="特里同", position=1),
+                hero_setup("hector", hero_id="赫克托尔", position=2),
+            )),
+            TeamSetup(team_id="B", main_hero_id="哈迪斯", heroes=(
+                hero_setup("hades", hero_id="哈迪斯", position=0),
+                hero_setup("heracles", hero_id="赫拉克勒斯", position=1),
+                hero_setup("medusa", hero_id="美杜莎", position=2),
+            )),
+        ),
+        metadata={"tactics": {
+            "preset": {
+                "A": {"tactic_id": "focus_fire", "params": {"target_id": "哈迪斯"}},
+                "B": {"tactic_id": "stance", "params": {"level": 1}},
+            },
+            "changes": [],
+        }},
+    )
+
+
 SCENARIOS = {
     "standard": scenario_standard,
+    "burst_tactics": scenario_burst_tactics,
     "oracle": scenario_oracle,
     "sea_underworld": scenario_sea_underworld,
     "men_gods": scenario_men_gods,

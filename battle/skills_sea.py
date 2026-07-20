@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-"""海阵营战法（v3.1 池，机制标签：震荡与节奏控制）。数值以 phase3 任务书 §四/§六 为准。
+"""海域阵营战法（Phase 4 v4 池，机制标签：震荡与节奏控制）。
 
 自带：poseidon_oracle 海神三叉戟 / amphitrite_tide 潮汐抚愈 / triton_horn 海嗣号角 /
-      siren_song 魅音 / scylla_maw 六首撕咬 / charybdis_maw 漩涡巨口
+      siren_song 魅音 / scylla_maw 六首撕咬
 拆解：poseidon_torrent 怒涛 / amphitrite_grace 海后之泽 / triton_surge 浪涌 /
-      siren_charm 魅惑术 / scylla_bite 撕咬 / charybdis_swallow 吞流
+      siren_charm 迷魂之歌 / scylla_bite 撕咬
+卡律布狄斯（charybdis_maw/charybdis_swallow）v4 下架（manual_tasks 拍板项 2）。
+奥德修斯 A4 阵营重划（men→sea）时随批迁入。
 """
 
 from dataclasses import dataclass
 
 from battle.skill_common import BPS, emit_status_trigger, lowest_ratio_allies, pick_distinct_enemies
 from battle.skills import TIMING_PREPARE, TIMING_PURSUIT, Skill, register
-from battle.skills_men import LION_COUNTER_STATUS, LionCounter, SelfStatusPassive
 from battle.statuses import (
     BUFF,
     DEBUFF,
@@ -20,19 +21,19 @@ from battle.statuses import (
     SPECIAL,
     StatusDef,
     charm,
-    hesitation,
 )
 
 # =============================================================================
-# 海神三叉戟（波塞冬）：己方全体【海神】——造成非震荡实际伤害后逐次 70% 判定震荡
-# （普通随机，首次判失即停）：对未被本链震荡过的敌方（首个必须异于受击目标）造成
-# 原伤害 50% 的固定震荡伤害（特殊伤害：播放但不触发响应），单次最多 3 次；
-# 另我方全体闪避 +20%。
+# 海神三叉戟（波塞冬，v4）：神谕必发——己方全体【海神】（整场）：造成非震荡
+# 实际伤害后逐次 70% 判定震荡（普通随机，首次判失即停）：对原目标的一名
+# 未被本次震荡命中过的存活友军（首个必异于受击目标）造成原伤害 50% 的固定
+# 震荡伤害（继承物/魔类型；特殊伤害：不暴击、不吃乘区、不吸血、不再触发海神），
+# 单次伤害最多 2 次震荡。
 # =============================================================================
 
 TRIDENT_RATE_BPS = 7000
 TRIDENT_DAMAGE_BPS = 5000
-TRIDENT_MAX_SHOCKS = 3
+TRIDENT_MAX_SHOCKS = 2  # v4：3 → 2
 
 
 def _poseidon_on_damage_dealt(engine, status, ctx):
@@ -67,9 +68,8 @@ def _poseidon_on_damage_dealt(engine, status, ctx):
 
 POSEIDON_STATUS = StatusDef(
     status_id="poseidon_tide", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"evade_bps": 2000},
     response_priority=40, on_damage_dealt=_poseidon_on_damage_dealt,
-)
+)  # v4：移除旧版全队闪避 +20%
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,13 +83,13 @@ class PoseidonOracle(Skill):
 
 
 # =============================================================================
-# 怒涛（波塞冬拆解）：追击 45%——对普攻目标施加【洪水】（受伤 +10%、统率 -10，
-# 2 回合），并追加 2 次 140% 兵刃。
+# 怒涛（波塞冬拆解）：追击 45%——对普攻目标施加【洪水】（受伤 +10%、统率 -15，
+# 2 回合，v4 调参），并追加 2 次 140% 兵刃。
 # =============================================================================
 
 FLOOD_STATUS = StatusDef(
     status_id="flood", kind=DEBUFF, duration_rounds=2,
-    modifiers={"vulnerable_bps": 1000, "command_delta": -10},
+    modifiers={"vulnerable_bps": 1000, "command_delta": -15},
 )
 
 
@@ -110,57 +110,103 @@ class PoseidonTorrent(Skill):
 
 
 # =============================================================================
-# 潮汐抚愈（安菲特里忒）：主动 45%——治疗己方兵力比例最低 2 人（智力 ×1.8，可暴击）。
+# 潮汐抚愈（安菲特里忒，v4 改被动）：准备阶段发动，自身挂载体（整场）——
+# ①每回合开始：己方全体受到治疗效果 +10%（1 回合状态，逐回合重挂）；
+# ②每回合结束：治疗己方兵力比例最低 2 人（安菲特里忒智力 ×1.8，可暴击）。
 # =============================================================================
+
+TIDE_RECEIVE_STATUS = StatusDef(
+    status_id="amphitrite_tide_receive", kind=BUFF, duration_rounds=1,
+    refreshable=True, modifiers={"heal_received_up_bps": 1000},
+)
+
+
+def _tide_on_round_start(engine, status, parent_seq, round_no):
+    owner = engine.hero_by_id(status.owner_id)
+    if not owner.is_alive():
+        return
+    for ally in engine.alive_allies(owner):
+        engine.apply_status(owner, ally, TIDE_RECEIVE_STATUS, parent_seq=parent_seq)
+
+
+def _tide_on_round_end(engine, status, parent_seq, round_no):
+    owner = engine.hero_by_id(status.owner_id)
+    if not owner.is_alive():
+        return
+    tick_seq = emit_status_trigger(engine, status, parent_seq)
+    base = engine.effective_attr(owner, "intelligence") * 18000 // BPS
+    for target in lowest_ratio_allies(engine, owner, 2):
+        if target.is_alive():
+            engine.heal(owner, target, fixed_base=base, parent_seq=tick_seq)
+
+
+AMPHITRITE_TIDE_STATUS = StatusDef(
+    status_id="amphitrite_tide", kind=SPECIAL, duration_rounds=PERMANENT,
+    response_priority=25,
+    on_round_start=_tide_on_round_start, on_round_end=_tide_on_round_end,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AmphitriteTide(Skill):
     def select_targets(self, engine, actor):
-        return lowest_ratio_allies(engine, actor, 2)
+        return [actor]
 
     def execute(self, engine, actor, targets, trigger_seq):
-        for target in targets:
-            if target.is_alive():
-                base = engine.effective_attr(actor, "intelligence") * 18000 // BPS
-                engine.heal(actor, target, fixed_base=base, parent_seq=trigger_seq)
+        engine.apply_status(actor, actor, AMPHITRITE_TIDE_STATUS, parent_seq=trigger_seq)
 
 
 # =============================================================================
-# 海后之泽（安菲特里忒拆解）：被动——己方全体治疗量 +10%（整局）。
+# 海后之泽（安菲特里忒拆解，v4 改版）：被动——前三回合结束时治疗己方全体
+# （施放者智力 ×1.8，可暴击）。
 # =============================================================================
+
+def _grace_on_round_end(engine, status, parent_seq, round_no):
+    if round_no > 3:
+        return
+    owner = engine.hero_by_id(status.owner_id)
+    if not owner.is_alive():
+        return
+    tick_seq = emit_status_trigger(engine, status, parent_seq)
+    base = engine.effective_attr(owner, "intelligence") * 18000 // BPS
+    for target in engine.alive_allies(owner):
+        if target.is_alive():
+            engine.heal(owner, target, fixed_base=base, parent_seq=tick_seq)
+
 
 GRACE_STATUS = StatusDef(
-    status_id="amphitrite_grace", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"heal_up_bps": 1000},
+    status_id="amphitrite_grace", kind=SPECIAL, duration_rounds=3,
+    response_priority=26, on_round_end=_grace_on_round_end,
 )
 
 
 @dataclass(frozen=True, slots=True)
 class AmphitriteGrace(Skill):
     def select_targets(self, engine, actor):
-        return engine.alive_allies(actor)
+        return [actor]
 
     def execute(self, engine, actor, targets, trigger_seq):
-        for target in targets:
-            engine.apply_status(actor, target, GRACE_STATUS, parent_seq=trigger_seq)
+        engine.apply_status(actor, actor, GRACE_STATUS, parent_seq=trigger_seq)
 
 
 # =============================================================================
-# 海嗣号角（特里同）：主动 80%——己方全体获得 1 次格挡 + 统率 +15（不限层数叠加）；
-# 每次释放后自身该战法释放概率 -10%（动态触发率）。
+# 海嗣号角（特里同，v4）：主动初始 100%——己方全体获得 1 层格挡 + 统率 +25
+# （整场，不限层数叠加）；每成功释放一次，之后发动率 -10%，最低降至 20%。
+# 性格·忠勇：波塞冬存活时本自带战法连发率 +30%（traits._Zhongyong）。
 # =============================================================================
 
 HORN_COMMAND_STATUS = StatusDef(
     status_id="triton_horn_command", kind=BUFF, duration_rounds=PERMANENT,
-    max_stacks=99, refreshable=True, modifiers={"command_delta": 15},
+    max_stacks=99, refreshable=True, modifiers={"command_delta": 25},
 )
+HORN_MIN_RATE_BPS = 2000
 
 
 @dataclass(frozen=True, slots=True)
 class TritonHorn(Skill):
     def trigger_rate_for(self, engine, actor):
         casts = engine.skill_cast_count(actor, self.skill_id)
-        return max(0, self.trigger_rate_bps - casts * 1000)
+        return max(HORN_MIN_RATE_BPS, self.trigger_rate_bps - casts * 1000)
 
     def select_targets(self, engine, actor):
         return engine.alive_allies(actor)
@@ -177,15 +223,31 @@ class TritonHorn(Skill):
 # 70% 获得 1 次格挡。
 # =============================================================================
 
+SURGE_FLOOD_CMD = StatusDef(
+    status_id="triton_surge_flood", kind=DEBUFF, duration_rounds=1,
+    refreshable=True, modifiers={"command_delta": -20},
+)
+
+
 def _surge_on_round_start(engine, status, parent_seq, round_no):
     if round_no > 3:
         return
+    owner = engine.hero_by_id(status.owner_id)
+    source = engine.heroes.get(status.source_id, owner)
+    # 洪水联动：仅由本队浪涌持有者中站位序最小者结算一次——带 flood 的敌军统率 -20
+    allies_surge = [
+        h for h in engine.alive_allies(owner)
+        if engine.find_status(h.hero_id, "triton_surge") is not None
+    ]
+    if allies_surge and owner.hero_id == min(
+            allies_surge, key=lambda h: engine.hero_order.index(h.hero_id)).hero_id:
+        for enemy in engine.alive_enemies(owner):
+            if engine.find_status(enemy.hero_id, "flood") is not None:
+                engine.apply_status(source, enemy, SURGE_FLOOD_CMD, parent_seq=parent_seq)
     roll = engine.rng.rand_bps("status_trigger", f"surge:{status.owner_id}")
     if roll >= 7000:
         return
-    owner = engine.hero_by_id(status.owner_id)
-    engine.grant_block(owner, 1, source=engine.heroes.get(status.source_id, owner),
-                       parent_seq=parent_seq)
+    engine.grant_block(owner, 1, source=source, parent_seq=parent_seq)
 
 
 SURGE_STATUS = StatusDef(
@@ -205,7 +267,8 @@ class TritonSurge(Skill):
 
 
 # =============================================================================
-# 魅音（塞壬）：主动 45%——对敌方武力最高单体 350% 魔法 + 【犹豫】。
+# 魅音（塞壬，v4）：主动 55%——对敌方武力最高单体 350% 魔法 + 【魅惑】1 回合
+# （普攻/主动选目标敌我不分；旧版为犹豫，v4 改魅惑）。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
@@ -230,12 +293,12 @@ class SirenSong(Skill):
                 parent_seq=trigger_seq,
             )
             if target.is_alive():
-                engine.apply_status(actor, target, hesitation(), parent_seq=trigger_seq)
+                engine.apply_status(actor, target, charm(), parent_seq=trigger_seq)
 
 
 # =============================================================================
-# 魅惑术（塞壬拆解）：主动 55%——对敌 2 人各 180% 魔法并施加【魅惑】
-# （普攻和主动战法选目标敌我不分，1 回合）。
+# 迷魂之歌（塞壬拆解，v4 改名，原魅惑术）：主动 55%——对敌 2 人（受击率、互斥）
+# 各 180% 魔法并施加【魅惑】（1 回合）。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
@@ -250,7 +313,7 @@ class SirenCharm(Skill):
             if not target.is_alive():
                 continue
             engine.deal_damage(
-                actor, target, damage_type="magic", rate_bps=18000,
+                actor, target, damage_type="magic", rate_bps=22000,
                 parent_seq=trigger_seq,
             )
             if target.is_alive():
@@ -258,7 +321,8 @@ class SirenCharm(Skill):
 
 
 # =============================================================================
-# 六首撕咬（斯库拉）：追击 100%——普攻后对随机一名**其他**敌军 180% 兵刃。
+# 六首撕咬（斯库拉，v4）：追击 100%——普攻后对随机一名**其他**敌军 180% 兵刃；
+# 敌方仅剩 1 名存活单位时改为对原目标 90% 兵刃。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
@@ -268,48 +332,45 @@ class ScyllaMaw(Skill):
         other = engine.select_enemy_by_hit_rate(
             actor, reason=f"maw:{actor.hero_id}", exclude_ids=exclude
         )
-        if other is None:
+        if other is not None:
+            engine.deal_damage(
+                actor, other, damage_type="physical", rate_bps=18000,
+                parent_seq=trigger_seq, kind="maw",
+            )
             return
-        engine.deal_damage(
-            actor, other, damage_type="physical", rate_bps=18000,
-            parent_seq=trigger_seq, kind="maw",
-        )
-
-
-# =============================================================================
-# 撕咬（斯库拉拆解）：追击 35%——普攻后对普攻目标 320% 兵刃。
-# =============================================================================
-
-@dataclass(frozen=True, slots=True)
-class ScyllaBite(Skill):
-    def execute(self, engine, actor, targets, trigger_seq):
+        # 无其他敌军 → 对原目标同系数 180% 兵刃
         for target in targets:
             if target.is_alive():
                 engine.deal_damage(
-                    actor, target, damage_type="physical", rate_bps=32000,
+                    actor, target, damage_type="physical", rate_bps=18000,
                     parent_seq=trigger_seq, kind="maw",
                 )
 
 
 # =============================================================================
-# 漩涡巨口（卡律布狄斯）：被动整局——自身受伤 -20%；受击后 30% 对来源反打
-# 80% 兵刃（复用狮皮反击口径）。
-# 吞流（拆解）：被动——自身统率 +20（整局）。
+# 撕咬（斯库拉拆解，v4）：追击 35%——自身速度 +20（2 回合），并对普攻目标
+# 320% 兵刃。
 # =============================================================================
 
-from battle.skills_men import _lion_on_damage_taken  # noqa: E402  复用受击反打钩子
-
-CHARYBDIS_MAW_STATUS = StatusDef(
-    status_id="charybdis_maw", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"damage_reduce_bps": 2000},
-    response_priority=50, on_damage_taken=_lion_on_damage_taken,
-    payload={"rate_bps": 3000, "damage_rate_bps": 8000, "weaken": False},
+BITE_SPEED_STATUS = StatusDef(
+    status_id="scylla_bite_speed", kind=BUFF, duration_rounds=2,
+    refreshable=True, modifiers={"speed_delta": 20},
 )
 
-SWALLOW_STATUS = StatusDef(
-    status_id="charybdis_swallow", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"command_delta": 20},
-)
+
+@dataclass(frozen=True, slots=True)
+class ScyllaBite(Skill):
+    def execute(self, engine, actor, targets, trigger_seq):
+        engine.apply_status(actor, actor, BITE_SPEED_STATUS, parent_seq=trigger_seq)
+        for target in targets:
+            if target.is_alive():
+                engine.deal_damage(
+                    actor, target, damage_type="physical", rate_bps=38000,
+                    parent_seq=trigger_seq, kind="maw",
+                )
+
+
+# 卡律布狄斯（漩涡巨口/吞流）已随 v4 武将池下架（manual_tasks 拍板项 2）
 
 
 # =============================================================================
@@ -320,18 +381,14 @@ register(PoseidonOracle(skill_id="poseidon_oracle", timing=TIMING_PREPARE,
                         is_oracle=True, hint_intensity="strong"))
 register(PoseidonTorrent(skill_id="poseidon_torrent", trigger_rate_bps=4500,
                          timing=TIMING_PURSUIT))
-register(AmphitriteTide(skill_id="amphitrite_tide", trigger_rate_bps=4500))
+register(AmphitriteTide(skill_id="amphitrite_tide", timing=TIMING_PREPARE))
 register(AmphitriteGrace(skill_id="amphitrite_grace", timing=TIMING_PREPARE))
-register(TritonHorn(skill_id="triton_horn", trigger_rate_bps=8000))
+register(TritonHorn(skill_id="triton_horn", trigger_rate_bps=10000))
 register(TritonSurge(skill_id="triton_surge", timing=TIMING_PREPARE))
-register(SirenSong(skill_id="siren_song", trigger_rate_bps=4500,
+register(SirenSong(skill_id="siren_song", trigger_rate_bps=5500,
                    hint_intensity="strong"))
-register(SirenCharm(skill_id="siren_charm", trigger_rate_bps=5500))
+register(SirenCharm(skill_id="siren_charm", trigger_rate_bps=3500))
 register(ScyllaMaw(skill_id="scylla_maw", trigger_rate_bps=10000,
                    timing=TIMING_PURSUIT))
 register(ScyllaBite(skill_id="scylla_bite", trigger_rate_bps=3500,
                     timing=TIMING_PURSUIT))
-register(LionCounter(skill_id="charybdis_maw", timing=TIMING_PREPARE,
-                     status_def=CHARYBDIS_MAW_STATUS))
-register(SelfStatusPassive(skill_id="charybdis_swallow", timing=TIMING_PREPARE,
-                           status_def=SWALLOW_STATUS))

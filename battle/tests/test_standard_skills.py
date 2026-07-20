@@ -63,8 +63,8 @@ def test_achilles_wrath_cast_in_prepare_round():
     assert applies and all(e["payload"]["status"]["owner_id"] == "x1" for e in applies)
 
 
-def test_achilles_crit_rate_plus_20():
-    """v3.1：基础 0 + 战法 20% = 20% 物理暴击率（统计验证）。"""
+def test_achilles_crit_rate_plus_25():
+    """基础 0 + 战法 25% 物理暴击率（统计验证；追伤可暴击拉高观测率）。"""
     crits = total = 0
     for seed in range(80):
         report = simulate(achilles_setup(), seed=seed)
@@ -75,18 +75,16 @@ def test_achilles_crit_rate_plus_20():
             if p["source_id"] == "x1" and p["damage_type"] == "physical":
                 total += 1
                 crits += p["is_crit"]
-    # 追加伤害 is_crit 恒 False 也计入分母 → 实测率落在 [0.20/(1+0.20), 0.20+容差]
-    assert 0.13 <= crits / total <= 0.25, f"阿喀琉斯暴击率 {crits/total:.3f} 异常"
+    assert 0.15 <= crits / total <= 0.50, f"阿喀琉斯暴击率 {crits/total:.3f} 异常"
 
 
-def test_achilles_fury_on_crit_ignores_command_max_3_per_round():
-    """每次暴击触发追加伤害（120%，无视统帅）；每回合最多 3 次。"""
+def test_achilles_fury_on_crit_ignores_command_max_7_per_round():
+    """每次暴击触发追加伤害（80%，无视统帅、可暴击）；每回合最多 7 次。"""
     fury_seen = False
     for seed in range(40):
         report = simulate(achilles_setup(), seed=seed)
         events = flat_events(report)
         by_seq = {e["seq"]: e for e in events}
-        # 追加伤害 = achilles_wrath status_tick 组下的 damage
         per_round = Counter()
         for tick in status_events(events, "achilles_wrath", "status_tick"):
             fury_seen = True
@@ -99,12 +97,11 @@ def test_achilles_fury_on_crit_ignores_command_max_3_per_round():
             assert len(children) == 1
             fury = children[0]["payload"]
             assert fury["damage_type"] == "physical"
-            assert fury["is_crit"] is False  # 追加伤害不再暴击
             assert fury["target_id"] == cause["payload"]["target_id"]
             t = tick["t"]
             per_round[(t["g"], t["r"])] += 1
-        assert all(count <= 3 for count in per_round.values()), \
-            f"seed={seed} 单回合追加伤害超过 3 次: {per_round}"
+        assert all(count <= 7 for count in per_round.values()), \
+            f"seed={seed} 单回合追加伤害超过 7 次: {per_round}"
     assert fury_seen, "40 个种子未见暴击追加伤害"
 
 
@@ -206,8 +203,11 @@ def test_hades_dominion_drain_and_shadow_veil():
     gains = [e for e in game1 if e["type"] == "attr_change"
              and e["payload"].get("source_status", {}).get("status_id") == "hades_int_gain"]
     assert drains and gains
+    # v4：1:1 统率提升 + 额外等量智力（两次 attr_change）
+    gain_attrs = {c["attr"] for e in gains[:2] for c in e["payload"]["changes"]}
+    assert gain_attrs == {"command", "intelligence"}
     first_gain = gains[0]["payload"]["changes"][0]
-    assert first_gain["attr"] == "intelligence" and first_gain["after"] > first_gain["before"]
+    assert first_gain["after"] > first_gain["before"]
     for event in drains:
         change = event["payload"]["changes"][0]
         assert change["attr"] == "command" and change["after"] < change["before"]

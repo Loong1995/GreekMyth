@@ -17,6 +17,7 @@ namespace ClientBattle.VFX
         PerSegment,     // 非群攻主动：按伤害段数逐段播放
         Melee,          // 普攻/近身：移动到被打者卡牌近身，命中帧闪斩击（追击更大）
         StatusTrigger,  // 特殊状态触发：走主动逻辑，飘状态来源战法名
+        RemoteStrike,   // 远程落击：施法者不位移；目标头顶头像标 + 自上而下命中特效（雷霆）
         OracleAura,     // 神谕：施加完所有单位后一次性挂特效（整战法一个播放单元）
         None,           // 无演出（如蛇杖庇护圣谕宣告）
     }
@@ -35,6 +36,8 @@ namespace ClientBattle.VFX
         public string AuraKey = "";                   // 常驻光环（神谕挂身/暴击机会等）
         public string BoardFilterKey = "";            // 整盘滤镜（海洋呼吸/血色呼吸）
         public string ExtraIconKey = "";              // 特殊图标（裂甲长矛/木马炸弹等）
+        public string PortraitMarkKey = "";           // 头像标（B5 皇卡：受影响单位头顶
+                                                      // 短暂浮现指定武将头像，如 zeus/hades）
         public string SfxKey = "";                    // 主音效
         public string HitSfxKey = "";                 // 命中音效
 

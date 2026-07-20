@@ -9,7 +9,8 @@
 - **StatusDef**（静态定义）：`status_id`、`kind`（buff/debuff/control/special）、
   `duration_rounds`（-1=整局）、`max_stacks`、`refreshable`、`modifiers`、
   `dot_rate_bps` / `hot_rate_bps`；B3 增：响应钩子（§8）、`response_priority`、
-  `tick_at_window_end`（犹豫专用计次时点）、`payload`（钩子自定参数）。
+  `payload`（钩子自定参数）；v3.2 增：`mitigation_gate`（本实例减免能力闸门）。
+  持续计次统一在行动窗口开始时（Phase 3 前移，含犹豫，无专用时点字段）。
 - **StatusInstance**（运行时）：`instance_id`（本局内唯一、从 1 递增）、`owner_id`、
   `source_id`（施加来源，随刷新更新为最新施加者）、`stacks`、`action_tick_count`；
   B3 增：`counters`（局内计数，如试炼层数）、`round_counters`（每回合清零，
@@ -84,6 +85,15 @@
 | `hesitation(rate, n)` 犹豫 | —（特殊） | 刷新不叠层、固定延后 1 回合、计次统一前移（Phase 3） | 细则见 hesitation.md |
 | `block(n)` 格挡 | —（Phase 3） | `counters["block_charges"]` 次数型 0 结算 | 消耗 1 次伤害置 0；damage.md §五 |
 | `charm(n)` 魅惑 | —（Phase 3） | 选敌敌我不分（charm_targeting） | 塞壬魅惑术 |
+| `fear(n)` 恐惧 | forbid_basic + forbid_pursuit | 造成伤害 -15%（damage_up 负值） | Phase 4 刻耳柏洛斯；**口径临时定案**（phase4_manual_tasks §一拍板项） |
+| `curse(n)` 诅咒 | —（debuff） | 智力 -20、受伤 +10%；**可刷新**（负面例外） | Phase 4 卡戎摆渡；全局单实例、任意来源刷新（简化口径，A3 校准） |
+| `certain_crit()` 必胜 | —（buff） | `counters["forced_crit_charges"]` 下次伤害/治疗必暴击，耗尽即摘除 | Phase 4 尼刻族；`grant_certain_crit` 原语叠计数 |
+| `clear_mind(n)` 清醒 | —（特殊） | control_immune：CONTROL 施加**静默拒绝** | Phase 4 伊阿宋；犹豫（SPECIAL）不在免疫范围 |
+
+- Phase 4 增键：`burst_rate_up_bps`（连发率加成，作用于持有者全部主动战法）、
+  `control_immune`（清醒）；数值键允许负值（恐惧 `damage_up_bps=-1500`）。
+- 格挡上限（Phase 4）：`grant_block(..., max_charges=n)` 叠加封顶，
+  已满**静默拒绝**（不发事件）。`grant_certain_crit` 口径相同。
 
 控制不冻结 DoT/HoT；交互矩阵见 status_interactions.md。
 
@@ -94,9 +104,11 @@
   `on_action_start`（持有者行动窗口开始）；Phase 3 增：`on_round_start` /
   `on_round_end`（回合级）、`on_hero_defeated`（任意阵亡）、`on_control_taken`
   （持有者被施加控制）、`on_pre_damage_dealt`（伤害数字确定前修正 ctx）。
-- 伤害响应分发（`_dispatch_damage_hooks`）：一次 damage 结算后，先遍历攻方
-  `on_damage_dealt` 持有实例、再守方 `on_damage_taken`，各按
-  `(response_priority, hero_order 序, instance_id)` 升序（determinism.md §2）。
+- 伤害响应分发（`_dispatch_damage_hooks`）：一次 damage 结算后，**先守后攻**——
+  守方全部 `on_damage_taken` 跑完，再跑攻方全部 `on_damage_dealt`；
+  **各段内**：他人施加到持有者的触发状态整段先于自身施加的，再按
+  `(response_priority, instance_id)`。完整分发点与 priority 表示例见
+  **[response_order.md](response_order.md)**。
 - 钩子拿到 `DamageContext`（来源/目标/类型/kind/是否暴击/实际量/事件 seq），
   以 damage 事件为 parent 产出子结算；响应产生的 skill_trigger/status_tick
   **自成新组**（契约连锁跨组）。
@@ -104,6 +116,12 @@
   （如落雷只响应 kind∈{basic,skill}），配合 `round_counters` 上限双保险。
 - 典型应用：雷霆神谕落雷、蛇杖庇护回复、阿喀琉斯之怒暴击追伤、美杜莎凝视反制、
   十二试炼成长——见 `docs/skills/`。
+
+## 8b. 状态台词（控制影响执行时）
+
+见 [status_voice.md](status_voice.md)：词库 `battle/status_voice.py`，
+事件复用 `trait_trigger`（`trait_id="status"`）。不在施加时弹，而在**临执行前
+状态真正改写行为**时弹（禁术跳过 / 犹豫延后 / 魅惑选人 / 先攻改序后的 action_start）。
 
 ## 9. 属性修改（attr_change）与状态的分工
 

@@ -7,6 +7,7 @@ from typing import Any
 from battle.engine import SeriesEngine
 from battle.report import build_report, serialize_report
 from battle.setup import BattleSetup, validate_setup
+from battle.tactics import validate_tactics
 
 __all__ = ["simulate", "serialize_report"]
 
@@ -19,6 +20,7 @@ def simulate(battle_setup: BattleSetup, seed: int, *, audit: bool = False) -> di
     audit=True 时额外记录 RNG 调用史（不进战报，供 replay_dump 全量档）。
     """
     validate_setup(battle_setup)
+    validate_tactics(battle_setup)  # P4-C：经理人战术配置校验（无配置零开销）
     engine = SeriesEngine(battle_setup, seed, audit=audit)
     series = engine.run()
     return build_report(battle_setup, seed, engine, series)

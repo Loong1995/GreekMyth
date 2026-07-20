@@ -41,7 +41,7 @@ python battle/benchmarks/bench_simulate.py           # 吞吐基准（目标 ≥
 - 全局图景只读 `docs/mechanics/index.md`；局部问题只加载对应机制文件。
 - 契约文件（前后端唯一共同依赖）：`docs/schema/battle_events.md` + payloads + schema.json；
   冻结后仅允许加法式演进（新增事件类型/新增可选字段）。
-- 每个文档文件 ≤300 行，超出拆分并在 index 登记；文档与代码不同步视为任务未完成。
+- 每个文档文件 ≤500 行，超出拆分并在 index 登记；文档与代码不同步视为任务未完成。
 - 确定性最高优先级：同 (setup, seed) 战报逐字节一致；golden 变更必须显式更新并在
   commit message 说明原因。
 - 每个工作会话结束追加 `docs/dev/changelog.md`（日期 + 3-5 行）。

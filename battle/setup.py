@@ -31,6 +31,11 @@ class HeroSetup:
     gender: str = "m"        # m/f（宙斯多情等性格判定用）
     level: int = 50          # 等级 1~50（四维 = 模板基础 + 成长×(level-1)，由 roster 预算好）
 
+    @property
+    def is_backline(self) -> bool:
+        """Phase 4 站位口径：position 1~6，4~6 为后排（0~2 旧口径均视为前排）。"""
+        return self.position >= 4
+
     def resolved_initial_troops(self) -> int:
         if self.initial_troops is None:
             return self.max_troops
@@ -75,8 +80,9 @@ def validate_setup(setup: BattleSetup) -> None:
             if hero.hero_id in seen_hero_ids:
                 raise SetupError("hero_id 全局重复", hero_id=hero.hero_id)
             seen_hero_ids.add(hero.hero_id)
-            if not 0 <= hero.position <= 2:
-                raise SetupError("position 必须在 0~2", hero_id=hero.hero_id)
+            # Phase 4：站位扩展为 1~6（4~6=后排）；0~2 为旧口径（全前排）保持兼容
+            if not 0 <= hero.position <= 6:
+                raise SetupError("position 必须在 0~6", hero_id=hero.hero_id)
             if hero.max_troops <= 0:
                 raise SetupError("max_troops 必须为正", hero_id=hero.hero_id)
             initial = hero.resolved_initial_troops()

@@ -94,14 +94,20 @@ namespace ClientBattle.VFX
                 // 神：雷霆神谕——挂身随机闪电环绕；落雷触发用专属闪电光+音效
                 new() { SkillOrStatusId = "thunder_oracle", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_thunder", SfxKey = "sfx_oracle_thunder" },
-                new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.StatusTrigger,
+                // 雷霆落雷：不位移；目标头顶宙斯头像 + 闪电下劈（RemoteStrike）
+                new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.RemoteStrike,
                         ProjectileKey = "lightning_strike", HitKey = "hit_lightning",
-                        SfxKey = "sfx_thunder_strike" },
-                // 神：埃癸斯圣盾——挂身圣盾特效；反制走普攻逻辑+专属音效
+                        SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
+                // 神：埃癸斯圣盾——挂身圣盾特效；反弹：持盾者 Cast 闪光后 Melee 突进
                 new() { SkillOrStatusId = "athena_aegis", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_aegis", SfxKey = "sfx_oracle_aegis" },
                 new() { SkillOrStatusId = "aegis_shield", Template = PerformanceTemplate.Melee,
-                        HitKey = "hit_shield_counter", SfxKey = "sfx_aegis_counter" },
+                        CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
+                        SfxKey = "sfx_aegis_counter" },
+                // 圣盾·守心（次数控挡）：持有者格挡闪光
+                new() { SkillOrStatusId = "aegis_ward", Template = PerformanceTemplate.StatusTrigger,
+                        CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
+                        SfxKey = "sfx_aegis_counter" },
                 // 神：战神怒火——全场血红呼吸滤镜（弱），战神之勇获得者强一档（Intensity）
                 new() { SkillOrStatusId = "ares_warfury", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_bloodlust_weak", BoardFilterKey = "filter_bloodlust",
@@ -119,10 +125,12 @@ namespace ClientBattle.VFX
                 // 神：胜利羽翼——暴击机会者呼吸阳光（复用阿波罗资源 key）
                 new() { SkillOrStatusId = "nike_wings", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_sunlight", Intensity = 0.7f, SfxKey = "sfx_oracle_nike" },
-                // 人：阿喀琉斯之怒——追伤复用单体追击，敌方身上闪超大长矛裂甲图标+专属音效
-                new() { SkillOrStatusId = "achilles_wrath", Template = PerformanceTemplate.StatusTrigger,
+                // 人：阿喀琉斯之怒——追伤复用近身突进（Melee，与单体追击同观感），
+                // 敌方身上闪超大长矛裂甲图标+专属音效；禁止走 PerSegment 否则只剩飘字
+                new() { SkillOrStatusId = "achilles_wrath", Template = PerformanceTemplate.Melee,
                         ExtraIconKey = "icon_spear_crack", ExtraIconScale = 2.6f,
-                        HitKey = "hit_pierce", SfxKey = "sfx_achilles_pierce" },
+                        HitKey = "hit_pierce", SfxKey = "sfx_achilles_pierce",
+                        StrikeVfxScale = 1.5f },
                 // 人：十二试炼——反打走普攻逻辑
                 new() { SkillOrStatusId = "heracles_trials", Template = PerformanceTemplate.Melee,
                         SfxKey = "sfx_trials_counter" },
@@ -132,8 +140,6 @@ namespace ClientBattle.VFX
                         SfxKey = "sfx_lion_counter" },
                 new() { SkillOrStatusId = "cerberus_guard", Template = PerformanceTemplate.Melee,
                         SfxKey = "sfx_cerberus_counter" },
-                new() { SkillOrStatusId = "charybdis_maw", Template = PerformanceTemplate.Melee,
-                        SfxKey = "sfx_charybdis_counter" },
                 // 人：木马奇谋——炸弹专属图标；爆炸中缝裂开+专属音效
                 new() { SkillOrStatusId = "trojan_bomb", Template = PerformanceTemplate.StatusTrigger,
                         ExtraIconKey = "icon_trojan_bomb", ExtraIconScale = 1.6f,
@@ -142,6 +148,9 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "perseus_relics", Template = PerformanceTemplate.Auto,
                         ProjectileKey = "proj_flying_sword", HitKey = "hit_sword",
                         SfxKey = "sfx_perseus_swords" },
+                // 人：镜盾闪击——单体主动近身斩击（非弹道）
+                new() { SkillOrStatusId = "perseus_flash", Template = PerformanceTemplate.Melee,
+                        HitKey = "hit_sword", SfxKey = "sfx_perseus_swords" },
                 // 海：海神三叉戟——我方棋盘呼吸海洋弱滤镜
                 new() { SkillOrStatusId = "poseidon_oracle", Template = PerformanceTemplate.OracleAura,
                         BoardFilterKey = "filter_ocean", Intensity = 0.5f,
@@ -152,6 +161,9 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "hades_underworld_dominion", Template = PerformanceTemplate.OracleAura,
                         BoardFilterKey = "filter_underworld", Intensity = 0.5f,
                         SfxKey = "sfx_oracle_hades" },
+                // 冥：冥域献统（C1）——被吸友军头顶飘字+哈迪斯头像标
+                new() { SkillOrStatusId = "hades_command_drain", Template = PerformanceTemplate.StatusTrigger,
+                        PortraitMarkKey = "hades", SfxKey = "sfx_hades_drain" },
                 // 冥：石化凝视——石化边框/渐变/石头脱落音效在 UnitView + status 表现层，
                 //     这里配触发反噬的演出与音效
                 new() { SkillOrStatusId = "medusa_gaze", Template = PerformanceTemplate.StatusTrigger,

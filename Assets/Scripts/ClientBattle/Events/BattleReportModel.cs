@@ -35,6 +35,12 @@ namespace ClientBattle.Events
         public List<BattleEvent> Events = new();
     }
 
+    public class HeroSeriesStats
+    {
+        public string HeroId;
+        public int TotalDamage, TotalHeal, Kills, FinalTroops;
+    }
+
     public class BattleReport
     {
         public string SchemaVersion, CoreVersion, BattleId;
@@ -43,6 +49,7 @@ namespace ClientBattle.Events
         public List<GameRecord> Games = new();
         public string SeriesWinnerTeamId, SeriesReason;
         public int TotalGames;
+        public List<HeroSeriesStats> HeroStats = new();
 
         public IEnumerable<HeroSnapshot> AllHeroes()
         {
@@ -127,6 +134,21 @@ namespace ClientBattle.Events
                 report.SeriesWinnerTeamId = seriesResult.Value<string>("winner_team_id");
                 report.SeriesReason = seriesResult.Value<string>("reason");
                 report.TotalGames = seriesResult.Value<int>("total_games");
+                var statsArr = seriesResult.Value<JArray>("stats");
+                if (statsArr != null)
+                {
+                    foreach (var s in statsArr)
+                    {
+                        report.HeroStats.Add(new HeroSeriesStats
+                        {
+                            HeroId = s.Value<string>("hero_id"),
+                            TotalDamage = s.Value<int?>("total_damage") ?? 0,
+                            TotalHeal = s.Value<int?>("total_heal") ?? 0,
+                            Kills = s.Value<int?>("kills") ?? 0,
+                            FinalTroops = s.Value<int?>("final_troops") ?? 0,
+                        });
+                    }
+                }
             }
             return report;
         }

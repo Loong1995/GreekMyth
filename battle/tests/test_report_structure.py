@@ -20,7 +20,7 @@ KNOWN_EVENT_TYPES = {
     "status_apply", "status_refresh", "status_tick", "status_remove",
     "attr_change", "troops_change", "hero_defeated",
     "duel_challenge", "duel_result", "round_end", "game_end", "battle_end",
-    "phase_start", "trait_trigger",
+    "phase_start", "trait_trigger", "momentum_change", "tactic_applied",
 }
 
 # 必为组根的类型（无论有无 parent）

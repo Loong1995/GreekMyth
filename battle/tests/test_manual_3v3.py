@@ -41,7 +41,7 @@ TEAM_A = [
     # 阿喀琉斯：物理暴击尖刀——怒火突刺提暴击追伤，觅踵打高暴击目标增伤，镜盾闪袭补突袭
     {"template": "achilles", "extra_skills": ("achilles_thrust", "perseus_flash", )},
     # 阿斯克勒庇俄斯：纯奶位——灵蛇之吻单奶，导师箴言群体增益，海后之泽持续治疗
-    #{"template": "asclepius", "extra_skills": ("asclepius_kiss", "chiron_maxim", )},
+    #{"template": "asclepius", "extra_skills": ("asclepius_kiss", "apollo_blessing", )},
 
     {"template": "athena", "extra_skills": ("athena_guard", "asclepius_kiss", )},
 ]
@@ -51,8 +51,8 @@ TEAM_B = [
     {"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
     # 赫拉克勒斯：物理前排——狮皮反击惩罚攻击者，坚壁提坦度，血性咆哮多目标输出
     {"template": "heracles", "extra_skills": ("heracles_counter", "ajax_bulwark",)},
-    # 美杜莎：控制副C——蛇瞳一瞥点控，魅惑术叠控制链，春芽给队伍兜底
-    {"template": "medusa", "extra_skills": ("medusa_glance", "siren_charm", )},
+    # 赫克托尔：全主动——自带特洛伊战吼（准备 1）+ 决解决死猛攻（瞬发）
+    {"template": "hector", "extra_skills": ("hector_assault",)},
     # 白板示例：想精确控变量时用这种写法
     # {"hero_id": "木桩", "force": 70, "command": 300, "speed": 60, "skills": ()},
 ]

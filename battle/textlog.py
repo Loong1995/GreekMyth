@@ -67,7 +67,8 @@ def _fmt_event(event: dict, brief: bool) -> str | None:
         return f"{prefix}   {d['hero_id']} 伤兵损耗 {lost} ({_fmt_troops(d)})"
     if kind == "normal_attack":
         combo = f"（连击第 {p['strike_no']} 击）" if p.get("strike_no", 1) > 1 else ""
-        return f"{prefix}   {p['actor_id']} 普攻{combo} -> {p['target_ids'][0]}"
+        verb = "协击" if p.get("kind") == "coordinated" else "普攻"
+        return f"{prefix}   {p['actor_id']} {verb}{combo} -> {p['target_ids'][0]}"
     if kind == "skill_trigger":
         targets = ",".join(p["target_ids"])
         verb = _SKILL_VERBS.get(p["kind"], p["kind"])
@@ -76,6 +77,8 @@ def _fmt_event(event: dict, brief: bool) -> str | None:
             extra = f"（延后 {p['delay_rounds']} 回合）"
         elif p["kind"] == "interrupted":
             extra = f"（来源〔{status_name(p['interrupted_by']['status_id'])}〕）"
+        if p.get("burst_no"):
+            extra = f"（连发第 {p['burst_no']} 次）"
         arrow = f" -> {targets}" if targets else ""
         return f"{prefix}   {p['actor_id']} {verb}【{skill_name(p['skill_id'])}】{extra}{arrow}"
     if kind == "duel_challenge":
@@ -122,11 +125,29 @@ def _fmt_event(event: dict, brief: bool) -> str | None:
         return f"{prefix}   {p['hero_id']} 属性修改（{via}）: {changes}"
     if kind == "trait_trigger":
         from battle.traits import REGISTRY as _TRAITS
+        from battle.names import status_name as _status_name
+        if p.get("trait_id") == "status":
+            label = _status_name(p["effect"])
+            line = f"「{p['line']}」" if p.get("line") else ""
+            return f"{prefix}   ★ {p['hero_id']} 〔{label}〕作祟{line}"
         trait = _TRAITS.get(p["trait_id"])
         trait_label = trait.name if trait is not None else p["trait_id"]
         line = f"「{p['line']}」" if p["line"] else ""
         return (f"{prefix}   ★ {p['hero_id']} 性格〔{trait_label}〕发作"
                 f"（{p['effect']}）{line}")
+    if kind == "momentum_change":
+        if brief:
+            return None  # 势能是纯表现记账，brief 档不打印
+        cut = " ▶切入!" if p.get("cut_in") else ""
+        return (f"{prefix}     ~ {p['hero_id']} 势能[{p['track']}] "
+                f"+1 → {p['value']}（{p['reason']}）{cut}")
+    if kind == "tactic_applied":
+        from battle.tactics import TACTIC_REGISTRY as _TACTICS
+        tactic = _TACTICS.get(p["tactic_id"])
+        label = tactic.name if tactic is not None else p["tactic_id"]
+        params = f" {p['params']}" if p.get("params") else ""
+        return (f"{prefix}   ◎ {p['team_id']} 队变更战术 →〔{label}〕"
+                f"（第 {p['change_no']} 次）{params}")
     if kind == "hero_defeated":
         main = "（主将！）" if p["is_main_hero"] else ""
         return f"{prefix}   ×× {p['hero_id']} 兵力归零退出战斗{main}"
@@ -142,7 +163,7 @@ def _fmt_debug_roll(entry: dict) -> str:
     who = f"{entry['hero_id']}〔{name}〕"
     if entry["kind"] == "skip":
         return f"        ⊘ {who} 未判定：{entry['reason']}"
-    tag = "连携判定" if entry["kind"] == "assist" else "触发判定"
+    tag = {"assist": "连携判定", "burst": "连发判定"}.get(entry["kind"], "触发判定")
     if entry.get("guaranteed"):
         return f"        ⚄ {who} {tag}：保底成功（累计失败达阈值）"
     if entry.get("roll") is None:

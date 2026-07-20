@@ -116,6 +116,9 @@ namespace ClientBattle.Events
                 case SkillTriggerEvent st:
                     if (st.Kind == "prepare" || st.Kind == "interrupted" || st.Kind == "delayed")
                         return GroupKind.Passive;
+                    // 连发（1.4.0）：parent 指回首发触发事件但语义仍是主动释放，
+                    // 必须与首发同模板演出（burst_no 是与追击的唯一判别字段）
+                    if (st.BurstNo >= 2) return GroupKind.ActiveSkill;
                     // 追击：组根 skill_trigger 的 parent 指回普攻 damage（契约 §3.2）
                     return st.ParentSeq != 0 ? GroupKind.Pursuit : GroupKind.ActiveSkill;
                 case StatusTickEvent: return GroupKind.StatusTrigger;
@@ -129,6 +132,8 @@ namespace ClientBattle.Events
                 case RoundStartEvent:
                 case ActionStartEvent:
                 case MarkerEvent: return GroupKind.Node;
+                case MomentumChangeEvent: return GroupKind.Node; // 1.4.0 势能记账：B 批接 UI 前静默落账
+                case TacticAppliedEvent: return GroupKind.Node;  // 1.4.1 战术变更：非阻塞横幅
                 case DamageEvent:
                 case HealEvent: return GroupKind.StatusTrigger; // 独立组根的伤害/治疗多为状态结算（DoT 等）
                 default: return GroupKind.Other;

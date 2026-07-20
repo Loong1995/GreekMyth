@@ -17,7 +17,7 @@ namespace ClientBattle.Test
     {
         [Header("战报来源（二选一）")]
         [Tooltip("StreamingAssets 下的相对路径")]
-        public string ReportPath = "battle_reports/standard_seed20260705.json";
+        public string ReportPath = "battle_reports/burst_tactics_seed42.json"; // Phase 4 验收：连发×10/预设战术/势能
         [Tooltip("直接粘贴战报 JSON（优先于文件路径）")]
         [TextArea(3, 10)] public string InlineJson = "";
 
@@ -101,6 +101,13 @@ namespace ClientBattle.Test
             if (GUI.Button(new Rect(x, y + h * 1.2f, w, h), "跳到结尾", style)) _runner?.SkipToEnd();
             if (GUI.Button(new Rect(x, y + h * 2.4f, w, h), $"速度 x{Speed:0.##}", style))
                 Speed = Speed >= 4f ? 0.5f : Speed * 2f;
+            // 高光回放（B6）：播放完成后可用（按我方 A 队单窗伤害最大行动窗重播）
+            if (_runner != null && !_runner.IsPlaying &&
+                GUI.Button(new Rect(x, y + h * 3.6f, w, h), "高光回放", style))
+                _runner.PlayHighlight("A");
+            if (_runner != null && !_runner.IsPlaying &&
+                GUI.Button(new Rect(x, y + h * 4.8f, w, h), "打开结算", style))
+                _runner.ShowSettlement();
         }
     }
 }

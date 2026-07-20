@@ -1,0 +1,150 @@
+[
+ {
+  "scenario": "standard",
+  "series_count": 1000,
+  "seed_range": [
+   0,
+   1000
+  ],
+  "elapsed_sec": 8.977,
+  "games_per_sec": 235.5,
+  "win_rate": {
+   "A": {
+    "wins": 72,
+    "rate_pct": 7.2
+   },
+   "B": {
+    "wins": 928,
+    "rate_pct": 92.8
+   },
+   "draw": {
+    "wins": 0,
+    "rate_pct": 0.0
+   }
+  },
+  "games_per_series": {
+   "mean": 2,
+   "min": 1,
+   "p50": 2,
+   "p90": 3,
+   "max": 4
+  },
+  "total_games": 2114,
+  "heroes": {
+   "宙斯": {
+    "team": "A",
+    "damage": {
+     "mean": 10292,
+     "min": 1125,
+     "p50": 9931,
+     "p90": 15596,
+     "max": 21761
+    },
+    "heal": {
+     "mean": 0,
+     "min": 0,
+     "p50": 0,
+     "p90": 0,
+     "max": 0
+    },
+    "avg_kills": 0.11,
+    "survival_pct": 7.2
+   },
+   "阿喀琉斯": {
+    "team": "A",
+    "damage": {
+     "mean": 8738,
+     "min": 928,
+     "p50": 8239,
+     "p90": 14494,
+     "max": 21220
+    },
+    "heal": {
+     "mean": 0,
+     "min": 0,
+     "p50": 0,
+     "p90": 0,
+     "max": 0
+    },
+    "avg_kills": 0.1,
+    "survival_pct": 47.0
+   },
+   "阿斯克勒庇俄斯": {
+    "team": "A",
+    "damage": {
+     "mean": 2598,
+     "min": 277,
+     "p50": 2496,
+     "p90": 3808,
+     "max": 6313
+    },
+    "heal": {
+     "mean": 13454,
+     "min": 4793,
+     "p50": 13105,
+     "p90": 19412,
+     "max": 25985
+    },
+    "avg_kills": 0.02,
+    "survival_pct": 77.3
+   },
+   "哈迪斯": {
+    "team": "B",
+    "damage": {
+     "mean": 19944,
+     "min": 2917,
+     "p50": 20190,
+     "p90": 23663,
+     "max": 30276
+    },
+    "heal": {
+     "mean": 1520,
+     "min": 46,
+     "p50": 1541,
+     "p90": 2080,
+     "max": 2633
+    },
+    "avg_kills": 1.04,
+    "survival_pct": 92.8
+   },
+   "赫拉克勒斯": {
+    "team": "B",
+    "damage": {
+     "mean": 12646,
+     "min": 3169,
+     "p50": 12341,
+     "p90": 17149,
+     "max": 24668
+    },
+    "heal": {
+     "mean": 3037,
+     "min": 0,
+     "p50": 2975,
+     "p90": 4412,
+     "max": 6984
+    },
+    "avg_kills": 0.31,
+    "survival_pct": 91.7
+   },
+   "美杜莎": {
+    "team": "B",
+    "damage": {
+     "mean": 8951,
+     "min": 1913,
+     "p50": 8799,
+     "p90": 12877,
+     "max": 20507
+    },
+    "heal": {
+     "mean": 856,
+     "min": 189,
+     "p50": 849,
+     "p90": 1231,
+     "max": 1705
+    },
+    "avg_kills": 0.34,
+    "survival_pct": 91.9
+   }
+  }
+ }
+]

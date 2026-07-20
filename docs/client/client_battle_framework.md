@@ -8,7 +8,7 @@
 ## 一、数据流向图（文字版）
 
 ```
-后端战报 JSON（schema 1.3.0）
+后端战报 JSON（schema 1.3.x）
    │  File / Inspector 粘贴（BattleReportTester）
    ▼
 【第1层 事件模型】Events/
@@ -17,9 +17,11 @@
    ▼
 【第2层 事件流处理管线】Events/EventPipeline.cs
    按 group_id 初始分组 → processor 链：
-     ReactionRegroupProcessor  把组内 status_tick 子链（雷霆/圣盾/试炼/震荡…）
-                               摘出为独立 StatusTrigger 组，追加在主单元之后
-     NodeMergeProcessor        纯节点组标记 ParallelWithNext（静默落账不占节拍）
+     ReactionRegroupProcessor        把组内 status_tick 子链（雷霆/圣盾/试炼/震荡…）
+                                     摘出为独立 StatusTrigger 组，追加在主单元之后
+     CollectiveTriggerMergeProcessor 相邻同状态同来源的 StatusTrigger 组合并
+                                     （白名单：thunder，雷霆集体齐发一次播出）
+     NodeMergeProcessor              纯节点组标记 ParallelWithNext（静默落账不占节拍）
    ──→ List<EventGroup>（播放单元：Kind + Root + Events）
    ▼
 【第3层 特效解析】VFX/VFXResolver.cs
@@ -35,7 +37,7 @@
    ▼
 【第5层 基础设施】
    VFXManager(对象池 PlayAt/PlayOn/Release + 离屏实渲预热) CameraShaker(trauma 噪声震动)
-   CameraFitter(机型分辨率自适配·唯一取景权威) BackgroundFitter(背景 cover 铺满)
+   CameraFitter(机型分辨率自适配·唯一取景权威) BackgroundFitter(背景 cover 铺满，BattleBoardView 内嵌类)
    FloatingTextService(飘字) ChatBubbleService(台词气泡) SfxManager(同帧去重)
    BattleBoardView/UnitView/StatusIconPanel(卡牌 GameObject 树)
    UnitAuraService(状态→常驻循环光环: 施加挂/移除撤/阵亡清/整局重置清)
@@ -49,6 +51,7 @@
 | `Events/BattleReportModel.cs` | 战报顶层模型（阵容快照/逐局事件），schema 1.x 校验 |
 | `Events/EventPipeline.cs` | EventGroup / IEventProcessor / 管线（注册式，可加自定义分析器） |
 | `Events/Processors/ReactionRegroupProcessor.cs` | 状态触发子链拆组后置（补发重组） |
+| `Events/Processors/CollectiveTriggerMergeProcessor.cs` | 相邻同状态同来源 StatusTrigger 组合并（雷霆集体齐发） |
 | `Events/Processors/NodeMergeProcessor.cs` | 静默节点并行标记 |
 | `VFX/VFXResolver.cs` | 三级配置查找 + 未配置告警 |
 | `VFX/PerformanceProfile.cs` | 单条演出配置（模板 + 资源 key + 强度参数） |
@@ -57,16 +60,19 @@
 | `VFX/Performances/DefaultPerformance.cs` | 默认策略族（AOE 中心/逐段/近身/状态触发） |
 | `VFX/Performances/OracleAuraPerformance.cs` | 神谕整单元宣告 + 程序化整盘滤镜 BoardFilterOverlay（Intensity 可调；光环本体由 UnitAuraService 按状态挂） |
 | `Units/UnitAuraService.cs` | **状态常驻光环表**：status_id→aura key（雷霆/圣盾/血红/阳光/神使印记）；粒子强制循环+补密度+半透明 |
+| `Units/MomentumService.cs` | **四轨势能镜像账本**（Phase 4 B1/B2）：momentum_change 落账、TrackTable 注册表（轨→tint/标签）、满档溢出触发、action_start 清零；细则见 performance_mechanisms §一b |
 | `VFX/PerformanceRunner.cs` | 播放主循环单例：PlayBattleReport / SkipToEnd / OnAllComplete；开战前 PrewarmFromReport（字形/图标/音效/气泡按战报内容前置生成） |
 | `VFX/VFXManager.cs` | 特效池 + 离屏实渲预热（Prewarm：全部 prefab 在离屏 RT 相机前实渲 3 帧，shader 编译/贴图上传压进加载期，PlayLoop 等 PrewarmComplete 再开播） |
 | `VFX/CameraShaker.cs` | trauma 噪声模型震动：连抖累加封顶、Perlin 偏移、衰减自动复位（升级点：Cinemachine Impulse） |
 | `VFX/CameraFitter.cs` | **机型兼容唯一权威**：按宽高比动态调 orthoSize 保安全区（半宽 4.6/半高 5.2），分辨率热切换每帧跟随；表现层禁止写死 orthoSize/像素坐标 |
 | `Units/BattleBoardView.cs` | 建棋盘（A 下 B 上按站位横排）、unitId→UnitView、背景（默认无色纯黑，上传底图则 BackgroundFitter cover 铺满）、整盘滤镜挂点 |
-| `Units/UnitView.cs` | 卡牌 GameObject：立绘/血条/受击/石化边框渐变/压暗/阵亡/待机呼吸（立绘错相位浮动，画面永远有活物） |
-| `Units/StatusIconPanel.cs` | 普通图标上方一排；控制类大图标卡牌中央整体居中、折行 |
+| `Units/UnitView.cs` | 卡牌 GameObject：立绘/血条/受击/石化边框渐变/压暗/阵亡/待机呼吸（立绘错相位浮动，画面永远有活物）/四轨势能迷你条+满档流光 |
+| `Units/StatusIconPanel.cs` | 仅控制类大图标卡中央居中折行；常规上方小图标已关闭 |
 | `Units/FloatingTextService.cs` | 所有伤害/治疗/状态头顶飘字（技能名+数值，硬性要求） |
-| `Units/ChatBubbleService.cs` | 性格台词聊天气泡（推送即播、同单位排队） |
+| `Units/ChatBubbleService.cs` | 台词独占气泡（`SayExclusive` 时长对齐时间轴） |
 | `Audio/SfxManager.cs` | 音效池 + 同帧同 key 去重（状态与伤害音效不重复） |
+| `Audio/BgmLayerService.cs` | **BGM 分层混音**（B3）：4 stem 随全局势能三档淡入淡出、小节对齐切层、单挑/cut-in duck；占位单曲回退（音量+低通）；素材路线见 phase4_manual_tasks |
+| `Units/FloatingTextTuning.cs` | 飘字调参 SO（B4）：字体/字号/颜色/上浮曲线，Inspector 实时调；操作文档 floating_text_tuning.md |
 | `Placeholder/PlaceholderFactory.cs` | 占位资源三级回退最后一层（程序化色块/合成音） |
 | `Names/ChineseNames.cs` | 战法/状态/属性中文名（与 battle/names.py 同步维护） |
 | `Test/BattleReportTester.cs` | 测试入口：文件或粘贴 JSON、调速/跳过/重播按钮；vSync/后台运行/窗口化基线、ESC 退出（新 Input System） |

@@ -1,39 +1,37 @@
 # 四阵营视觉规范（faction_style）
 
-> B2 产出。代码源：`Assets/Scripts/Battle/Presentation/Style/FactionStyle.cs`
-> （改配色改代码常量即可，本表与代码不同步视为任务未完成）。
+> 代码源：`Assets/Scripts/ClientBattle/Units/BattleBoardView.cs` 内
+> `FactionColors`（阵营主色）与 `FactionOf`（template_id → 阵营登记表）。
+> 改配色改代码常量即可；本表与代码不同步视为任务未完成。
 
-## 1. 阵营划分（英雄登记表）
+## 1. 阵营划分（英雄登记表，与 `battle/roster.py` v4/A4 同步）
 
-| 阵营 | 英雄 | 气质关键词 |
+> A4 定稿：`gods→olympus`、`men→heroes`；奥德修斯→sea、赫尔墨斯→underworld。
+
+| 阵营 | 英雄（template_id） | 气质关键词 |
 |---|---|---|
-| 神 Gods | 宙斯、阿瑞斯、赫尔墨斯、阿斯克勒庇俄斯、阿波罗 | 神圣、雷光、鎏金 |
-| 人 Mortals | 阿喀琉斯、赫拉克勒斯、皮提亚 | 血性、青铜、战场 |
-| 海 Sea | 波塞冬 | 深海、浪涌、碧蓝 |
-| 冥界 Underworld | 哈迪斯、美杜莎、斯忒诺 | 幽暗、亡魂、冥紫 |
+| 奥林匹斯 olympus | zeus、athena、ares、apollo、asclepius、artemis、nike | 神圣、雷光、鎏金 |
+| 英雄 heroes | achilles、heracles、perseus、atalanta、paris、ajax、hector、jason、castor | 血性、青铜、战场 |
+| 海域 sea | poseidon、amphitrite、triton、siren、scylla、odysseus | 深海、浪涌、碧蓝 |
+| 冥界 underworld | hades、medusa、persephone、charon、thanatos、cerberus、hermes | 幽暗、亡魂、冥紫 |
 
-> 阿波罗/皮提亚/斯忒诺为 oracle 连携局武将（2026-07-06 登记）；
-> 三人立绘暂缺，回退纯色块——补图放 `Resources/Portraits/<中文名>.png` 即生效。
+- 新增英雄必须在 `FactionOf` 登记（未登记回退 heroes 配色，无告警）。
+- 立绘路径：`Resources/ClientBattle/Portraits/<template_id>.png`，
+  缺图回退阵营色块（`PlaceholderFactory`），上传即生效。
 
-新增英雄必须在 `FactionStyle.HeroFactions` 登记（未登记回退 Mortals + 无告警，
-B4 加校验）。
+## 2. 配色规范（设计稿参考值；运行时以代码 float 常量为准）
 
-## 2. 配色规范
-
-| 阵营 | 边框主色 | 特效主色 | cut-in 底纹（B3） |
+| 阵营 | 代码主色（FactionColors） | 设计稿近似 hex | 特效主色倾向 |
 |---|---|---|---|
-| 神 | 鎏金 #F2C748 | 暖金光 #FFEB8C | 放射状神辉 + 雷纹 |
-| 人 | 赤红 #BF2929 | 橙红 #FF7350 | 青铜纹样 + 划痕 |
-| 海 | 碧蓝 #2E9ECC | 浅碧 #73D9FF | 波浪纹 + 泡沫粒子 |
-| 冥界 | 冥紫 #7A48B3 | 亮紫 #B873FF | 亡魂雾气 + 裂隙 |
+| 奥林匹斯 | (0.85, 0.72, 0.25) | #D9B840 | 暖金光、雷纹 |
+| 英雄 | (0.78, 0.28, 0.22) | #C74738 | 橙红、青铜 |
+| 海 | (0.22, 0.55, 0.82) | #388CD1 | 浅碧、波浪 |
+| 冥界 | (0.55, 0.30, 0.72) | #8C4DB8 | 亮紫、雾气 |
 
 使用规则：
 
-- 卡牌边框底板 = 边框主色；阵亡整卡灰化（边框转灰、立绘压暗）。
-- 飘字描边/技能默认光色 = 特效主色（战法专属配色在 SkillVfxConfig 覆盖）。
-- 主将标识：名字前 ★（B2 占位）；B3 换成边框顶部金冠角标。
-
-## 3. 稀有度边框粒子（预留）
-
-B2 不做稀有度分层；粒子挂点已在卡牌结构预留（Frame 节点），B3/B4 按
-稀有度配置粒子环绕（对标 foil 卡）。
+- 卡牌边框底板 = 阵营主色；阵亡整卡灰化压暗（`UnitView.SetDefeated`）。
+- 战法专属特效配色在 `PerformanceDatabase.SpecialProfiles` 覆盖
+  （tint/资源 key，见 `performance_mechanisms.md`）。
+- 主将标识 / 稀有度边框粒子：**未实现**（预留需求，实装时在 `UnitView`
+  卡牌结构挂角标/粒子节点并回写本文档）。

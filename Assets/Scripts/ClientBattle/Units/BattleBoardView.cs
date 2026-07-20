@@ -7,30 +7,34 @@ namespace ClientBattle.Units
     // =========================================================================
     // 战场棋盘：按战报 teams 快照生成双方 UnitView（A 队下、B 队上，按站位横排），
     // 提供 unitId → UnitView / Transform 查询、棋盘中心点、整盘滤镜特效挂点。
-    // 阵营配色与 docs/client 视觉规范一致（gods 金 / men 红 / sea 蓝 / underworld 紫）。
+    // 阵营配色与 docs/client 视觉规范一致（olympus 金 / heroes 红 / sea 蓝 / underworld 紫）。
     // =========================================================================
 
     public class BattleBoardView : MonoBehaviour
     {
         static readonly Dictionary<string, Color> FactionColors = new()
         {
-            ["gods"] = new Color(0.85f, 0.72f, 0.25f),
-            ["men"] = new Color(0.78f, 0.28f, 0.22f),
+            ["olympus"] = new Color(0.85f, 0.72f, 0.25f),
+            ["heroes"] = new Color(0.78f, 0.28f, 0.22f),
             ["sea"] = new Color(0.22f, 0.55f, 0.82f),
             ["underworld"] = new Color(0.55f, 0.30f, 0.72f),
         };
 
-        // template_id → faction（与 battle/roster.py 同步；未登记按 men 配色）
+        // template_id → faction（与 battle/roster.py 同步；未登记按 heroes 配色。
+        // A4：gods→olympus、men→heroes；奥德修斯→sea、赫尔墨斯→underworld）
         static readonly Dictionary<string, string> FactionOf = new()
         {
-            ["zeus"] = "gods", ["athena"] = "gods", ["ares"] = "gods", ["hermes"] = "gods",
-            ["apollo"] = "gods", ["asclepius"] = "gods", ["artemis"] = "gods", ["nike"] = "gods",
-            ["achilles"] = "men", ["heracles"] = "men", ["odysseus"] = "men", ["perseus"] = "men",
-            ["atalanta"] = "men", ["paris"] = "men", ["ajax"] = "men", ["chiron"] = "men",
+            ["zeus"] = "olympus", ["athena"] = "olympus", ["ares"] = "olympus",
+            ["apollo"] = "olympus", ["asclepius"] = "olympus", ["artemis"] = "olympus",
+            ["nike"] = "olympus",
+            ["achilles"] = "heroes", ["heracles"] = "heroes", ["perseus"] = "heroes",
+            ["atalanta"] = "heroes", ["paris"] = "heroes", ["ajax"] = "heroes",
+            ["hector"] = "heroes", ["jason"] = "heroes", ["castor"] = "heroes",
             ["poseidon"] = "sea", ["amphitrite"] = "sea", ["triton"] = "sea",
-            ["siren"] = "sea", ["scylla"] = "sea", ["charybdis"] = "sea",
+            ["siren"] = "sea", ["scylla"] = "sea", ["odysseus"] = "sea",
             ["hades"] = "underworld", ["medusa"] = "underworld", ["persephone"] = "underworld",
             ["charon"] = "underworld", ["thanatos"] = "underworld", ["cerberus"] = "underworld",
+            ["hermes"] = "underworld",
         };
 
         readonly Dictionary<string, UnitView> _units = new();
@@ -63,7 +67,7 @@ namespace ClientBattle.Units
                 foreach (var hero in team.Heroes)
                 {
                     float x = (hero.Position - (team.Heroes.Count - 1) * 0.5f) * 3.0f;
-                    string faction = FactionOf.TryGetValue(hero.TemplateId, out var f) ? f : "men";
+                    string faction = FactionOf.TryGetValue(hero.TemplateId, out var f) ? f : "heroes";
                     var unit = UnitView.Create(hero, team.TeamId,
                         FactionColors[faction], transform.position + new Vector3(x, y, 0f));
                     unit.transform.SetParent(transform, true);

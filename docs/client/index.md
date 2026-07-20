@@ -10,7 +10,11 @@
 
 | 文档 | 内容 |
 |---|---|
-| [performance_mechanisms.md](performance_mechanisms.md) | **演出机制总纲（改演出先看这里）**：全部机制一句话结论+代码位置+细则索引、模板族、尺寸规范、机型兼容红线 |
+| [performance_mechanisms.md](performance_mechanisms.md) | **演出机制总纲（改演出先看这里）**：全部机制一句话结论+代码位置+细则索引 |
+| [playback_units.md](playback_units.md) | **播放单元机制**：一回合怎么在屏幕上展开、分组管线四 processor、时间轴阻塞规则、台词独占三原则、模板族节拍 |
+| [rendering_layout.md](rendering_layout.md) | **渲染/分辨率/层级**：机型适配、图像槽位缩放（contain/stretch）、sorting 层级总表、棋盘布局 |
+| [text_system.md](text_system.md) | **文字系统**：飘字（Tuning SO 调参）、台词气泡独占播放、横幅/cut-in、中文名注册表 |
+| [settlement_stats.md](settlement_stats.md) | **战后技能结算表**：分局 Tab、带技能（神谕）归因到施法者技能格、status→skill 映射 |
 | [client_battle_framework.md](client_battle_framework.md) | **框架主文档**：5 层数据流向图、逐文件职责、关键机制（播放单元/补发重组/三级表演策略/占位回退）、运行方式 |
 | [assets_upload_guide.md](assets_upload_guide.md) | **资源清单·现状·成品化路线（唯一资源文档）**：全部 key 与路径、每类现状、六步成品化流程、采购登记（原 to_purchase.md 已并入） |
 | [faction_style.md](faction_style.md) | 四阵营视觉规范（配色同源 `Units/BattleBoardView.cs`） |
@@ -19,7 +23,8 @@
 
 1. 新建空场景，空物体挂 `ClientBattle/Test/BattleReportTester.cs`。
 2. 战报来源：`Assets/StreamingAssets/battle_reports/*.json`（或 Inspector 粘贴 JSON）。
-3. Play 即自动播放；右上角按钮＝重播 / 跳到结尾 / 调速。
+3. Play 即自动播放；右上角按钮＝重播 / 跳到结尾 / 调速 / 高光回放 / 打开结算。
+   默认 `DurationMul=2`（放慢一倍）+ 单元间隙，系列结束后自动弹出技能杀伤/治疗表。
 4. 换演出/资源：见 assets_upload_guide.md（零代码）；改逻辑策略：
    `PerformanceDatabase`（三级配置）与 `Events/Processors/`（管线分析器）。
 
@@ -45,6 +50,7 @@
 
 ## 四、红线备忘
 
+- **全项目根本规范见 `docs/discipline/`**（global_rules §四为客户端播放红线总纲）。
 - 只读：`battle/`、`battlecore/`、`reference/`、`docs/schema/`、`docs/prompts/`。
 - 中文名注册表 `Names/ChineseNames.cs` 与后端 `battle/names.py` 必须同步。
 - 资源 key 新增：先登记 assets_upload_guide.md 再写代码。

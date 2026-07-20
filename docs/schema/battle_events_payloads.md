@@ -2,8 +2,7 @@
 
 > `battle_events.md` 的附属文档，随契约一同冻结。信封字段（seq/t/type/parent_seq/
 > group_id/hint）见总纲 §3，本文只列各 type 的 payload。示例中信封字段从简。
-> 通用约定：武将以 `hero_id` 引用；概率/倍率为 bps 整数；兵力三池变化统一用
-> TroopsDelta 结构（§0）。
+> 通用约定：`hero_id` 引用武将；概率/倍率为 bps 整数；兵力变化统一 TroopsDelta（§0）。
 
 ## 0. 公共子结构
 
@@ -39,8 +38,7 @@ payload：`total_max_games`(pb1, 恒 7)。
 
 ```json
 {"seq":2,"t":{"g":1,"r":0,"p":1,"s":0},"type":"game_start","payload":{"game_no":1,
- "troops":[{"hero_id":"A1","troops_before":10000,"troops_after":10000,
-  "wounded_before":0,"wounded_after":0,"dead_before":0,"dead_after":0}]}}
+ "troops":[{"hero_id":"A1","troops_before":10000,"troops_after":10000,"wounded_before":0,"wounded_after":0,"dead_before":0,"dead_after":0}]}}
 ```
 
 ## 3. round_start / 18. round_end
@@ -79,12 +77,12 @@ round_start 是 ROUND_START 相位结算（伤兵损耗 troops_change、DoT stat
 | `target_ids` | 2 | 目标（当前规则单目标，留数组防演进） |
 | `strike_no` | 3 | 连击序数：1=第一击，2=连击第二击 |
 | `target_select` | 4 | 可选（schema 1.1.0 加法演进）：TargetSelectRecord[]，本次宣告前的受击率选人记录，见 §23 |
+| `kind` | 5 | 可选（schema 1.4.0）：`"coordinated"`=协击（队友普攻结算后追加，不 roll 连击、可触发追击、不再引发协击）；缺省=普攻 |
 
 ```json
 {"seq":42,"t":{"g":1,"r":1,"p":4,"s":0},"type":"normal_attack",
  "payload":{"actor_id":"A1","target_ids":["B2"],"strike_no":1,
-  "target_select":[{"reason":"basic:A1:1","selected_id":"B2",
-   "candidates":[{"hero_id":"B1","hit_bps":4400},{"hero_id":"B2","hit_bps":5000}]}]}}
+  "target_select":[{"reason":"basic:A1:1","selected_id":"B2","candidates":[{"hero_id":"B1","hit_bps":4400},{"hero_id":"B2","hit_bps":5000}]}]}}
 ```
 
 ## 6. skill_trigger
@@ -109,11 +107,11 @@ round_start 是 ROUND_START 相位结算（伤兵损耗 troops_change、DoT stat
 | `delay_rounds` | 5 | 仅 kind=delayed（D-02 二次修订后恒为 1） |
 | `interrupted_by` | 6 | 仅 kind=interrupted：打断来源 StatusRef |
 | `target_select` | 7 | 可选（schema 1.1.0）：select_targets 期间的受击率选人记录，见 §23 |
+| `burst_no` | 8 | 可选（schema 1.4.0）：连发第 N 次释放（2 起，同窗硬上限 7）；连发事件自成播放组，`parent_seq` 指回首发触发事件。机制见 `docs/mechanics/burst_coordination.md` |
 
 ```json
 {"seq":50,"t":{"g":1,"r":0,"p":4,"s":0},"type":"skill_trigger","parent_seq":0,
- "payload":{"actor_id":"A1","skill_id":"thunder_oracle","kind":"cast","target_ids":["A1","A2","A3"]},
- "hint":{"intensity":"strong"}}
+ "payload":{"actor_id":"A1","skill_id":"thunder_oracle","kind":"cast","target_ids":["A1","A2","A3"]},"hint":{"intensity":"strong"}}
 ```
 
 注：雷霆神谕为神谕类，准备回合（r=0）对己方全体施加【雷霆】状态，`kind=cast`；
@@ -138,8 +136,7 @@ round_start 是 ROUND_START 相位结算（伤兵损耗 troops_change、DoT stat
 ```json
 {"seq":51,"t":{"g":1,"r":1,"p":4,"s":0},"type":"damage","parent_seq":50,"group_id":50,
  "payload":{"source_id":"A1","target_id":"B1","damage_type":"magic","amount":712,"is_crit":false,
-  "troops":{"hero_id":"B1","troops_before":9200,"troops_after":8488,
-   "wounded_before":560,"wounded_after":1058,"dead_before":240,"dead_after":454}}}
+  "troops":{"hero_id":"B1","troops_before":9200,"troops_after":8488,"wounded_before":560,"wounded_after":1058,"dead_before":240,"dead_after":454}}}
 ```
 
 ## 8. heal
@@ -189,7 +186,8 @@ payload：`status`(pb1, StatusRef)、`source_id`(pb2)。
 状态移除。payload：`status`(pb1)、`reason`(pb2)：
 `expired`（到期）/ `dispelled`（被驱散，parent 指向驱散动作）/
 `source_defeated`（来源阵亡清理，parent 指向 hero_defeated）/
-`game_end`（局末清空——整批清理不逐条发事件，由 game_end 语义覆盖，此值仅备驱散类演出需要）。
+`game_end`（局末清空——整批清理不逐条发事件，由 game_end 语义覆盖，此值仅备驱散类演出需要）/
+`exhausted`（schema 1.4.0：充能耗尽即摘除，如必胜/格挡类载体 `remove_when_exhausted`）。
 
 ## 13. attr_change
 
@@ -205,8 +203,7 @@ payload：`status`(pb1, StatusRef)、`source_id`(pb2)。
 ```json
 {"seq":12,"t":{"g":1,"r":0,"p":2,"s":0},"type":"attr_change","parent_seq":10,"group_id":10,
  "payload":{"hero_id":"B1","scope":"game","changes":[
-  {"attr":"force","before":95,"after":85},{"attr":"intelligence","before":70,"after":60},
-  {"attr":"command","before":80,"after":70},{"attr":"speed","before":88,"after":78}]}}
+  {"attr":"force","before":95,"after":85},{"attr":"intelligence","before":70,"after":60},{"attr":"command","before":80,"after":70},{"attr":"speed","before":88,"after":78}]}}
 ```
 
 ## 14. troops_change
@@ -243,8 +240,7 @@ payload：`hero_id`(pb1)、`killer_id`(pb2, 可选)、`is_main_hero`(pb3)。
 | `winner_id` / `loser_id` | 2/3 | 仅 accepted=true |
 
 ```json
-{"seq":11,"t":{"g":1,"r":0,"p":2,"s":0},"type":"duel_result","parent_seq":10,"group_id":10,
- "payload":{"accepted":true,"winner_id":"A1","loser_id":"B1"}}
+{"seq":11,"t":{"g":1,"r":0,"p":2,"s":0},"type":"duel_result","parent_seq":10,"group_id":10,"payload":{"accepted":true,"winner_id":"A1","loser_id":"B1"}}
 ```
 
 ## 19. game_end
@@ -294,15 +290,61 @@ phase_start（避免每武将两条冗余）。
 | payload 字段 | pb# | 说明 |
 |---|---|---|
 | `hero_id` | 1 | 性格持有武将 |
-| `trait_id` | 2 | 性格 id（`battle/traits.py` 注册表） |
-| `effect` | 3 | 触发效果标签（如 `aoman_ignore` 傲慢无视伤害、`haozhan_extra` 好战额外行动） |
+| `trait_id` | 2 | 性格 id（`battle/traits.py` 注册表）；状态台词复用本事件时为保留值 `"status"` |
+| `effect` | 3 | 触发效果标签（性格如 `aoman_ignore`；状态台词则为 `status_id`，如 `silence`/`hesitation`） |
 | `line` | 4 | 预设台词（后端确定性轮换，不消耗 RNG；可为空串） |
 
 ```json
 {"seq":88,"t":{"g":1,"r":2,"p":4,"s":1},"type":"trait_trigger","parent_seq":86,
- "payload":{"hero_id":"阿喀琉斯","trait_id":"aoman","effect":"aoman_ignore",
-  "line":"凡人的攻击，也配伤到我？"}}
+ "payload":{"hero_id":"阿喀琉斯","trait_id":"aoman","effect":"aoman_ignore","line":"凡人的攻击，也配伤到我？"}}
 ```
 
 挂靠规则：由具体结算引发的触发 `parent_seq` 指向引发事件（同组播放）；
 回合级触发（parent_seq=0）自成播放组。
+
+## 25. momentum_change（schema 1.4.0 加法式新增，Phase 4）
+
+四轨势能变化（机制见 `docs/mechanics/momentum.md`）。**纯表现记账**：不参与
+任何结算、不消耗 RNG。契约 1.4.0 收口起**默认开启**
+（`setup.metadata.enable_momentum=false` 可关）。该武将自身 `action_start` 时四轨静默清零（不发事件，
+客户端同步清零）。
+
+| payload 字段 | pb# | 说明 |
+|---|---|---|
+| `hero_id` | 1 | 势能归属武将 |
+| `track` | 2 | 轨：`active` / `passive` / `oracle` / `basic_pursuit` |
+| `delta` | 3 | 恒为 1 |
+| `value` | 4 | 该轨累计值（无上限） |
+| `reason` | 5 | 记账原因标签（`active_cast`/`burst_cast`/`basic_hit`/`pursuit_trigger`/`coordinated`/`crit`/…可扩展） |
+| `cut_in` | 6 | 可选：该轨 `value≥5`（`MOMENTUM_FULL`）当次及之后为 true，客户端播切入；4 分闪光仅客户端、不入本字段 |
+
+```json
+{"seq":120,"t":{"g":1,"r":3,"p":4,"s":2},"type":"momentum_change","parent_seq":118,
+ "payload":{"hero_id":"A1","track":"basic_pursuit","delta":1,"value":9,"reason":"basic_hit","cut_in":true}}
+```
+
+挂靠规则：`parent_seq` 指向引发它的事件（skill_trigger / damage / normal_attack），
+随所在组折叠播放。
+
+## 26. tactic_applied（schema 1.4.1 加法式新增，P4-C 经理人战术）
+
+战术**变更**生效记录（预设战术不发事件，可查顶层 `setup_metadata.tactics`）。
+发生在生效回合 `round_start` 组下（先于该回合战术状态施加）。
+机制见 `docs/mechanics/manager_tactics.md`。
+
+| payload 字段 | pb# | 说明 |
+|---|---|---|
+| `team_id` | 1 | 变更方 |
+| `tactic_id` | 2 | 战术注册表 id（`focus_fire`/`protect`/`stance`/…可扩展） |
+| `round_no` | 3 | 生效回合（≥2，第 1 回合必走预设） |
+| `change_no` | 4 | 该队第几次变更（1~2，一局每方上限 2 次） |
+| `params` | 5 | 可选：战术参数（如 `{"target_id":...}` / `{"level":1}`） |
+
+```json
+{"seq":201,"t":{"g":1,"r":3,"p":3,"s":0},"type":"tactic_applied","parent_seq":199,
+ "payload":{"team_id":"A","tactic_id":"focus_fire","round_no":3,"change_no":1,
+            "params":{"target_id":"哈迪斯"}}}
+```
+
+挂靠规则：`parent_seq` 指向所在回合的 `round_start`；客户端作非阻塞横幅播报
+并更新左侧战术栏，不占时间轴。

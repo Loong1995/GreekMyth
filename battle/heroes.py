@@ -44,6 +44,11 @@ class HeroState:
     def is_alive(self) -> bool:
         return not self.defeated and self.troops > 0
 
+    @property
+    def is_backline(self) -> bool:
+        """Phase 4 站位口径：position 4~6 为后排（0~2 旧口径均为前排）。"""
+        return self.position >= 4
+
     def hit_points_bps(self) -> int:
         return calc_hit_points_bps(
             initial_hit_points_bps=self.initial_hit_points_bps,

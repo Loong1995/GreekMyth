@@ -2,7 +2,11 @@
 
 > 只读本文件即可建立全局图景；处理局部问题时只加载对应机制文件。
 > 每机制 2-4 句精要 + 链接。当前进度：Phase 3（公式重做 + 格挡闪避 + 性格系统 +
-> 武将池 v3.1）完成，schema 1.3.0（快照补重放字段，客服重放闭环）。
+> 武将池 v3.1）完成；v3.2 减免定序 + 圣盾反弹。schema **1.3.1**（1.3.0 快照补
+> 重放字段；1.3.1 mitigation 增 reflect），core **battle-0.3.1**。
+> Phase 4 A1 底座（连发/协击/四轨势能/站位 1~6）与 A2 原语（恐惧/诅咒/必胜/
+> 清醒/格挡上限、约战注册表、新性格钩子）已落地，契约 1.4.0 草案进行中
+> （A 批收口时冻结并升版），势能默认门控关闭、旧 golden 不变。
 > 工具：`battle/tools/`（batch_sim 批量统计 / replay_dump 战报转文本 / gen_golden /
 > gen_reference 人工审核参考物 / manual_battle 手动配阵入口 /
 > replay_report 玩家战报重放排查——战报 JSON→还原 setup→重跑→逐字节校验→all 日志）、
@@ -51,7 +55,7 @@ simulate(battle_setup, seed)                          battle/api.py
 | 确定性规则 | 单一 RNG 流、显式遍历序、整数运算、舍入约定。全项目最高优先级约束 | B1 落地 | [determinism.md](determinism.md) |
 | 事件流与播放分组 | 事件即播放协议；seq/t/parent_seq/group_id 四件套 | B1 落地 | 契约 `docs/schema/battle_events.md` |
 | 系列连战 | 每局 1 准备 + 8 正常回合；仅主将阵亡判负；平局残血续战最多 7 局 | B1 落地 | 本文件 §一 |
-| 行动顺序 | 队内 (速度↓, 站位, id) 排序；跨队按速度差锚点概率 roll 先手（普通随机，D-09） | B1 落地 | `battle/engine.py` |
+| 行动顺序 | 队内 (先攻 first_strike 优先, 速度↓, 站位, id) 排序；跨队按速度差锚点概率 roll 先手（普通随机，D-09），先攻持有者跨队也不 roll 直接先手 | B1 落地，Phase 3 补先攻 | `battle/engine.py` |
 | 伤害公式 | Phase 3 双公式：兵刃 `360+武-统`、谋略 `360+智-½统-½智`（min=1 截断）；兵力系数 `0.5+0.5x`；新增独立额外增伤乘区 | Phase 3 落地 | [damage.md](damage.md) |
 | 格挡/闪避/反弹 | 落账前 0 结算：按状态施加序逐实例判定（次数格挡→闪避→几率格挡→反弹）；damage.mitigation 事件化，不算实际受伤不触发响应；反弹把本应受伤害回敬攻击者（special 不连锁） | v3.2 落地 | [damage.md](damage.md) §五 |
 | 震荡/特殊伤害 | is_special 伤害正常播放（damage_class=special）但不触发任何产生伤害的响应 | Phase 3 落地 | [damage.md](damage.md) §六 |
@@ -63,6 +67,9 @@ simulate(battle_setup, seed)                          battle/api.py
 | 状态系统 | 一等公民：来源/层数/持续/互斥默认规则/DoT/禁制/修正聚合 + 响应钩子/动态修正 | B2 落地，B3 扩展 | [statuses.md](statuses.md) |
 | 死亡清理 | 阵亡即退出：不再行动/不可为目标/施加状态事件化全清/延迟与准备作废/不复活 | B2 落地，B3 补边界 | [statuses.md](statuses.md) §6 |
 | 战法架构 | 战法=类+注册；时机 active/prepare/pursuit + 状态响应钩子；全局响应优先级 | B3 全量落地 | [effects.md](effects.md) §3 |
+| **响应/触发序** | 伤害先守后攻；同持有者他人施加优先于自身；跨持有者 priority→hero_order | 2026-07-20 定稿 | [response_order.md](response_order.md) |
+| **英雄特殊处理** | 鲁莽/踵之弱台词时点、神谕借手结算归因、雷霆/圣盾等演出特例 | 2026-07-20 | [hero_specials.md](hero_specials.md) |
+| **状态台词** | 控制/犹豫/先攻临「产生影响」的执行节点发 trait_trigger（trait_id=status）；每类 3 条确定性轮换、parent_seq=0 自成组 | 2026-07-20 | [status_voice.md](status_voice.md) |
 | 伪随机补偿 | 战法触发保底（fail 补偿真累计一局内，D-09）；先手/暴击用普通随机 | B2 落地 | `battle/pseudo_random.py` |
 | 数值等价验证 | 新旧核同种子批 1000 场统计对比，胜率差 ≤4pp、均值差 ≤2% | B2 通过 | `docs/dev/numeric_equivalence.md` |
 | 单挑 | 第 1 局开局、双方均有武力>90 触发；拒绝率=差×8%封顶80%；胜率=50%+差×5%；负者四维-10 仅第 1 局 | B3 落地 | [duel.md](duel.md) |
@@ -72,10 +79,16 @@ simulate(battle_setup, seed)                          battle/api.py
 | 准备型战法 | prepare→release 两段协议；forbid_active 施加即打断（interrupted 事件） | B3 落地 | [effects.md](effects.md) §3 |
 | 控制状态交互矩阵 | 缄默×准备、石化×暴击、犹豫×冥锁等逐格结算，逐格配测试 | B3 落地 | [status_interactions.md](status_interactions.md) |
 | 武将池 v3.1 | 四阵营 24 将（神/人 8+8、海/冥 6+6），每人性格+自带+拆解战法；四维=基础+成长×(等级-1) | Phase 3 落地 | `battle/roster.py`、战法 `battle/skills_{gods,men,sea,underworld}.py` |
+| 连发 + 协击 + 站位 1~6 | 主动战法可配连发率（伪随机、同窗硬上限 7、burst_no 事件化）；on_ally_basic_attack 钩子 + 协击原语（普攻口径、不连击、可追击、不连锁）；position 1~6（4~6 后排） | Phase 4 A1 落地 | [burst_coordination.md](burst_coordination.md) |
+| 四轨势能 | 每武将四轨按类型跨技能累计；满 5 当次起同轨 cut_in、4 分客户端闪光；自身行动窗清零；metadata 门控（默认开） | Phase 4 A1 落地 | [momentum.md](momentum.md) |
+| 经理人战术 | 注册表驱动（集火/保护/攻守倾向）；回合头逐队结算、变更最早第 2 回合、每方 2 次上限；tactic_applied 事件（1.4.1）；变更重算=同 seed 从头重模拟（前缀逐字节等价） | Phase 4 P4-C 落地 | [manager_tactics.md](manager_tactics.md) |
+| A2 原语 | 新状态（恐惧/诅咒/必胜/清醒）+ 格挡上限；连发率三来源（战法+状态+性格）；约战注册表（傲慢应战/好战搦战/谋深拒战）；新性格钩子（忠烈/号召/并辔壳已注册） | Phase 4 A2 落地（A3 接线到武将） | [statuses.md](statuses.md) §7、[traits.md](traits.md) §5、[duel.md](duel.md) §5 |
 
 ## 三、关键决策引用
 
+- **全项目根本规范**：`docs/discipline/`（确定性/契约/编码红线总纲，改代码前必读）。
 - 全部已确认决策见 `docs/dev/decisions.md`（D-01~D-14，2026-07-05 批复；
-  B3 实现期补录 D-15~D-21、B4 补录 D-22~D-23 待审阅）。
-- 数值标定来源与旧 core 分析见 `docs/dev/v0_analysis.md`。
+  B3 实现期补录 D-15~D-21、B4 补录 D-22~D-23 待审阅；
+  Phase 2 客户端 C 系列已移历史存档 `decisions_client_phase2.md`）。
+- 数值标定来源与旧 core 分析见 `docs/dev/v0_analysis.md`（历史文档）。
 - 事件流契约（冻结）：`docs/schema/battle_events.md` + `battle_events.schema.json`。

@@ -70,7 +70,8 @@ class Trait:
         """自由选敌偏好：返回子集或单目标列表；None=不干预。"""
         return None
 
-    def damage_out_bonus(self, engine, source, target, kind: str) -> int:
+    def damage_out_bonus(self, engine, source, target, kind: str,
+                         parent_seq: int = 0) -> int:
         return 0
 
     def damage_in_reduce(self, engine, target) -> int:
@@ -112,8 +113,75 @@ class Trait:
     def block_denied(self, engine, hero) -> bool:
         return engine.trait_flag(hero.hero_id, "block_denied")
 
+    def burst_rate_bonus(self, engine, hero, skill) -> int:
+        """连发率加成 bps（Phase 4：借宝按己方神阵营人数 / 忠勇看波塞冬存活）。"""
+        return 0
+
+    def ally_damage_in_bonus(self, engine, holder, source, target) -> int:
+        """队友承伤加成 bps（Phase 4 魅惑 v4：敌方对塞壬同阵营队友伤害+10%）。
+        holder=性格持有者（存活、与 target 同队、非 target 本人），
+        返回值加法叠入攻击方 damage_up 乘区。"""
+        return 0
+
+    def on_skill_cast(self, engine, hero, skill, trigger_seq: int) -> None:
+        """自身主动战法每次成功释放后（Phase 4 忠烈连发层数；含连发的每一发）。"""
+        return None
+
+    def on_ally_combo(self, engine, hero, attacker, parent_seq: int) -> None:
+        """己方任意单位触发连击后（Phase 4 号召）。hero=性格持有者。"""
+        return None
+
+    def on_ally_basic(self, engine, hero, attacker, target, parent_seq: int) -> None:
+        """己方其他单位普攻每击结算后（Phase 4 并辔；先于状态协击钩子分发）。"""
+        return None
+
 
 REGISTRY: dict[str, Trait] = {}
+
+
+# =============================================================================
+# 单挑约战行为注册表（Phase 4 C6：trait_id → 约战钩子；注册表驱动，
+# 单挑流程只查表不写死 if。空表 = Phase 3 旧单挑行为，旧 golden 不变。
+# 影响矩阵与扩展方法见 docs/mechanics/duel.md。A3/A4 接线时逐性格注册。
+# =============================================================================
+
+@dataclass(frozen=True)
+class DuelBehavior:
+    """一条性格的单挑行为修正（全部可选，默认不干预）。
+
+    - always_accept：必应战（傲慢）——作为被叫阵方跳过拒绝判定（不 roll、不消耗 RNG）
+    - reject_bonus_bps：拒绝率加成（谋深）——叠加后仍受 DUEL_REJECT_MAX_BPS 封顶
+    - challenge_below_threshold：武力 ≤90 也可入选叫阵候选（好战）
+    - force_duel：强制搦战（好战）——作为叫阵方时对方不得拒绝（跳过拒绝判定）
+    - 台词经性格 lines 表按 effect 轮换：duel_challenge / duel_accept / duel_reject
+      （发 trait_trigger，仅注册了对应台词的性格触发）
+    """
+
+    always_accept: bool = False
+    reject_bonus_bps: int = 0
+    challenge_below_threshold: bool = False
+    force_duel: bool = False
+
+
+DUEL_BEHAVIORS: dict[str, DuelBehavior] = {}
+
+
+def register_duel_behavior(trait_id: str, behavior: DuelBehavior) -> None:
+    if trait_id in DUEL_BEHAVIORS:
+        raise ValueError(f"duel behavior 重复注册: {trait_id}")
+    DUEL_BEHAVIORS[trait_id] = behavior
+
+
+def duel_behavior_of(hero: "HeroState") -> DuelBehavior | None:
+    return DUEL_BEHAVIORS.get(hero.trait_id) if hero.trait_id else None
+
+
+def emit_duel_line(engine: "SeriesEngine", hero: "HeroState", effect: str,
+                   parent_seq: int) -> None:
+    """约战台词：性格 lines 表配有该 effect 才发 trait_trigger（否则静默）。"""
+    trait = REGISTRY.get(hero.trait_id)
+    if trait is not None and trait.lines.get(effect):
+        emit_trigger(engine, hero, effect, parent_seq=parent_seq)
 
 
 def register(trait: Trait) -> Trait:
@@ -128,19 +196,21 @@ def of(hero: "HeroState") -> Trait | None:
 
 
 def emit_trigger(engine: "SeriesEngine", hero: "HeroState", effect: str,
-                 *, parent_seq: int = 0) -> int:
-    """发 trait_trigger 事件（契约 1.2.0 加法演进）。台词确定性轮换，不消耗 RNG。"""
+                 *, parent_seq: int = 0, new_group: bool | None = None) -> int:
+    """发 trait_trigger 事件（契约 1.2.0 加法演进）。台词确定性轮换，不消耗 RNG。
+    new_group：None 时沿用默认（无 parent → 新组；有 parent → 同组）。"""
     trait = REGISTRY[hero.trait_id]
     pool = trait.lines.get(effect, ())
     idx = hero.trait_line_seq.get(effect, 0)
     hero.trait_line_seq[effect] = idx + 1
     line = pool[idx % len(pool)] if pool else ""
+    ng = (parent_seq == 0) if new_group is None else new_group
     return engine.writer.emit(
         "trait_trigger",
         {"hero_id": hero.hero_id, "trait_id": trait.trait_id,
          "effect": effect, "line": line},
         parent_seq=parent_seq,
-        new_group=parent_seq == 0,
+        new_group=ng,
     )
 
 
@@ -203,11 +273,15 @@ class _Mingrui(Trait):
 
 @dataclass(frozen=True)
 class _Haozhan(Trait):
-    """阿瑞斯·好战：任意单位阵亡后 15% 当场行动一轮；常驻 8% 普攻目标完全随机。"""
+    """阿瑞斯·好战：任意单位阵亡后 15% 当场行动一轮（v4：每回合最多 1 次）；
+    常驻 8% 普攻目标完全随机。"""
 
     def on_any_defeat(self, engine, hero, victim, parent_seq):
+        if engine.trait_flag(hero.hero_id, "haozhan_extra_used"):
+            return False  # v4：每回合最多触发 1 次
         r = rate(engine, self.trait_id, "extra_action", 1500)
         if engine.rng.rand_bps("trait", f"{hero.hero_id}:extra") < r:
+            engine.set_trait_flag(hero.hero_id, "haozhan_extra_used")
             emit_trigger(engine, hero, "extra_action", parent_seq=parent_seq)
             return True
         return False
@@ -227,18 +301,19 @@ class _Haozhan(Trait):
 
 @dataclass(frozen=True)
 class _Jiaoxia(Trait):
-    """赫尔墨斯·狡黠：速度+10；自由选敌类 30% 优先敌方后排。"""
+    """赫尔墨斯·狡黠：速度+10；自由选敌类 30% 优先敌方后排
+    （v4：后排 = 站位 4~6；候选中无后排/全后排时不 roll、不消耗 RNG）。"""
 
     def attr_bonus(self, engine, hero, attr):
         return 10 if attr == "speed" else 0
 
     def prefer_target(self, engine, hero, candidates, reason):
+        back = [c for c in candidates if c.is_backline]
+        if not back or len(back) == len(candidates):
+            return None
         r = rate(engine, self.trait_id, "backline", 3000)
         if engine.rng.rand_bps("trait", f"{hero.hero_id}:backline") < r:
-            max_pos = max(c.position for c in candidates)
-            back = [c for c in candidates if c.position == max_pos]
-            if back and len(back) < len(candidates):
-                return back
+            return back
         return None
 
 
@@ -276,17 +351,15 @@ class _Guyue(Trait):
 
 @dataclass(frozen=True)
 class _Qiusheng(Trait):
-    """尼刻·求胜：己方击杀后自身四维立即+10（播台词）。"""
+    """尼刻·求胜（v4）：己方每次击败敌方后，自身四维各+10（状态层，
+    最多叠 3 层；满层后静默不再加）。首层/叠层播台词。"""
 
     def on_kill(self, engine, hero, killer, victim, parent_seq):
         if killer.team_id != hero.team_id:
             return
-        seq = emit_trigger(engine, hero, "win", parent_seq=parent_seq)
-        engine.modify_attr(
-            hero,
-            [(a, 10) for a in ("force", "intelligence", "command", "speed")],
-            scope="game", parent_seq=seq,
-        )
+        instance = engine.apply_status(hero, hero, _QIUSHENG_WIN, parent_seq=parent_seq)
+        if instance is not None:
+            emit_trigger(engine, hero, "win", parent_seq=parent_seq)
 
 
 # =============================================================================
@@ -295,8 +368,9 @@ class _Qiusheng(Trait):
 
 @dataclass(frozen=True)
 class _Aoman(Trait):
-    """阿喀琉斯·傲慢：目标残兵比例高于自身时，造成非自带战法伤害前 25% 判定，
-    成功则本次触发的追伤最终伤害 ×1.5；受击 15% 踵之弱→该次攻击必定暴击。"""
+    """阿喀琉斯·傲慢：追伤前若目标残兵比例高于自身，25% 判定成功则追伤 ×1.5
+    并播贯穿台词（pierce）；受击 7.5% 踵之弱→该次攻击必定暴击
+    （台词延到暴击伤害落账后，见 engine.deal_damage）。"""
 
     def pursuit_boost_bps(self, engine, source, target, parent_seq):
         t_ratio = target.troops * BPS // target.max_troops
@@ -305,15 +379,16 @@ class _Aoman(Trait):
             return 0
         r = rate(engine, self.trait_id, "pride", 2500)
         if engine.rng.rand_bps("trait", f"{source.hero_id}:pride") < r:
-            emit_trigger(engine, source, "pride", parent_seq=parent_seq)
+            emit_trigger(engine, source, "pierce", parent_seq=parent_seq)
             return 5000  # ×1.5
         return 0
 
     def forced_crit_on_taken(self, engine, target, parent_seq):
         # 2026-07-09 人工调参：踵之弱 15%→7.5%（降低一倍）
+        # 只判定+挂旗，不立刻弹台词（等暴击伤害事件写出后再 emit heel）
         r = rate(engine, self.trait_id, "heel", 750)
         if engine.rng.rand_bps("trait", f"{target.hero_id}:heel") < r:
-            emit_trigger(engine, target, "heel", parent_seq=parent_seq)
+            engine.set_trait_flag(target.hero_id, "heel_line_pending")
             return True
         return False
 
@@ -321,23 +396,33 @@ class _Aoman(Trait):
 @dataclass(frozen=True)
 class _Lumang(Trait):
     """赫拉克勒斯·鲁莽：行动时 40% 一回合增伤+15%；伤害 60% 常驻优先选
-    敌军统率最高者（自由选敌类）。正负触发都播台词。"""
+    敌军统率最高者（自由选敌类）。台词均在造成伤害前弹出（boost/taunt）。"""
 
     def on_round_start(self, engine, hero, parent_seq):
         r = rate(engine, self.trait_id, "boost", 4000)
         if engine.rng.rand_bps("trait", f"{hero.hero_id}:boost") < r:
             engine.set_trait_flag(hero.hero_id, "lumang_boost")
-            emit_trigger(engine, hero, "boost", parent_seq=parent_seq)
+            # 台词延到本回合首次造成伤害前（damage_out_bonus）
 
-    def damage_out_bonus(self, engine, source, target, kind):
-        return 1500 if engine.trait_flag(source.hero_id, "lumang_boost") else 0
+    def damage_out_bonus(self, engine, source, target, kind, parent_seq=0):
+        bonus = 1500 if engine.trait_flag(source.hero_id, "lumang_boost") else 0
+        # 嘲讽选人成功：本击造成伤害前弹 taunt
+        if engine.trait_flag(source.hero_id, "lumang_taunt"):
+            engine.clear_trait_flag(source.hero_id, "lumang_taunt")
+            emit_trigger(engine, source, "taunt", parent_seq=parent_seq)
+        # 回合增伤：本回合首次造成伤害前弹 boost（只说一次）
+        if (engine.trait_flag(source.hero_id, "lumang_boost")
+                and not engine.trait_flag(source.hero_id, "lumang_boost_said")):
+            engine.set_trait_flag(source.hero_id, "lumang_boost_said")
+            emit_trigger(engine, source, "boost", parent_seq=parent_seq)
+        return bonus
 
     def prefer_target(self, engine, hero, candidates, reason):
         r = rate(engine, self.trait_id, "taunt", 6000)
         if engine.rng.rand_bps("trait", f"{hero.hero_id}:taunt") < r:
             best = max(candidates, key=lambda c: (engine.effective_attr(c, "command"),
                                                   -c.position))
-            emit_trigger(engine, hero, "taunt")
+            engine.set_trait_flag(hero.hero_id, "lumang_taunt")
             return [best]
         return None
 
@@ -362,18 +447,19 @@ class _Moushen(Trait):
 
 @dataclass(frozen=True)
 class _Jiebao(Trait):
-    """珀尔修斯·借宝：每名神阵营存活友军使自身速度+8（faction 由 roster 标注）。"""
+    """珀尔修斯·借宝（v4）：己方每名奥林匹斯（神）阵营存活友军使自身**自带主动
+    战法**连发率 +15%（faction 由 roster 标注；A4 更名 olympus 后随枚举同步）。"""
 
-    def attr_bonus(self, engine, hero, attr):
-        if attr != "speed":
-            return 0
+    def burst_rate_bonus(self, engine, hero, skill):
+        if not hero.skills or skill.skill_id != hero.skills[0]:
+            return 0  # 只加成自带战法（装配位 0）
         from battle.roster import FACTION_OF
         n = sum(
             1 for ally in engine.alive_allies(hero)
             if ally.hero_id != hero.hero_id
-            and FACTION_OF.get(ally.template_id) == "gods"
+            and FACTION_OF.get(ally.template_id) == "olympus"
         )
-        return n * 8
+        return n * 1500
 
 
 @dataclass(frozen=True)
@@ -428,12 +514,7 @@ class _Jianren(Trait):
             emit_trigger(engine, hero, "stubborn", parent_seq=parent_seq)
 
 
-@dataclass(frozen=True)
-class _Shizhe(Trait):
-    """喀戎·师者：治疗量+10%。"""
-
-    def heal_up_bonus(self, engine, healer):
-        return 1000
+# 喀戎·师者 已随 v4 武将池下架（manual_tasks 拍板项 2）
 
 
 # =============================================================================
@@ -445,7 +526,7 @@ class _Jichou(Trait):
     """波塞冬·记仇：对最后伤害过自己的敌军伤害+25%；每回合开始 40% 怒涛难抑
     本回合所有伤害强制指向该目标（怒涛触发播台词）。"""
 
-    def damage_out_bonus(self, engine, source, target, kind):
+    def damage_out_bonus(self, engine, source, target, kind, parent_seq=0):
         return 2500 if source.last_damaged_by == target.hero_id else 0
 
     def on_round_start(self, engine, hero, parent_seq):
@@ -478,13 +559,15 @@ class _Roubo(Trait):
 
 @dataclass(frozen=True)
 class _Zhongyong(Trait):
-    """特里同·忠勇：波塞冬在场时自身全属性+10；6% 号角走音本回合无法释放
-    自带战法（负触发播台词）。"""
+    """特里同·忠勇（v4）：波塞冬存活时自带战法连发率+30%；6% 号角走音本回合
+    无法释放自带战法（负触发播台词）。"""
 
-    def attr_bonus(self, engine, hero, attr):
+    def burst_rate_bonus(self, engine, hero, skill):
+        if not hero.skills or skill.skill_id != hero.skills[0]:
+            return 0  # 只加成自带战法（装配位 0）
         for ally in engine.alive_allies(hero):
             if ally.template_id == "poseidon":
-                return 10
+                return 3000
         return 0
 
     def on_round_start(self, engine, hero, parent_seq):
@@ -496,9 +579,13 @@ class _Zhongyong(Trait):
 
 @dataclass(frozen=True)
 class _Meihuo(Trait):
-    """塞壬·魅惑：敌方对塞壬伤害-10%（减伤乘区）。"""
+    """塞壬·魅惑（v4）：敌方对塞壬伤害-10%（减伤乘区）；敌方对塞壬同阵营
+    队友伤害+10%（攻击方 damage_up 乘区，塞壬存活时生效）。"""
 
     def damage_in_reduce(self, engine, target):
+        return 1000
+
+    def ally_damage_in_bonus(self, engine, holder, source, target):
         return 1000
 
 
@@ -510,12 +597,7 @@ class _Tanshi(Trait):
         return 1000
 
 
-@dataclass(frozen=True)
-class _Baoshi(Trait):
-    """卡律布狄斯·暴食：普攻吸血 8%（复用贪食口径）。"""
-
-    def basic_lifesteal(self, engine, hero):
-        return 800
+# 卡律布狄斯·暴食 已随 v4 武将池下架（manual_tasks 拍板项 2）
 
 
 # =============================================================================
@@ -539,11 +621,11 @@ class _Weiquan(Trait):
 
 @dataclass(frozen=True)
 class _Guyuan(Trait):
-    """美杜莎·孤怨：石化别人时 8% 照影自身石化 1 回合（触发播台词）。"""
+    """美杜莎·孤怨：石化别人时 12% 照影自身石化 1 回合（触发播台词）。"""
 
     def on_petrify_out(self, engine, source, parent_seq):
         from battle.statuses import petrify
-        r = rate(engine, self.trait_id, "mirror", 800)
+        r = rate(engine, self.trait_id, "mirror", 1200)
         if engine.rng.rand_bps("trait", f"{source.hero_id}:mirror") < r:
             seq = emit_trigger(engine, source, "mirror", parent_seq=parent_seq)
             engine.apply_status(source, source, petrify(1), parent_seq=seq)
@@ -572,7 +654,7 @@ class _Lengku(Trait):
 
 @dataclass(frozen=True)
 class _Huzhu(Trait):
-    """刻耳柏洛斯·护主：哈迪斯在场时自身全属性+5（复用忠勇口径）。"""
+    """刻耳柏洛斯·护主：哈迪斯存活时自身全属性+5。"""
 
     def attr_bonus(self, engine, hero, attr):
         for ally in engine.alive_allies(hero):
@@ -637,7 +719,6 @@ register(_Qiaoshe("qiaoshe", "巧射", {
 register(_Jianren("jianren", "坚忍", {
     "stubborn": ("我不需要盾！", "让开，我自己扛！"),
 }))
-register(_Shizhe("shizhe", "师者", {}))
 register(_Jichou("jichou", "记仇", {
     "rage": ("敢伤海皇？浪涛记住你了！", "今日之潮，只为你而涨！"),
 }))
@@ -647,7 +728,6 @@ register(_Zhongyong("zhongyong", "忠勇", {
 }))
 register(_Meihuo("meihuo", "魅惑", {}))
 register(_Tanshi("tanshi", "贪食", {}))
-register(_Baoshi("baoshi", "暴食", {}))
 register(_Weiquan("weiquan", "威权", {
     "double": ("献上来，加倍地献上来。", "王座之下，皆为贡品。"),
 }))
@@ -657,3 +737,76 @@ register(_Guyuan("guyuan", "孤怨", {
 register(_Huichun("huichun", "回春", {}))
 register(_Lengku("lengku", "冷酷", {}))
 register(_Huzhu("huzhu", "护主", {}))
+
+
+# =============================================================================
+# Phase 4 新武将性格（A2 先注册原语，A3 战法批接线到 roster；未装配前零行为差异）
+# =============================================================================
+
+@dataclass(frozen=True)
+class _Zhonglie(Trait):
+    """赫克托尔·忠烈：统率+10；自带主动战法（装配位 0）每次成功释放后，
+    获得 1 层【忠烈·连发】（burst_rate_up_bps +1500，整场，最多 2 层），
+    作用于自身所有主动战法的连发判定。"""
+
+    def attr_bonus(self, engine, hero, attr):
+        return 10 if attr == "command" else 0
+
+    def on_skill_cast(self, engine, hero, skill, trigger_seq):
+        if not hero.skills or skill.skill_id != hero.skills[0]:
+            return
+        engine.apply_status(hero, hero, _ZHONGLIE_BURST, parent_seq=trigger_seq)
+
+
+@dataclass(frozen=True)
+class _Haozhao(Trait):
+    """伊阿宋·号召：己方任意单位触发连击后，自身速度+8（整场，最多叠 4 层）；
+    每回合首次触发播台词。"""
+
+    def on_ally_combo(self, engine, hero, attacker, parent_seq):
+        instance = engine.apply_status(hero, hero, _HAOZHAO_RALLY, parent_seq=parent_seq)
+        if instance is not None and not engine.trait_flag(hero.hero_id, "haozhao_line"):
+            engine.set_trait_flag(hero.hero_id, "haozhao_line")
+            emit_trigger(engine, hero, "rally", parent_seq=parent_seq)
+
+
+@dataclass(frozen=True)
+class _Bingpei(Trait):
+    """卡斯托耳·并辔：己方其他单位普攻后 15% 使本次【双子协战】判定必定成功
+    （coord_certain，不计入协击上限；消费即清），每回合最多 1 次。"""
+
+    def on_ally_basic(self, engine, hero, attacker, target, parent_seq):
+        if engine.trait_flag(hero.hero_id, "bingpei_used"):
+            return
+        r = rate(engine, self.trait_id, "certain", 1500)
+        if engine.rng.rand_bps("trait", f"{hero.hero_id}:bingpei") < r:
+            engine.set_trait_flag(hero.hero_id, "bingpei_used")
+            engine.set_trait_flag(hero.hero_id, "coord_certain")
+            emit_trigger(engine, hero, "certain", parent_seq=parent_seq)
+
+
+register(_Zhonglie("zhonglie", "忠烈", {}))
+register(_Haozhao("haozhao", "号召", {
+    "rally": ("好样的！英雄们，跟上节奏！", "阿尔戈号的旗帜，指向胜利！"),
+}))
+register(_Bingpei("bingpei", "并辔", {
+    "certain": ("兄弟，这次一起上！", "双子同辔，万夫莫当！"),
+}))
+
+# 忠烈/号召的载体状态（放注册后定义避免循环 import；traits 仅依赖 statuses）
+from battle.statuses import BUFF as _BUFF, PERMANENT as _PERMANENT, StatusDef as _StatusDef  # noqa: E402
+
+_ZHONGLIE_BURST = _StatusDef(
+    status_id="zhonglie_burst", kind=_BUFF, duration_rounds=_PERMANENT,
+    max_stacks=2, modifiers={"burst_rate_up_bps": 1500},
+)
+_HAOZHAO_RALLY = _StatusDef(
+    status_id="haozhao_rally", kind=_BUFF, duration_rounds=_PERMANENT,
+    max_stacks=4, modifiers={"speed_delta": 8},
+)
+_QIUSHENG_WIN = _StatusDef(
+    status_id="qiusheng_win", kind=_BUFF, duration_rounds=_PERMANENT,
+    max_stacks=3, refreshable=False,  # 满层静默拒绝 → 不再播台词
+    modifiers={"force_delta": 10, "intelligence_delta": 10,
+               "command_delta": 10, "speed_delta": 10},
+)

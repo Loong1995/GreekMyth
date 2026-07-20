@@ -124,12 +124,14 @@ namespace ClientBattle.Events
     {
         public string ActorId, SkillId, Kind; // kind: cast/prepare/release/interrupted/delayed/assist
         public List<string> TargetIds = new();
+        public int BurstNo; // schema 1.4.0 可选：连发第 N 次释放（2 起，硬上限 7）；0=非连发
 
         protected internal override void Parse(JObject p)
         {
             ActorId = p.Value<string>("actor_id");
             SkillId = p.Value<string>("skill_id");
             Kind = p.Value<string>("kind");
+            BurstNo = p.Value<int?>("burst_no") ?? 0;
             var ids = p.Value<JArray>("target_ids");
             if (ids != null) foreach (var id in ids) TargetIds.Add((string)id);
         }
@@ -140,11 +142,13 @@ namespace ClientBattle.Events
         public string ActorId;
         public List<string> TargetIds = new();
         public int StrikeNo;
+        public string Kind; // schema 1.4.0 可选："coordinated"=协击；null=普攻
 
         protected internal override void Parse(JObject p)
         {
             ActorId = p.Value<string>("actor_id");
             StrikeNo = p.Value<int>("strike_no");
+            Kind = p.Value<string>("kind");
             var ids = p.Value<JArray>("target_ids");
             if (ids != null) foreach (var id in ids) TargetIds.Add((string)id);
         }
@@ -217,8 +221,15 @@ namespace ClientBattle.Events
 
     public class TroopsChangeEvent : BattleEvent
     {
+        public string Reason;
         public TroopsDelta Troops;
-        protected internal override void Parse(JObject p) => Troops = TroopsDelta.From(p);
+
+        protected internal override void Parse(JObject p)
+        {
+            Reason = p.Value<string>("reason") ?? "";
+            // payload = { reason, troops: TroopsDelta }，不可把整包当 TroopsDelta
+            Troops = TroopsDelta.From(p.Value<JObject>("troops"));
+        }
     }
 
     // ------------------------------------------------------------ 性格台词（推送即播）
@@ -302,6 +313,41 @@ namespace ClientBattle.Events
         protected internal override void Parse(JObject p) { }
     }
 
+    /// <summary>momentum_change（schema 1.4.0，Phase 4 四轨势能）：纯表现记账。
+    /// B 批接入 UI 前先强类型解析、静默跳过播放（不落 UnknownEvent 告警）。</summary>
+    public class MomentumChangeEvent : BattleEvent
+    {
+        public string HeroId, Track, Reason;
+        public int Delta, Value;
+        public bool CutIn;
+
+        protected internal override void Parse(JObject p)
+        {
+            HeroId = p.Value<string>("hero_id");
+            Track = p.Value<string>("track");
+            Reason = p.Value<string>("reason");
+            Delta = p.Value<int>("delta");
+            Value = p.Value<int>("value");
+            CutIn = p.Value<bool?>("cut_in") ?? false;
+        }
+    }
+
+    /// <summary>tactic_applied（schema 1.4.1，P4-C 经理人战术变更生效）：
+    /// 非阻塞横幅播报 + 左侧战术栏更新（战术栏 UI 随联网客户端接入）。</summary>
+    public class TacticAppliedEvent : BattleEvent
+    {
+        public string TeamId, TacticId;
+        public int RoundNo, ChangeNo;
+
+        protected internal override void Parse(JObject p)
+        {
+            TeamId = p.Value<string>("team_id");
+            TacticId = p.Value<string>("tactic_id");
+            RoundNo = p.Value<int>("round_no");
+            ChangeNo = p.Value<int>("change_no");
+        }
+    }
+
     /// <summary>未知事件类型（向前兼容）：跳过播放，仅日志提示。</summary>
     public class UnknownEvent : BattleEvent
     {
@@ -337,6 +383,8 @@ namespace ClientBattle.Events
             ["game_end"] = () => new MarkerEvent(),
             ["battle_end"] = () => new MarkerEvent(),
             ["phase_start"] = () => new MarkerEvent(),
+            ["momentum_change"] = () => new MomentumChangeEvent(),
+            ["tactic_applied"] = () => new TacticAppliedEvent(),
         };
 
         /// <summary>解析单局 events 数组。未知 type 产出 UnknownEvent 并 LogWarning。</summary>

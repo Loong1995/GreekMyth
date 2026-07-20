@@ -1,5 +1,370 @@
 # Changelog
 
+## 2026-07-20 文档大重整（机制类文档「叙述+代码机制」双写）
+- 新增 client 三份机制文档：`playback_units.md`（播放单元/时间轴阻塞/台词独占
+  三原则/管线四 processor 红线）、`rendering_layout.md`（分辨率适配/图像槽位
+  contain-stretch/sorting 层级总表）、`text_system.md`（飘字/气泡/横幅/中文名）。
+- 状态台词独立成 `docs/mechanics/status_voice.md`（触发点总表/去重/轮换）；
+  hero_specials §3、statuses §8b 改为指针；mechanics/client index 登记。
+- pitfalls 追记 P-17~P-21（拆组丢 Root、事件挂靠位置、等待时长失配、
+  Resources 路径导入、sortingOrder 遮挡）；playback_model.md 标注历史文档。
+- 修 `TraitLineExtract`：抽台词后出击段仍挂原 status_tick/skill Root，
+  十二试炼等 Melee 配置不丢；格挡/反弹 SettleDamage 保留命中反馈+轻顿挫。
+
+## 2026-07-20 台词独占播放单元（无缝不重叠）
+- `TraitLineExtractProcessor` 抽出混组台词；`SayExclusive` 时长=气泡动画；
+  与邻组取消单元停顿，禁止气泡未完就开下一行动组。
+
+## 2026-07-20 状态台词可见 + 落雷贯穿牌面
+- 状态台词改为 `parent_seq=0` 独立 TraitLine（此前挂 action_start 被 Node 静默吞掉）；
+  Node 防御性也会播挂靠台词；delayed 补「延迟」飘字；brief 打印〔状态〕作祟。
+- RemoteStrike 落雷 Y 向拉长，视觉贯穿整张目标牌。
+
+## 2026-07-20 雷霆头像标可见性 + 控制/犹豫/先攻台词
+- RemoteStrike：头像标加大、抬高 sortingOrder、先亮后落雷，避免被闪电盖住。
+- 新增 `battle/status_voice.py`：缄默/缴械/冥锁/石化/魅惑/恐惧/犹豫/先攻各 3 条，
+  仅在真正改写执行时发 `trait_trigger(trait_id=status)`；golden 已重生成。
+
+## 2026-07-20 立绘按槽位等比适配
+- `UnitView.FitSpriteToSlot`：立绘/卡框/头像标按 sprite.bounds 等比塞进固定世界槽
+  （contain），不同分辨率/PPU 不再忽大忽小。
+
+## 2026-07-20 立绘路径/Sprite 导入说明
+- 用户图原在 `Resources/Portraits/` 且非 Sprite → Play 仍色块；已迁到
+  `Resources/ClientBattle/Portraits/` 并改 Sprite（含 heracules→heracles）。
+  上传指南补路径/导入红线。
+
+## 2026-07-20 取消常规状态上方小图标
+- `StatusIconPanel` 只保留控制类中央大图标；增益/神谕等常规状态不再显示卡上方小图标
+  （靠光环+飘字）。上传清单同步：勿再做 ~30 张常规 status 图。
+
+## 2026-07-20 取消圣盾弹道采购 / 势能 overflow 不定购
+- 文档剔除 `proj_aegis_bounce`（圣盾已 Melee）；`overflow_<track>` 不定购，
+  闪光档维持乙案白闪+punch（已购 Vefects 可选日后抠共用 burst，非必须）。
+
+## 2026-07-20 触发序与英雄特殊处理文档
+- 新增 `docs/mechanics/response_order.md`（先守后攻 / 他人优先 / 分发点表）；
+  `hero_specials.md`（鲁莽·踵之弱台词时点、神谕借手、演出特例）；
+  `docs/client/settlement_stats.md`（结算表归因与 status→skill 映射）。
+- mechanics/client index、statuses、determinism、traits、performance 交叉链已挂。
+
+## 2026-07-20 鲁莽/踵之弱台词时点 + 结算表神谕归因
+- 鲁莽：boost/taunt 台词改到造成伤害前弹出（选人只挂旗，不立刻说话）。
+- 踵之弱：判定仍在暴击前，台词延到暴击伤害事件写出后（独立新组）。
+- 结算表：status_tick 链伤害/治疗归到状态 `source_id` 的带技能格子
+  （如雷霆→宙斯·雷霆神谕，圣盾→雅典娜·埃癸斯）。
+
+## 2026-07-20 性格台词占用 0.5s 时间轴
+- 每条 `trait_trigger` 弹气泡后等待 `TraitLinePauseSeconds=0.5`（再乘 DurationMul）；
+  独立 TraitLine 组与嵌在行动组内的台词均生效；不另加单元停顿。
+
+## 2026-07-20 镜盾闪击改近战演出
+- `perseus_flash` 特殊配置改为 `Melee`（单体主动默认走 PerSegment 弹道，观感不符）。
+
+## 2026-07-20 同持有者触发：他人施加优先于自身
+- 单持有者钩子（伤害 taken/dealt、行动开始、伤前、受控）：`source_id≠owner`
+  的状态整段先于自身施加，再按 response_priority；跨持有者全局钩子键增
+  「他人/自身层」。统一 `_owner_hook_key` / `_global_hook_key`。
+- 单测扩 `test_damage_hooks_order`；determinism/statuses/burst 同步；golden 重生成。
+
+## 2026-07-20 伤害响应先守后攻 + 雷霆/圣盾演出
+- 引擎 `_dispatch_damage_hooks`：同一次伤害先整段 `on_damage_taken`（守方），
+  再整段 `on_damage_dealt`（攻方）；各段内仍按 priority/hero_order/instance。
+  determinism/statuses 同步；新增 `test_damage_hooks_order`；golden 因 RNG 消费序重生成。
+- 客户端：`thunder`→`RemoteStrike`（不位移，目标宙斯头像+落雷）；`aegis_shield`
+  Melee 用 OwnerId 持盾者、Cast 闪光后再突进；StatusTick ActorOf 固定 OwnerId。
+
+## 2026-07-20 阿喀琉斯追伤高光/战斗突进一致
+- `achilles_wrath` 特殊配置改为显式 `Melee`（原 StatusTrigger→PerSegment 只飞弹道/
+  飘字，高光窗以追伤链为主时观感只剩飘字）；斩击 1.5×；`ActorOf` 空 SourceId 回退 owner。
+
+## 2026-07-20 结算表空键崩溃修复 + 分局 Tab
+- `TroopsChangeEvent` 误把整包 payload 当 TroopsDelta → `hero_id` 空 →
+  Dictionary 抛 ArgumentNullException；已改为读 `payload.troops`。
+- 结算表支持多局 Tab（第 N 局 / 系列合计）；`SetTroops` 对空 heroId 容错。
+
+## 2026-07-20 播放放慢 ×2 + 三谋式战后技能结算表
+- 客户端 `DurationMul=2`：动画节拍与行动/单元停顿一并放慢；单元间隙
+  0.35s、行动间隙 0.55s（再乘 DurationMul）。
+- 系列结束后弹出分队技能统计（×次数 / ⚔杀伤 / +治疗）；
+  `BattleSkillStatsAggregator` 从事件流只读归因；Tester「打开结算」可重开。
+
+## 2026-07-20 阿喀琉斯之怒暴击率 35%→25%
+- `achilles_wrath` 物理暴击率修正 `physical_crit_rate_bps` 3500→2500；heroes.md 同步。
+
+## 2026-07-20 傲慢贯穿台词误触发修复
+- `achilles_wrath` 去掉「每次追伤必播 pierce」：贯穿仅在傲慢判定成功时发出
+  （目标残兵比例 > 自身 + 25%）。g1r3 阿喀琉斯伤轻打残血赫克托尔仍连环贯穿属此 bug。
+
+## 2026-07-20 神使戏言持续口径更正（duration=1）
+- `hermes_jest` 敌方犹豫改回 `hesitation(10000, 1)`：引擎「持续 1 回合」本就
+  按持有者行动窗覆盖下次窗口（计次 1 仍生效），此前误判为会先过期而改成 2。
+- 文档：sea_underworld / hesitation.md 与 statuses.md §3 对齐；全技能排查：
+  无伤类仅 `perseus_flash`（已补 select_targets）；追击由引擎注入目标；
+  其余 duration=2 为设计值，非同类误判。
+
+## 2026-07-20 镜盾闪击无伤修复
+- `PerseusFlash` 补 `select_targets`（受击率选敌单体）：此前默认 `[]`，
+  发动只叠格挡、永不结算 320% 伤害（manual 战报「镜盾闪击」无↳伤害根因）。
+
+## 2026-07-20 技能文档三阵营重整 + 效果对齐代码
+- 文档改为三册：olympus / heroes / **sea_underworld**（海冥合册）；删除
+  sea.md、underworld.md、heroes_mech_code.md；roster_v4→roster.md；新增
+  code_map.md；index/traits（孤怨 12%、并辔 15%）同步。
+- 按效果段改码：阿喀琉斯 +35% 暴/追伤可暴/每回合≤7；狮皮削弱 70%；闪击 55%；
+  猛攻 50%；致命一矢暴伤+50%；坚壁 60%/+40 统；金羊伤害叠 2；并辔 15% 且
+  不计协击上限；忠烈 +15%/层；神盾后期+35 统；凯歌先攻 2 回合（去犹豫）；
+  浪涌洪水抑统；迷魂 35%/220%；撕咬 380%；蛇瞳 2~3；春芽 4 回合回合初治疗；
+  镰痕 55%；戏言犹豫 1 回合；孤怨 12%。golden 重生成，208 通过。
+
+## 2026-07-20 英雄阵营机制·代码对照文档
+- （已废弃）heroes_mech_code.md 已并入 code_map.md / 三阵营分册。
+
+## 2026-07-20 势能门槛调整：满 5 cut-in / 4 分闪光
+- `MOMENTUM_FULL` 8→5；`value≥5` 当次起带 `cut_in`（不再「满后再下一次」）。
+- 客户端 `Flash=4` 首次白闪、`Full=5` 常驻流光；计分按轨类型跨技能累计
+  （文档强调，逻辑本已如此）。测试/momentum.md/契约文案同步。
+
+## 2026-07-20 连发演出修复：与首发同模板整套重播
+- EventPipeline.Classify：`burst_no≥2` 的 skill_trigger 组显式判为 ActiveSkill。
+  此前连发组因 parent_seq 指回首发触发事件被误分类为 Pursuit（追击判据是
+  parent≠0），导致连发只走追击近身模板/纯飘字，不再重播原战法演出。
+- 现在每次连发与首发走完全相同的解析（同 skill_id 特殊配置/组默认）与模板
+  （群攻居中弹幕/逐段弹道/施法特效/音效全套），叠加原有 ×1.35 节拍与角标。
+
+## 2026-07-20 Phase 4 验收战报入口（burst_tactics 场景）
+- sample.py 新增 `burst_tactics` 场景（波塞冬/特里同/赫克托尔 vs 冥界三将，
+  预设战术：A 集火哈迪斯、B 攻势 +1）；seed 42 战报含连发释放 ×10、
+  tactic_focus ×17、momentum ×107，已导出 StreamingAssets。
+- BattleReportTester 默认 ReportPath 改为 burst_tactics_seed42.json
+  （Phase 4 新机制播放验收入口）。全套 208 测试通过。
+
+## 2026-07-20 Phase 4 P4-C（经理人战术系统，schema 1.4.1 / core 0.4.1）
+- 新增 `battle/tactics.py`：TACTIC_REGISTRY 注册表（集火 hit_weight×2 /
+  保护 减伤8%+HoT / 攻守倾向 ±3%/级），战术=duration 1 状态逐回合刷新，
+  不动结算机制、不耗 RNG；配置走 setup.metadata["tactics"]（入战报闭环）。
+- 引擎 `_apply_tactics`：round_start 后第一步、setup 队伍序结算；变更
+  生效回合发 `tactic_applied`（1.4.1 加法新增，schema json/md/payloads §26
+  同步；status_remove.reason 补登 exhausted）。
+- **架构定案**：不做引擎快照续算原语——确定性下「第 N+1 回合快照续算」
+  ≡「同 seed+变更序列从头重模拟」（毫秒级成本，无快照漏项风险）；
+  服务器入口 `tactics.with_change()`。前缀逐字节等价由
+  test_tactics.py 固化（8 条新测试，全套 208 通过）。
+- 校验红线：变更最早第 2 回合、每方一局至多 2 次、目标敌我归属、
+  stance 档位 -2~+2（validate_tactics，simulate 入口调用）。
+- 客户端：TacticAppliedEvent 解析 + 非阻塞横幅播报（复用 cut-in 通道）；
+  战术栏 UI/替换段播放随联网客户端接入。names/ChineseNames/textlog 同步。
+- golden 全量重生成（版本串 1.4.1）+ jsonschema 校验通过 + 带战术战报
+  replay_report 字节一致；新文档 docs/mechanics/manager_tactics.md，
+  index/determinism 登记。
+
+## 2026-07-20 Phase 4 B3~B6（BGM 分层/飘字手调/皇卡演出/高光回放）
+- B3 `Audio/BgmLayerService.cs`：4 stem 按全局势能三档淡入淡出（0~7/8~15/16+，
+  GlobalTotal 由 MomentumService 维护回调）、切层对齐小节边界（Bpm 登记）、
+  单挑与 cut-in 全层 duck -8dB/0.5s 恢复；stem 缺失回退单曲 bgm_main
+  （音量+低通随档），全缺静默 no-op。素材（Suno+Demucs）为人工项。
+- B4 `Units/FloatingTextTuning.cs`（SO）：飘字字体/字号/颜色/上浮曲线全参数
+  Inspector 可调，缺资产用代码默认；FloatingTextService 保持零 alloc 与
+  字形预热；新增操作文档 docs/client/floating_text_tuning.md。
+- B5 皇卡演出（C1）：新公共原语 UnitView.ShowPortraitMark（头顶头像标）+
+  profile.PortraitMarkKey——宙斯落雷 thunder→zeus、冥域献统
+  hades_command_drain→hades；圣盾反弹 aegis_ward 专属回击弹道
+  proj_aegis_bounce（占位，P3 到位换资源）。
+- B6 高光回放（C2）：PerformanceRunner.PlayHighlight 按我方每武将行动窗
+  单窗伤害排行取最大窗重播（窗前静默落账），Tester 播完出「高光回放」按钮。
+- 文档：performance_mechanisms 新增 §一c、framework 文件清单、
+  assets_upload_guide 增 BGM/字体/新特效音效 key 登记。
+
+## 2026-07-20 Phase 4 B1/B2（客户端势能/连发/协击/cut-in）
+- 新增 `Units/MomentumService.cs`：momentum_change 四轨镜像账本（value 取事件
+  权威值零加法）+ TrackTable 注册表（轨→tint/标签，加轨即扩展）；action_start
+  同步服务器静默清零；SkipToEnd/静默落账路径同样记账。
+- UnitView 增四轨势能迷你条（0~3 半亮/4~7 全亮）、满档常驻 rim 流光
+  （多轨叠混色+呼吸脉动）、首次满档白闪爆发帧（乙案；甲案待 P2 采购换
+  overflow_<track> 特效 key）。
+- cut-in 通道（C10 定案）：非阻塞金字横幅 + 轻震屏；触发源=满档轨每次
+  cut_in 事件/高伤>3000/行动窗追伤第 5 次；同播放组去重、不做回合级限流。
+- 连发演出：burst_no≥2 组节拍 ×1.35（VFXContext.TempoScale）+「连发×N」角标；
+  协击 normal_attack.kind=coordinated 出手前挂「协击」青标。
+- BattleEvents 补 SkillTriggerEvent.BurstNo / NormalAttackEvent.Kind 解析；
+  StreamingAssets 机制验收战报重同步（--export，含 men_gods 连发覆盖）。
+- 文档：performance_mechanisms 新增 §一b（势能/连发/协击/cut-in 机制表）、
+  client_battle_framework 文件清单登记 MomentumService。
+
+## 2026-07-20 Phase 4 A5（契约 1.4.0 冻结 + golden 全量重生成）
+- 版本冻结：schema 1.3.1→**1.4.0**、core battle-0.3.1→**battle-0.4.0**
+  （version.py / battle_events.schema.json $id / battle_events.md 演进表定稿）。
+- 势能门控收口：`enable_momentum` 默认改为**开启**（metadata 显式 False 可关），
+  golden 11 份全量重生成（新增 momentum_change 事件，非势能事件逐条不变，
+  test_momentum_enabled_full_battle 固化）；replay_report 字节一致复核通过。
+- schema 补漏：status_remove.reason 增补 `exhausted`（充能耗尽摘除，A2 既有
+  行为此前未入枚举）；11 份 golden 全部通过 jsonschema Draft2020-12 校验。
+- 客户端前向接线：BattleEvents.cs 增 MomentumChangeEvent 强类型解析
+  （归 Node 类静默落账，消除 UnknownEvent 告警刷屏），B 批再接切入/UI；
+  StreamingAssets 6 份演示战报同步为 1.4.0。
+- 全套 201 测试通过；batch_sim 200 种子无异常。
+
+## 2026-07-20 Phase 4 A4（阵营改名/成员调换/属性核对/武将总表）
+- faction id 定稿：gods→olympus、men→heroes（roster/traits 借宝判定/客户端
+  FactionColors+FactionOf 一次同步；实现模块文件名沿用历史 skills_gods.py 等）。
+- 成员调换：奥德修斯→sea、赫尔墨斯→underworld（roster faction + 客户端映射 +
+  战法文档条目随迁 sea.md/underworld.md）。终局 29 将 = 7/9/6/7
+  （manual_tasks 原"28/英雄10"为口算误差，已更正）。
+- 属性对表核对全 29 将：仅珀尔修斯速度基础 96→82 修正，其余与任务书一致；
+  faction 不入战报，golden 无需重生成（全套 200 通过）。
+- 新增 A5 交付物 `docs/skills/roster_v4.md`（29 将档位/定位/性格/战法/属性
+  成长总表）；faction_style.md、project_overview.md §三、effects.md、
+  skills/gods.md→olympus.md、men.md→heroes.md（git mv）同步。
+- batch_sim 0..1000 全场景无异常（238 局/秒）；standard 场景胜率偏斜
+  （A 7.2%）留待 M3 平衡初测统一评估。
+- 核对「准备型主动连发不重新准备」口径：引擎既有实现正确
+  （_settle_preparing → _cast_active_skill 直接连发），补语义测试
+  test_hector_warcry_burst_releases_without_reprepare（全套 201 通过）。
+
+## 2026-07-20 Phase 4 A3 冥界批（v4 重写，A3 四阵营收官）
+- 冥域君临：幽影蔽体减伤上限 50%→70%；冥祭献统每友军汲 5→10 统率，改为
+  1:1 提统率 + 额外等量智力。冥河汲魂吸取 10→25。
+- 石化凝视：吸智 2→15、每回合上限 3 次、来源已石化不刷新石化；蛇瞳一瞥改
+  随机 2 人 180% + 石化。春芽改被动（自身+随机友军，减伤 25% + 受击 40%
+  回施放者智×0.6，回合上限 2）。渡魂船费新增第三段：对敌最低兵比 200% 魔法。
+  摆渡改被动（造成伤害后施【诅咒】）。死神镰痕改即发单体 350%（兵比≤30%
+  再+30%）。死亡凝望改盯诅咒（60% 150% 魔法，回合上限 3）。三首噬咬 2→3 次
+  并追加【恐惧】1 回合。守门恶犬不变。
+- 引擎：新增状态钩子 on_status_inflicted（apply_status 成功施加/刷新后全局
+  定序分发，防递归旗标），determinism.md 登记定序规则。
+- 场景：men_gods 珀尔修斯→赫克托尔（补准备型战法覆盖）；"准备"机制验收
+  golden 从 sea_underworld_seed9 改指 men_gods_seed12。golden 重生成 4 个。
+- 测试：test_phase4_underworld.py 8 项；全套 200 通过。文档：
+  skills/underworld.md 重写、index/traits/determinism/双端名字表同步。
+
+## 2026-07-20 Phase 4 A3 海域批（v4 重写 + 卡律布狄斯下架）
+- 武将池：下架卡律布狄斯（漩涡巨口/吞流/暴食性格全移除，双端名字表与
+  阵营映射同步）。
+- 改版：三叉戟震荡上限 3→2、移除全队闪避+20%；怒涛削统 -10→-15；潮汐抚愈
+  改被动（回合开始全队受疗+10% 1 回合 + 回合结束治疗最低 2 人×1.8）；
+  海后之泽改前三回合结束全体治疗×1.8；海嗣号角初始 100%、统率+25、发动率
+  衰减下限 20%；魅音 55% 改施加魅惑（原犹豫）；魅惑术改名迷魂之歌；
+  六首撕咬孤敌回落对原目标 90%；撕咬追加自身速度+20（2 回合）。
+- 性格：忠勇改波塞冬存活时自带战法连发率+30%（burst_rate_bonus）；魅惑 v4
+  增「敌方对塞壬同阵营队友伤害+10%」——新 trait 钩子 ally_damage_in_bonus
+  （deal_damage 按 hero_order 扫描目标存活队友，叠入攻击方 damage_up）。
+- 测试：test_phase4_sea.py 9 项；golden 重生成 3 个（oracle×2/sea_underworld）；
+  连携机制验收 golden 从 oracle_seed5 改指 oracle_seed99（seed5 改版后无
+  assist）；全套 192 通过。文档：skills/sea.md 重写、index/traits 同步。
+
+## 2026-07-20 Phase 4 A3 英雄批（人阵营 v4 重写 + 新三将）
+- 武将池：下架喀戎（战法/性格/花名册全移除）；新增赫克托尔（忠烈·特洛伊战吼
+  准备 1 回合+连发不重准备/决死猛攻叠系数≤5）、伊阿宋（号召·英雄远征清醒+
+  逐回合连击 buff/金羊号令）、卡斯托耳（并辔·双子协战 50% 协击≤2 次/
+  并辔追击 35% ≤1 次+吸血 10%）——协击走 A1 perform_coordinated_attack 原语。
+- 改版：阿喀琉斯之怒 80%×5 次可链式（原 120%×3 不链）；狮皮削弱改 50% 判定
+  1 回合；镜盾疾袭 60% 1~2 段+格挡（2 回合 ≤2 层）替代闪避层；镜盾闪击改
+  主动 65% 格挡+320%；疾风女猎 +35/疾走 +20；七重牛皮盾改统率+20%+2 层格挡
+  （≤2）；坚壁改兵力比例最低 2 人。借宝性格改自带战法连发率+15%/神友军。
+- 引擎小件：clear_trait_flag（并辔旗标消费）、grant_block 增 duration_rounds
+  （限时格挡）。
+- 测试：test_phase4_heroes.py 9 项；golden 重生成 3 个（standard×2/men_gods）；
+  全套 183 通过。文档：skills/men.md v4 重写、skills/index.md 池状态表、
+  traits.md 借宝/新三格接线、names.py + ChineseNames.cs 双端同步。
+
+## 2026-07-20 Phase 4 A3 奥林匹斯批 + 集火战术底层
+- A3 奥林匹斯战法 v4 重写（`skills_gods.py`）：圣盾改 15% 免疫反弹到敌方随机
+  单位+守心控制格挡+治疗每回合限 2；战神怒火调 20%/+20；血性咆哮下架换
+  战争狂热（物伤+30%/暴击+10% 被动）；神使戏言/灵蛇之吻调 50%；灵蛇之吻改
+  驱散 1 种；蛇杖治疗每人每回合限 2；月影狩猎改 60% 优先后排
+  （prefer_backline_bps）；胜利羽翼改武/智双最高+击杀增益回合限 1；
+  凯歌改全体先攻+最低兵 50% 犹豫。性格同步：好战额外行动回合限 1、
+  求胜改 3 层状态、狡黠走 is_backline。
+- 集火战术底层（P4-C 定案「受击率合理调整」）：新状态修正键
+  `hit_weight_up_bps`，选人权重=受击点数×(1+bias)，仍加权随机+保残兵，
+  非强制锁定；无偏置逐字节等旧行为。plan/manual_tasks/targeting.md §1b 落档。
+- 测试：新增 test_phase4_gods.py 7 项 + 集火权重测试；golden 重生成；
+  全套 174 通过，replay 闭环校验通过。文档：skills/gods.md v4 全文重写、
+  determinism.md 消费点表补控制减免/反弹落点/优先后排/连发。
+
+## 2026-07-20 Phase 4 A2：新状态/性格原语落地
+- Universal Sound FX 人工确认已购，采购文档回填（assets_upload_guide §三、
+  manual_tasks §二 P4 改「已购待导入」）。
+- 新状态原语（`battle/statuses.py`）：恐惧（禁普攻+追击、伤害-15%，口径临时
+  定案 → manual_tasks 拍板项 5）、诅咒（智-20/受伤+10%，负面例外可刷新）、
+  必胜（certain_crit 载体 + `grant_certain_crit`，耗尽摘除）、清醒
+  （control_immune，CONTROL 施加静默拒绝）；`grant_block` 增 `max_charges`
+  持有上限（封顶静默拒绝）。
+- 连发率三来源：`effective_burst_rate` = 战法 burst_rate_bps + 状态
+  `burst_rate_up_bps` + 性格 `burst_rate_bonus` 钩子。
+- 约战注册表（C6）：`traits.DuelBehavior`（必应战/拒绝率加成/低武力叫阵/
+  强制搦战）+ 台词 effect（duel_challenge/accept/reject）；`_run_duel`/
+  `_duel_champion` 只查表，空表=旧行为。
+- 新性格壳注册（A3 接线前零行为差异）：忠烈（自带释放叠连发层，≤2）、
+  号召（己方连击后速度+8 叠 4 层+台词）、并辔（10% 设 coord_certain 回合旗标）；
+  新引擎钩子 on_skill_cast / on_ally_combo / on_ally_basic（性格先于状态分发）。
+- 测试 `test_phase4_primitives.py` 13 项；全套 166 通过，旧 golden 不变。
+  文档同步：statuses.md §7、traits.md §5、duel.md §5、mechanics/index、
+  names.py 与 ChineseNames.cs 新状态名同步。
+
+## 2026-07-19 Phase 4 开工：A1 服务端底座落地
+- 人工工作清单独立成文 `docs/dev/phase4_manual_tasks.md`（4 项拍板按推荐值
+  开工、采购 4 项 ¥250~450+订阅、BGM 制作/资源放置/飘字手调操作步骤、
+  6 里程碑人工验收点）；随后按人工要求补齐 plan B 附全部内容并**逐项点名**
+  （Suno Pro/Udio、Vefects flipbook 系列、Universal Sound FX 先用、
+  freesound CC0 关键词、musopen/incompetech 备选、思源黑体/得意黑/站酷字体、
+  Demucs htdemucs 命令、SFX key 明细），plan B 附改为指向该文。
+- A1 底座（`battle/`）：站位扩展 0~6（4~6=后排，`is_backline` 谓词）；
+  主动战法连发（`Skill.burst_rate_bps`，伪随机 key=(hero,skill,"burst")，
+  同窗硬上限 7，四释放路径统一走 `_cast_active_skill`，事件带 `burst_no`）；
+  四轨势能（`add_momentum`/`momentum_change` 事件/满 8 后 cut_in/自身
+  action_start 静默清零/`MOMENTUM_TRACK_OF_KIND` 归轨注册表，
+  `setup.metadata.enable_momentum` 门控默认关）；协击
+  （`StatusDef.on_ally_basic_attack` 钩子 + `perform_coordinated_attack`
+  原语，normal_attack.kind="coordinated"，不连击可追击不连锁）。
+- 契约 1.4.0 草案登记（battle_events.md/payloads §25/schema.json：
+  momentum_change、burst_no、normal_attack.kind、position 1~6）；version.py
+  暂不升版（A 批收口时冻结+重生成 golden）。textlog 补协击/连发/势能格式。
+- 新文档 `docs/mechanics/momentum.md`、`burst_coordination.md`，index 登记。
+- 测试：新增 `battle/tests/test_phase4_base.py` 9 例（含「开关势能两份战报
+  除 momentum_change 外逐事件一致」的纯表现红线固化）；全量 153 passed，
+  旧 golden 逐字节不变。
+
+## 2026-07-19 Phase 4 执行计划产出
+- 依 `phase4_reply.md` 人工批注定稿 `docs/dev/phase4_plan.md`：10 条已确认决策
+  落为需求（势能加分修订/连发减半计/皇卡演出增量/高光回放/约战/BGM 分层/
+  经理人指令窗口等）；4 项开工前待拍板（阵营终局形态、28 将名单、
+  溢出演出零成本方案、经理人最小指令集）。
+- 三批次拆解：P4-A 服务端（底座→原语→四阵营战法→roster v4→契约 1.4.0+golden）、
+  P4-B 客户端（势能分级/cut-in/BGM/飘字调参/皇卡演出/高光回放）、
+  P4-C 经理人分段模拟；含 6 里程碑与风险对策。未动任何代码。
+- phase4_plan 势能定稿：每武将四轨独立计分（主动/被动/神谕/普攻追击），
+  各满 8；满档后**该轨**后续每次触发都 cut-in，他轨不连带；主动连发全程
+  +1（撤销连发衰减）；C10 取消「单回合至多 1 次」；事件带 track+cut_in。
+- phase4_plan 修订（人工纠正与增补）：C6 单挑约战改 trait→duel 注册表驱动；
+  A5 新增交付物「完整武将战法文档 v4」；溢出演出补甲案（三拍神格化，仅购
+  1 个爆发特效包）；新增采购计划（¥250~450+订阅）与人工工作清单；
+  P4-C 全面重写为「左侧战术栏+预设+回合内变更（每方 2 次，下回合生效）+
+  服务器逐回合快照续算即时重发完整战报+客户端替换段播放+断线兜底」，
+  取消对局快进；全计划补「注册表驱动」可扩展通则。
+- B3 补「BGM 素材路线」：禁止著名 BGM AI 变调（侵权红线）；主路线 AI 生成
+  （Suno/Udio 商用授权）+ Demucs 开源拆 4 stem，备选公版古典（核验录音授权）
+  与 CC-BY 曲库；切层对齐小节、duck -8dB 写入 B3 要点；委托降级为保底。
+
+## 2026-07-15 全量文档校阅 + 新建 docs/discipline 根本规范目录
+- 全量校阅 docs 各文档与代码/契约一致性并修复：mechanics（index schema 版本、
+  行动顺序补 first_strike、statuses 废字段与钩子分发序、effects RNG 序/测试战法表/
+  战法池路径、determinism 窗口顺序与 RNG 登记表、hesitation D-15 引用、
+  status_interactions 计次时点）、skills（犹豫参数写法、受击率选人用词、
+  镜盾辉映/怒涛命名）、schema（演进表 §7 引用、payloads 压回 ≤300 行）、
+  client（框架图补 CollectiveTriggerMergeProcessor、faction_style 全文重写指向
+  ClientBattle、石化音效/交叉引用、补 3 个反击 sfx key）、dev（performance/
+  v0_analysis/phase3_plan 标注历史；decisions C 系列拆分至
+  decisions_client_phase2.md 历史存档，decisions.md 降回 270 行）。
+- 新建 `docs/discipline/`（index/project_overview/global_rules/coding_standards/
+  doc_standards/ai_workflow_pitfalls 六件）作为任何 AI 开工的根本上下文；
+  踩坑录收录 14 条历史教训。`.cursorrules` 重写：阶段更新至 Phase 3 完成/
+  schema 1.3.1/ClientBattle 现状，并指向 discipline 目录。
+- changelog 超 300 行：2026-07-06 及以前条目拆至 `changelog_archive_phase12.md`。
+- 人工修订：文档行数红线 300→**500 行**（doc_standards/index/README/.cursorrules
+  同步）；project_overview 新增 §七框架级要求（多分辨率兼容、性能体验、
+  商业卖点方向、长期可维护可配置——计划方案与代码实现均须逐条对照）。
+
 ## 2026-07-12 鲁莽选人核验 + 反击类演出统一普攻动画
 - 核验鲁莽（赫拉克勒斯）"优先选统率最高"：实现即每次选人时用
   effective_attr 实时统率（含 buff/吸取后变动），非入场锁定；探针验证
@@ -218,226 +583,7 @@
   测试结构、B4 边界；index.md 登记。
 - ops_manual §1 已含 Unity 运行步骤与机制验收战报切换（§6）。
 
-## 2026-07-06 单挑 T6 修复（折叠粒度整段播放）
-- 根因：折叠模式下 `duel_challenge`/`duel_result` 同 group，旧逻辑只播宣战、
-  `ProcessSideEvents` 跳过 result，对撞从未出现。
-- `CardBattleView.SeqDuelStage`：整段 challenge→result→attr_change；非参战者压暗、
-  武力对比条、3 次对撞、胜负定格、惩罚飘字时机修正。
-- `CardView.SetDimmed` 支持擂台暗场。ops_manual §6/FAQ 区分 1v1（拒绝）与
-  standard_seed20260705（接受对撞，默认战报）。
+## 更早条目
 
-## 2026-07-06 机制分项验收用例（连携/单挑/中毒/控制/追击/准备）
-- 新增 `battle/tests/test_client_mechanics.py`：六机制 golden 事件覆盖校验，
-  支持 `--list` 打印对照表、`--export` 同步 StreamingAssets；`python xx.py` 直接可跑。
-- 新增 Unity `CardBattleMechanicsTests`：每项机制独立 PlayMode 测试
-  （事件预检 + 前端播完镜像终态一致），与 Python 脚本同源 golden 对照表。
-- 机制→战报：连携 oracle_seed5 / 单挑 1v1_seed7 / 中毒 skills_seed11 /
-  控制+准备 standard_seed42 / 追击 standard_seed20260705。
-- ops_manual §6 登记机制验收路径。PlayMode 10/10 全绿。
-
-## 2026-07-06 B3 收尾补丁：卡住修复 + 连携武将登记
-- 修复「播放卡住」根因：Play 模式中保存脚本触发域重载，Runner 协程与 _director
-  被清空。BattleDemoRunner 增加自愈：Update 检测 _director 丢失 → 清残留视图
-  → 自动重启播放（并告警提示播放期间勿保存脚本）。
-- 修复域重载连带 bug：FactionCardShape/ProcTex 静态缓存持有已销毁 Sprite
-  假引用导致卡框/特效贴图消失，缓存判空改用 Unity null 语义自动重建。
-- 连携（oracle）局武将登记：阿波罗=神、皮提亚=人、斯忒诺=冥界补入
-  FactionStyle（faction_style.md 同步）；其连携战法 pythia_woven_scheme/
-  gorgon_gaze 演出表此前已配。三人立绘暂缺回退色块，补
-  Resources/Portraits/<中文名>.png 即生效。oracle_seed5/standard_seed42
-  拷入 StreamingAssets 供切换验收（连携/打断演出）。
-- 结算面板实机验证通过（oracle_seed5 播至 battle_end：胜负+逐局+武将统计）。
-  EditMode 11/11 + PlayMode 3/3（含全 9 golden 逐播）全绿。
-
-## 2026-07-06 Phase 2 B3 收尾：对照任务书补齐缺口
-- 连携 assist：「连携!」横幅 + 号角 + 发起者金色光环，前置于战法模板。
-- 打断双表达（任务书 5.3）：蓄力破碎特效 +「打断!」暴击样式飘字（施法者侧），
-  与打断来源的控制状态特效（status_apply 侧）分开表达；prepare 增加充能特效。
-- 犹豫延迟槽：卡牌角落 ⏳×层数 标记，由镜像 DelayedSlots 驱动
-  （随跳过/续局/补结算持久正确），release 后原子移除。
-- battle_end 系列结算面板：胜负 + 逐局比分 + 武将统计（伤害/治疗/击杀/余兵），
-  数据全部取战报顶层 result，播完停留（任务书 §4）。
-- 事件覆盖表收口：event_mapping §6 契约 21 类逐条标注（已实现/刻意不表现+理由/
-  B4 打磨项），无遗漏。
-- 模板参数化验证：同一 MeleeDash 模板差分出战神怒火（火焰斩+橙）与十二试炼
-  （爪击+暴击命中）；同一 UltimateCutIn 差分出雷霆神谕（蓝雷）与冥域君临（紫柱）。
-- 测试：新增 PlayMode 全 golden（9 份）逐一播完镜像终态断言——覆盖单挑
-  （1v1/standard/oracle）、犹豫+连携（oracle_seed5/99）、打断（standard_seed42），
-  无需另造专用战报。.cursorrules 当前 Step 更新至 B3 待验收。
-
-## 2026-07-05 Phase 2 B3：演出模板 T1~T7 + 三采购包接入 + 运维手册（机器验证通过）
-- 演出模板序列器（CardBattleView 重写）：T1 突进斩（拖尾+贴身 1.15+采购刀光）、
-  T2 弹道、T3 全体弹幕（压暗+错峰天降）、T4 增益光环、T5 大招 cut-in
-  （黑幕+速度线+立绘三段横扫）、T6 单挑小剧场（双主将中央对撞×2）、
-  T7 天降（来源头像标+状态表可换特效，C-07）。
-- 三个采购特效包全部接入：2D Sword Slash VFX（刀光/对撞）、Combat Flipbook
-  VFX URP（命中/爆炸/电击/循环光环）、2D Cartoon/Anime Effects（施法/天降/
-  增益/削弱，四色系）。VfxLibrary 30 键全登记真实 prefab；VfxPlayer 池化播放
-  + 循环句柄；key 缺失回退 VfxKit 程序化原语并告警（播放永不中断）。
-- 三张配置资产（Resources/Configs）：VfxLibrary / SkillVfxTable（26 战法）/
-  StatusVfxTable（15 状态），菜单 GreekMyth→Build Vfx Configs 一键生成/补全
-  （不覆盖人工修改）。状态常驻光环生命周期管理（apply 挂/remove 停/跳过对齐镜像）。
-- 阵营差异化卡形（FactionCardShape：神拱顶/人盾形/海波浪/冥哥特 + SpriteMask
-  裁切立绘）；合成占位音效 SfxService（11 键，Resources/SFX/key.wav 优先）；
-  修复无声根因：场景缺 AudioListener，SfxService 自动补挂。
-- 战斗 UI 最小集：回合/比分/状态行 + 倍速 x1/x2 + 粒度切换 + 跳过本局/跳到结果。
-- 验证：EditMode 11/11 + PlayMode 2/2 全绿；BattleDemo 完整播放无错误、
-  无未登记特效告警；截图 Logs/b3_demo_screenshot*.png。
-- 文档：ops_manual.md（非程序员运维手册，重点验收物）+ presentation_flow.md
-  （机制流+代码地图）；index 更新。决策 C-10。
-
-## 2026-07-05 Phase 2 B2：卡牌视觉系统 + 打击感地基（机器验证通过）
-- CardFX.shader（代码 shader，C-09 备案）：视差伪 3D/呼吸缩放/foil 流光/
-  受击闪白/状态色调（石化去饱和、中毒绿），SpriteRenderer 与 UI 通用。
-- CardView 卡牌视图：阵营边框（FactionStyle 四阵营配色）+ 兵力条 + 状态图标栏
-  （层数角标）+ 主将★ + 立绘 Resources/Portraits/<hero_id>.png 换皮零代码。
-- 打击感三件套：ImpactService（HitStop 真实时间编排 + 自研震屏）+ 闪白，
-  四档分档集中 ImpactConfig.asset；飘字对象池（C-03 样式，暴击弹跳/DoT 小字）。
-- CardBattleView 接替占位前端（Runner 开关保留 placeholder）；PlayMode 冒烟
-  2/2 通过（播完 golden 终态一致 + 池无泄漏 + 中途跳过安全收敛）。
-- 文档：art_pipeline / faction_style / card_shaders；决策 C-09。
-- 待 B2 收尾项：状态图标正式图、头像资产（Avatars/）——随 B3 状态特效一并做。
-
-## 2026-07-05 Phase 2 B1：播放调度层代码完成（待 Unity 内验收）
-- 数据层：ReportLoader（schema major/seq 递增/t 字典序校验，失败一律
-  ReportFormatException）+ 事件树重建 + PayloadReader 类型化读取。
-- BattleMirror：事件驱动纯赋值 + before 自校验（troops/attr 篡改立即报错）；
-  PlaybackDirector：折叠/展开粒度、倍速、跳过=Apply-only 快进、未知类型告警。
-- headless 中文播放日志（对齐 replay_dump brief）+ 占位前端（方块+文字，上下排）
-  + BattleDemoRunner 主入口 + BattleDemo 场景 + StreamingAssets 样例战报。
-- EditMode 单测 9 条（逐 golden 跑通/跳过等价/粒度等价/非法战报显式报错），
-  golden 直接复用 battle/tests/golden。文档 docs/client/playback_director.md。
-- 验收方式：Unity 打开工程编译，Test Runner 跑 EditMode，运行 BattleDemo 场景。
-- 同日验证：Unity 内编译零错误；EditMode 10/10 通过（修复一处镜像缺口：局边界
-  引擎静默回滚局内属性修正，镜像同步复位到建队快照）；BattleDemo 场景 Play Mode
-  冒烟完整播完 2 局并停在结算，日志落盘 Logs/battle_playback_sample_standard.log。
-  另备 tools/client_check（dotnet 壳）可在 Unity 外跑同源校验。
-
-## 2026-07-05 人工修订 C-07：机制触发伤害默认天降特效 + 演出配置手册
-- 自带战法机制触发的伤害（组根 status_tick，非主动非追击）默认**不播卡牌突进
-  动画**，改为 T7「天降特效伤害」：上方特效坠落 + 目标头顶来源头像标 + 飘字；
-  新增 T7 模板规格（vfx_templates.md，共 7 套），T2 收窄为主动弹道专用。
-- 逐战法/状态演出可配置：SkillVfxTable / StatusVfxTable 两表为唯一定制入口
-  （状态表含触发伤害演出覆盖、头像标开关、常驻特效、色调）。新建维护手册
-  `docs/client/vfx_config.md`（查找顺序/字段表/示例配置/维护纪律）。
-- event_mapping §2.3、decisions C-07、client/index 同步更新。
-
-## 2026-07-05 Phase 2 Step A 人工确认 + 采购清单
-- 决策批复：C-01 修订为横屏+卡牌上下占位（敌上我下，中央演出通道）；C-02 确认
-  4.0s 独立预算且单挑演出允许付费采购；C-03（飘字不缩略）/C-04（跳过不播摘要）/
-  C-05（时长终值）按提案确认。
-- 新建 `docs/client/to_purchase.md`：首批采购清单（2D Cartoon/Anime Effects
-  $4.99 必买、Combat Flipbook VFX URP $39.97 必买、2D Sword Slash VFX / 音效包
-  推荐），含 URP 2D Renderer 兼容性红线、用户购买操作步骤、免费占位方案与
-  放置规范。vfx_templates T1 轨道描述改为纵向突进（对齐 C-01）。
-- 等待用户完成购买后进入 Step B1。
-
-## 2026-07-05 Phase 2 Step A：客户端架构设计四文档产出
-- 通读 phase2_client.md 任务书 + 冻结契约 + playback_model + golden 样例，产出
-  Step A 四份文档：`docs/client/event_mapping.md`（契约 21 类事件逐条表现职责/
-  消费字段/阻塞性/粒度归属 + hint 四档打击感 + 平局续局与犹豫延迟表现方案）、
-  `docs/client/architecture.md`（数据/调度/表现三层单向依赖 + BattleMirror 状态
-  镜像原子绑定 + 播放控制定稿 + asmdef 划分 + BattleDemoRunner 主入口规格）、
-  `docs/client/vfx_templates.md`（6 套 Timeline 模板：突进斩/弹道/全体弹幕/增益
-  光环/大招 cut-in/单挑小剧场；SkillVfxTable 映射 + 兜底 + StatusVfxTable 特效
-  扩展位；时长预算论证）。
-- decisions.md 追加 C-01~C-07（横屏布局提案/单挑 4s 独立预算/飘字不缩略/跳过
-  不播摘要/时长终值/状态特效扩展/头像标判定），前五条待人工确认。
-- 新建 `docs/client/index.md` 主文档；.cursorrules 切换至 Phase 2 Step A。
-- STEP A 完成，等待架构确认。确认前不编写任何 Unity 场景与 C# 实现。
-
-## 2026-07-05 Step B4：选人事件化 + 工具链 + golden 冻结 + 收口
-- 选人/受击率事件化（D-22）：`select_enemy_by_hit_rate` 记录候选池受击点数与命中者，
-  以可选字段 `target_select` 随 normal_attack/skill_trigger/damage 带出（契约加法式
-  演进，schema 1.1.0，core 0.2.0）；textlog all 档打印「·选人[普攻] 受击点数: …→选中」，
-  brief 不打印。新建 `docs/mechanics/targeting.md` + `test_targeting.py`（4 测试）。
-- 工具链（任务书 4.2/6.3）：`battle/tools/batch_sim.py`（阵容池×种子范围，胜率/局数/
-  每武将伤害治疗分位数统计，可存 JSON）；`battle/tools/replay_dump.py`（战报 JSON →
-  中文文本日志，brief/all 两档）。
-- 性能基准：`battle/benchmarks/bench_simulate.py` + 报告 `docs/dev/performance.md`——
-  纯模拟 315（standard 全机制）~847（纯普攻）局/秒，目标 ≥100 达标。
-- golden 冻结（D-23，任务书 4.3 第 3 层）：`battle/tools/gen_golden.py` 生成 9 份
-  覆盖各机制阵容的战报入库 `battle/tests/golden/`；`test_golden.py` 逐字节回归。
-- 收口：新建根 `README.md`（目录约定+快速上手+上下文管理规则）；.cursorrules 更新至
-  B4；契约文档登记 1.1.0 演进并修正 delayed 描述（延后恒 1 回合）。
-
-## 2026-07-05 三项规则人工修订：犹豫二次修订 / 赫尔墨斯限前 2 回合 / 无视统帅置 0
-- 犹豫（D-02 二次修订）：延后固定 1 回合（N→N+1 回合窗口最前释放，释放后才进入
-  新一轮判定）；重复施加**刷新不叠层**（stacks 恒 1）；已登记延迟行动不受刷新影响。
-  `statuses.hesitation()` 去叠层、引擎 delay_rounds 固定 1。
-- 赫尔墨斯神谕（D-19 修订）：扰心印记仅前 2 回合生效（duration_rounds=2，
-  覆盖第 1、2 回合行动窗口后到期）。
-- 阿喀琉斯之怒（D-20 修订）：`ignore_defense` 语义改为**属性差计算时对方防御属性
-  置 0**（原按基准 100 作废），追加伤害显著增强。
-- 测试改造：延迟恒 1 回合断言、新增刷新不叠层测试与印记前 2 回合测试（替换叠层
-  测试）；119 个全绿。文档同步：hesitation.md 重写、effects/statuses/
-  status_interactions/index、两篇战法文档、决策 D-02/D-19/D-20 修订落档。
-
-## 2026-07-05 日志中文化 + brief/all 双粒度 + 众神对决演示战
-- 新建 `battle/names.py`（战法/状态 id → 中文名注册表）与 `battle/textlog.py`
-  （全项目日志文本唯一出口：`format_report(report, mode)`，brief=主干 /
-  all=全量，中文战法名）；`battle/sample.py` 打印逻辑迁入 textlog 并新增
-  `--mode` 参数，文本落盘带模式后缀。
-- 新建 `battle/tests/test_showcase_gods.py`（人工指定验收阵容：宙斯+阿喀琉斯+阿瑞斯
-  对 哈迪斯+赫尔墨斯+阿斯克勒庇俄斯，装配覆盖暴击/控制/DoT/治疗/追击/连击/准备型）：
-  直接执行输出中文战斗日志（brief+all 双份落盘 battle/out/），pytest 断言机制覆盖
-  与中文化生效。测试 118 个全绿。
-
-## 2026-07-05 Step B2 验收通过 + Step B3：五大高级系统、标杆战法与示例武将
-- 五大高级系统落地（`battle/engine.py`）：单挑（DUEL 相位，D-03）、追击/连击
-  （每击独立追击）、连携（k=70%，普通随机不占记账）、犹豫（整体延后 N=层数、
-  窗口末计次，D-02 修订版）、准备型战法（prepare/release/interrupted 协议）。
-- 状态系统升级：四类响应钩子（on_apply/on_damage_dealt/on_damage_taken/
-  on_action_start）+ 全局响应优先级分发；动态修正/局内外计数器；标准控制建造器
-  （缄默/缴械/冥锁/石化/犹豫）；deal_damage 扩展（无视防御/固定量/kind 防递归/
-  吸血）；adjust_status_attr 新原语。
-- 标杆战法 14 个全部实现（`battle/standard_skills.py`）：skill_files.py 全对位
-  （含 5 个仅描述未实现的）+ 人工新增验收标杆**阿喀琉斯之怒**（物理暴击+20%、
-  暴击追伤 60% 无视统帅每回合 3 次）；示例武将花名册（`battle/roster.py`）。
-- 测试 116 个全绿（新增 54：逐系统 + 交互矩阵逐格 + 逐标杆战法 + 标准阵容确定性）。
-- 文档：新建 duel/assist/pursuit_combo/hesitation/status_interactions 五机制文件 +
-  docs/skills/ 三段式战法文档 14 篇；effects/statuses/determinism（RNG 消费点与
-  排序规则登记）/index 全量更新；决策补录 D-15~D-21（待审阅）。
-- sample 新增 standard/oracle 场景（`python -m battle.sample --scenario oracle`）。
-
-## 2026-07-05 Step B1 验收通过 + Step B2：效果原语、状态系统与数值迁移
-- 效果原语五入口落地（deal_damage/heal/apply_status/remove_status/modify_attr，
-  `battle/engine.py`）+ 暴击乘区（伤害/治疗，率聚合面板+状态、DoT 不暴击）；
-  治疗公式迁移（标定 500/400/1073 逐值锚定）。
-- 状态系统（`battle/statuses.py`）：kind/层数/持续/来源；负面默认不可刷新不可叠加
-  （静默拒绝）；行动窗口计次到期；DoT/HoT 回合始 tick；修正聚合先平加后百分比；
-  forbid_* 禁制。阵亡鲁棒清理：施加状态事件化全清、不复活、不可为目标（专项边界测试）。
-- 战法基座（`battle/skills.py`）：类+注册+装配顺序；伪随机补偿真累计
-  （`battle/pseudo_random.py`，D-09，一局内记账）；6 个 test_ 战法覆盖全部原语。
-- 测试 62 个全绿（新增公式单测/状态/阵亡清理/伪随机/战法端到端 45 个）；全部测试
-  文件支持 `python xx.py` 直接执行。数值等价验证：新旧核同种子 1000 场统计对比
-  全指标容差内通过（`docs/dev/numeric_equivalence.md`）。
-- 新建 `docs/mechanics/statuses.md`、`effects.md`；index/determinism（RNG 消费点
-  登记表扩充）同步更新。sample 新增 `--scenario skills` 演示。
-
-## 2026-07-05 Step A 人工确认 + Step B1：引擎骨架与确定性地基
-- 决策批复落档（decisions.md）：犹豫消耗改行动回合计次；单挑拒绝封顶 80%、仅第 1 局
-  一次且惩罚仅第 1 局（scope=game）；连携 k=70% 且不占用当回合释放机会；D-05/D-06
-  及其余各条按提案确认。契约修订：相位枚举拆分起止端（0~7）修复 t 字典序不变量。
-- 新建 `battle/`：`simulate(setup, seed)` 纯函数入口；系列→局→回合→行动状态机
-  （准备回合 + 8 正常回合 + 最多 7 局残血续战）；EventWriter（seq/t/分组/体积保险丝，
-  异常即战斗失败）；单一 PCG RNG 流；普攻/兵力三池/受击率公式忠实迁移。
-- 测试 17 个全绿：同种子 100 次逐字节一致、战报结构逐条核对冻结契约（seq/t 序、
-  分组继承、兵力链连续）、系列平局编排、初始兵力与超编 NPC、输入校验。
-- 新建 `docs/mechanics/index.md`（机制总图）与 `determinism.md`（RNG/排序/舍入/
-  纯函数红线 + RNG 消费点登记表）。
-
-## 2026-07-05 Step A：分析与契约草案产出
-- 完整通读旧 core（engine/domain/config/event/rng 全部源码 + 全部设计文档），产出
-  《旧 core 分析报告》`docs/dev/v0_analysis.md`（资产清单/文档-代码核对/五维度重构问题/属性术语定论）。
-- 产出《战斗事件流契约草案》：`docs/schema/battle_events.md`（总纲：battle_report 结构、
-  逻辑时间、分组机制、pb 映射、体积估算）+ `battle_events_payloads.md`（21 种事件字段表
-  与 JSON 实例）+ `battle_events.schema.json`（JSON Schema 2020-12）。
-- 产出《播放模型设计文档》`docs/dev/playback_model.md`（6 种播放粒度论证 + 3 个典型
-  战法事件流示例）与《待人工确认决策清单》`docs/dev/decisions.md`（14 条决策）。
-- 修正：雷霆神谕示例按 `skill_files.py` 标杆语义改写（神谕施加全队【雷霆】状态，
-  非准备型两段协议）；status_tick 语义扩展覆盖事件驱动的状态触发。
-- 建立仓库根 `.cursorrules`。Step A 完成，等待人工验收。
-- 并行分析子代理返回后交叉核对，向 v0_analysis 补两条：旧 core 无法指定进场初始兵力
-  （troops 恒=max_troops，系列续战需新增 initial_troops 入口）；bench_basic.py 运行时
-  改写模块常量破坏纯函数性（O5）。
+2026-07-06 及以前（Phase 1 / Phase 2）的全部条目已移至
+`changelog_archive_phase12.md`（300 行红线拆分，2026-07-15）。

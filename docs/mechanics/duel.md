@@ -33,3 +33,22 @@ duel_challenge（组根：challenger/defender + 双方武力）
 - 1v1、2v2 同样适用（只要双方各有 >90 武力者）。
 - 单挑不掉兵、不产生伤害事件——纯属性惩罚 + 演出。
 - 惩罚随第 1 局 game_end 回滚，不带入第 2 局（D-03 已定）。
+
+## 5. 性格约战注册表（Phase 4 C6，注册表驱动）
+
+实现：`battle/traits.py::DuelBehavior / DUEL_BEHAVIORS / register_duel_behavior`；
+单挑流程只查表、不写死 if——**空表 = 上述旧行为**（旧 golden 保障）。
+测试：`battle/tests/test_phase4_primitives.py`（约战组）。
+
+| 字段 | 语义 | 典型性格（A3/A4 接线时注册） |
+|---|---|---|
+| `always_accept` | 作为被叫阵方必应战：**跳过拒绝判定，不 roll、不消耗 RNG** | 傲慢 |
+| `reject_bonus_bps` | 拒绝率加成，叠加后仍受 80% 封顶 | 谋深 |
+| `challenge_below_threshold` | 武力 ≤90 也进入叫阵候选（仍按武力高者优先） | 好战 |
+| `force_duel` | 作为叫阵方强制搦战：对方不得拒绝（跳过拒绝判定） | 好战 |
+
+- 台词：性格 `lines` 表配置 `duel_challenge` / `duel_accept` / `duel_reject`
+  三个 effect 即自动发 `trait_trigger`（未配置则静默；台词确定性轮换不耗 RNG）。
+- RNG 口径：跳过拒绝判定的路径**不消耗** `duel_reject` 流；胜负判定不受注册表影响。
+- 扩展方法：新性格只需 `register_duel_behavior(trait_id, DuelBehavior(...))`，
+  禁止在 `_run_duel` 内新增 trait_id 特判。

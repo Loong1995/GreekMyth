@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-"""武将花名册 v3.1（Phase 3，四阵营 24+2 将，任务书 §六 阵营总表）。
+"""武将花名册 v4（Phase 4 A4 定稿：29 将 = 奥林匹斯 7 / 英雄 9 / 海域 6 / 冥界 7）。
 
 - 四维属性：表中为 1 级初始值 + 每级成长（centi 精度，×100 存整数）；
   等级 L 的面板 = base + growth_centi × (L-1) // 100（整数下取整），默认 50 级。
 - 每武将：1 自带战法（装配位 0，innate）+ 最多 2 可配置战法格。
 - 珀尔修斯附带隐藏被动 perseus_mirror（镜盾石化免疫，常驻，自动装配）。
-- faction：gods/men/sea/underworld（珀尔修斯借宝性格按 faction 判神阵营友军）。
+- faction（A4 定稿）：olympus/heroes/sea/underworld（原 gods/men 改名）；
+  奥德修斯→sea、赫尔墨斯→underworld（manual_tasks 拍板项 1）。
+  珀尔修斯借宝性格按 faction=="olympus" 判神阵营友军。
 
 用法：hero_setup("achilles", hero_id="a1", position=0, extra_skills=("achilles_thrust",))
 """
@@ -43,42 +45,47 @@ class HeroTemplate:
 ROSTER: dict[str, HeroTemplate] = {
     t.template_id: t
     for t in (
-        # ---- 神阵营（神示与落雷）----
-        HeroTemplate("zeus", "宙斯", "gods", "m", "duoqing",
+        # ---- 奥林匹斯阵营（神示与落雷）----
+        HeroTemplate("zeus", "宙斯", "olympus", "m", "duoqing",
                      (55, 90), (100, 300), (96, 230), (75, 140), "thunder_oracle"),
-        HeroTemplate("athena", "雅典娜", "gods", "f", "mingrui",
+        HeroTemplate("athena", "雅典娜", "olympus", "f", "mingrui",
                      (78, 160), (96, 260), (98, 236), (70, 130), "athena_aegis"),
-        HeroTemplate("ares", "阿瑞斯", "gods", "m", "haozhan",
+        HeroTemplate("ares", "阿瑞斯", "olympus", "m", "haozhan",
                      (98, 290), (32, 45), (90, 160), (72, 135), "ares_warfury"),
-        HeroTemplate("hermes", "赫尔墨斯", "gods", "m", "jiaoxia",
-                     (55, 90), (85, 190), (50, 80), (100, 220), "hermes_oracle"),
-        HeroTemplate("apollo", "阿波罗", "gods", "m", "guangming",
+        HeroTemplate("hermes", "赫尔墨斯", "underworld", "m", "jiaoxia",
+                     (55, 90), (85, 190), (50, 80), (100, 220), "hermes_oracle"),  # A4 →冥界
+        HeroTemplate("apollo", "阿波罗", "olympus", "m", "guangming",
                      (60, 100), (93, 230), (70, 130), (82, 160), "delphi_revelation"),
-        HeroTemplate("asclepius", "阿斯克勒庇俄斯", "gods", "m", "renxin",
+        HeroTemplate("asclepius", "阿斯克勒庇俄斯", "olympus", "m", "renxin",
                      (15, 40), (88, 210), (40, 150), (76, 125), "asclepius_oracle"),
-        HeroTemplate("artemis", "阿尔忒弥斯", "gods", "f", "guyue",
+        HeroTemplate("artemis", "阿尔忒弥斯", "olympus", "f", "guyue",
                      (62, 101), (92, 235), (55, 90), (92, 195), "artemis_hunt"),
-        HeroTemplate("nike", "尼刻", "gods", "f", "qiusheng",
+        HeroTemplate("nike", "尼刻", "olympus", "f", "qiusheng",
                      (70, 140), (68, 120), (60, 100), (88, 175), "nike_wings"),
-        # ---- 人阵营（暴击与追加）----
-        HeroTemplate("achilles", "阿喀琉斯", "men", "m", "aoman",
+        # ---- 英雄阵营（暴击与追加）----
+        HeroTemplate("achilles", "阿喀琉斯", "heroes", "m", "aoman",
                      (100, 304), (40, 60), (76, 120), (86, 180), "achilles_wrath"),
-        HeroTemplate("heracles", "赫拉克勒斯", "men", "m", "lumang",
+        HeroTemplate("heracles", "赫拉克勒斯", "heroes", "m", "lumang",
                      (97, 285), (30, 40), (95, 210), (60, 100), "heracles_trials"),
-        HeroTemplate("odysseus", "奥德修斯", "men", "m", "moushen",
-                     (70, 130), (94, 225), (80, 160), (72, 130), "odysseus_trojan"),
-        HeroTemplate("perseus", "珀尔修斯", "men", "m", "jiebao",
-                     (91, 255), (55, 90), (58, 95), (96, 210), "perseus_relics",
+        HeroTemplate("odysseus", "奥德修斯", "sea", "m", "moushen",
+                     (70, 130), (94, 225), (80, 160), (72, 130), "odysseus_trojan"),  # A4 →海域
+        HeroTemplate("perseus", "珀尔修斯", "heroes", "m", "jiebao",
+                     (91, 255), (55, 90), (58, 95), (82, 210), "perseus_relics",  # A4 速度基础 96→82 对表
                      hidden_skills=("perseus_mirror",)),
-        HeroTemplate("atalanta", "阿塔兰忒", "men", "f", "zhuping",
+        HeroTemplate("atalanta", "阿塔兰忒", "heroes", "f", "zhuping",
                      (88, 220), (45, 70), (52, 85), (98, 215), "atalanta_swift"),
-        HeroTemplate("paris", "帕里斯", "men", "m", "qiaoshe",
+        HeroTemplate("paris", "帕里斯", "heroes", "m", "qiaoshe",
                      (84, 200), (60, 100), (48, 80), (85, 170), "paris_fatal_arrow"),
-        HeroTemplate("ajax", "大埃阿斯", "men", "m", "jianren",
+        HeroTemplate("ajax", "大埃阿斯", "heroes", "m", "jianren",
                      (88, 215), (25, 40), (96, 220), (50, 80), "ajax_shield"),
-        HeroTemplate("chiron", "喀戎", "men", "m", "shizhe",
-                     (70, 130), (85, 190), (68, 120), (64, 105), "chiron_medicine"),
-        # ---- 海阵营（震荡与节奏控制）----
+        # 喀戎 v4 下架（manual_tasks 拍板项 2）
+        HeroTemplate("hector", "赫克托尔", "heroes", "m", "zhonglie",
+                     (98, 292), (54, 80), (94, 218), (72, 135), "hector_warcry"),
+        HeroTemplate("jason", "伊阿宋", "heroes", "m", "haozhao",
+                     (82, 190), (82, 175), (80, 165), (84, 170), "jason_expedition"),
+        HeroTemplate("castor", "卡斯托耳", "heroes", "m", "bingpei",
+                     (89, 230), (42, 65), (76, 145), (88, 185), "castor_twin"),
+        # ---- 海域阵营（震荡与节奏控制；奥德修斯 A4 迁入见上英雄段位置保持模板序）----
         HeroTemplate("poseidon", "波塞冬", "sea", "m", "jichou",
                      (92, 240), (80, 180), (92, 190), (68, 120), "poseidon_oracle"),
         HeroTemplate("amphitrite", "安菲特里忒", "sea", "f", "roubo",
@@ -89,9 +96,8 @@ ROSTER: dict[str, HeroTemplate] = {
                      (30, 50), (87, 195), (45, 75), (90, 185), "siren_song"),
         HeroTemplate("scylla", "斯库拉", "sea", "f", "tanshi",
                      (90, 235), (35, 55), (78, 150), (66, 115), "scylla_maw"),
-        HeroTemplate("charybdis", "卡律布狄斯", "sea", "f", "baoshi",
-                     (82, 190), (20, 35), (92, 205), (40, 65), "charybdis_maw"),
-        # ---- 冥阵营（吸取与处决）----
+        # 卡律布狄斯 v4 下架（manual_tasks 拍板项 2）
+        # ---- 冥界阵营（吸取与处决；赫尔墨斯 A4 迁入见上奥林匹斯段位置保持模板序）----
         HeroTemplate("hades", "哈迪斯", "underworld", "m", "weiquan",
                      (60, 110), (92, 220), (97, 240), (55, 90), "hades_underworld_dominion"),
         HeroTemplate("medusa", "美杜莎", "underworld", "f", "guyuan",

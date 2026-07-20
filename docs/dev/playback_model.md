@@ -1,5 +1,7 @@
 # 播放模型设计文档（playback_model）
 
+> 【历史文档/设计存档】契约设计期论证，概念仍成立；**现行播放实现权威**
+> 为 `docs/client/playback_units.md` 与 `client_battle_framework.md`。
 > Step A 产出 3/4。说明事件流契约（`docs/schema/battle_events.md`）如何支撑客户端
 > 多粒度反演播放。客户端不做任何结算，仅按事件流驱动演出与 UI 状态。
 
@@ -75,13 +77,13 @@
   "payload":{"actor_id":"A2","skill_id":"thunder_oracle","kind":"cast",
    "target_ids":["A1","A2","A3"]},"hint":{"intensity":"strong"}},
  {"seq":21,"t":{"g":1,"r":0,"p":4,"s":0},"type":"status_apply","parent_seq":20,"group_id":20,
-  "payload":{"status":{"instance_id":201,"status_id":"thunder_state","owner_id":"A1"},
+  "payload":{"status":{"instance_id":201,"status_id":"thunder","owner_id":"A1"},
    "source_id":"A2","stacks":1,"duration_rounds":-1}},
  {"seq":22,"t":{"g":1,"r":0,"p":4,"s":0},"type":"status_apply","parent_seq":20,"group_id":20,
-  "payload":{"status":{"instance_id":202,"status_id":"thunder_state","owner_id":"A2"},
+  "payload":{"status":{"instance_id":202,"status_id":"thunder","owner_id":"A2"},
    "source_id":"A2","stacks":1,"duration_rounds":-1}},
  {"seq":23,"t":{"g":1,"r":0,"p":4,"s":0},"type":"status_apply","parent_seq":20,"group_id":20,
-  "payload":{"status":{"instance_id":203,"status_id":"thunder_state","owner_id":"A3"},
+  "payload":{"status":{"instance_id":203,"status_id":"thunder","owner_id":"A3"},
    "source_id":"A2","stacks":1,"duration_rounds":-1}}
 ]
 ```
@@ -97,7 +99,7 @@
    "troops":{"hero_id":"B1","troops_before":9000,"troops_after":8345,
     "wounded_before":700,"wounded_after":1159,"dead_before":300,"dead_after":496}}},
  {"seq":82,"t":{"g":1,"r":2,"p":4,"s":0},"type":"status_tick","parent_seq":81,"group_id":82,
-  "payload":{"status":{"instance_id":201,"status_id":"thunder_state","owner_id":"A1"},
+  "payload":{"status":{"instance_id":201,"status_id":"thunder","owner_id":"A1"},
    "source_id":"A1"},"hint":{"intensity":"strong"}},
  {"seq":83,"t":{"g":1,"r":2,"p":4,"s":0},"type":"damage","parent_seq":82,"group_id":82,
   "payload":{"source_id":"A1","target_id":"B1","damage_type":"magic","amount":540,"is_crit":false,

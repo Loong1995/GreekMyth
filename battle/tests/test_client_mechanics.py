@@ -6,12 +6,12 @@ from __future__ import annotations
 Unity StreamingAssets 供 BattleDemo 切换人工验收。
 
 机制 → golden 对照（与 PlayMode CardBattleMechanicsTests 同源）：
-  连携 assist     oracle_seed5.json
+  连携 assist     oracle_seed99.json
   单挑 duel       1v1_seed7.json
   中毒 poison     skills_seed11.json
   控制 control    standard_seed42.json
   追击 pursuit    standard_seed20260705.json
-  准备 prepare    sea_underworld_seed9.json
+  准备 prepare    men_gods_seed12.json
 
 直接运行（仓库根目录）：
     python battle/tests/test_client_mechanics.py              # 校验覆盖
@@ -93,7 +93,8 @@ def _has_prepare(events: list[dict]) -> bool:
 
 MECHANIC_CASES: dict[str, dict] = {
     "连携": {
-        "golden": "oracle_seed5.json",
+        # v4 海域批后 seed5 无 assist（潮汐抚愈改被动、率值变动致 RNG 移位），改用 seed99
+        "golden": "oracle_seed99.json",
         "scene": "波塞冬神谕局 · 准备回合副将 assist",
         "check": _has_assist,
     },
@@ -118,8 +119,9 @@ MECHANIC_CASES: dict[str, dict] = {
         "check": _has_pursuit,
     },
     "准备": {
-        "golden": "sea_underworld_seed9.json",
-        "scene": "死神镰痕 thanatos_scythe · skill_trigger kind=prepare",
+        # v4 冥界批后死神镰痕改即发；准备覆盖改用赫克托尔战吼（men_gods 场景）
+        "golden": "men_gods_seed12.json",
+        "scene": "特洛伊战吼 hector_warcry · skill_trigger kind=prepare",
         "check": _has_prepare,
     },
 }

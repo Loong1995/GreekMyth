@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-"""冥阵营战法（v3.1 池，机制标签：吸取与处决）。数值以 phase3 任务书 §五/§六 为准。
+"""冥界阵营战法（Phase 4 v4 池，机制标签：吸取与处决）。
 
 自带：hades_underworld_dominion 冥域君临 / medusa_gaze 石化凝视 /
       persephone_seasons 冬春轮转 / charon_ferry 渡魂船费 /
       thanatos_scythe 死神镰痕 / cerberus_bite 三首噬咬
 拆解：hades_soul_drain 冥河汲魂 / medusa_glance 蛇瞳一瞥 / persephone_sprout 春芽 /
       charon_ferryman 摆渡 / thanatos_gaze 死亡凝望 / cerberus_guard 守门恶犬
+赫尔墨斯 A4 阵营重划（gods→underworld）时随批迁入。
 """
 
 from dataclasses import dataclass
@@ -14,19 +15,28 @@ from dataclasses import dataclass
 from battle.skill_common import (
     BPS,
     emit_status_trigger,
-    lowest_ratio_allies,
     lowest_ratio_enemies,
 )
 from battle.skills import TIMING_PREPARE, TIMING_PURSUIT, Skill, register
 from battle.skills_men import LionCounter, _lion_on_damage_taken
-from battle.statuses import DEBUFF, PERMANENT, SPECIAL, StatusDef, petrify
+from battle.statuses import (
+    DEBUFF,
+    PERMANENT,
+    SPECIAL,
+    StatusDef,
+    curse,
+    fear,
+    petrify,
+)
 
 # =============================================================================
-# 冥域君临（哈迪斯）：神谕三重效果（均整局）：
-# 1. 己方全体【冥河血誓】：造成实际伤害后 10% 转自疗（raw 固定量）。
-# 2. 己方全体【幽影蔽体】：行动窗口开始按已损兵比例刷新减伤（≤50%，内部不事件化）。
-# 3. 哈迪斯自身【冥祭献统】：行动窗口开始从每名友军汲取 5 统率 1:1 转自身智力
-#    （Phase 3 修订：目标属性为智力；性格·威权 20% 翻倍联动）。
+# 冥域君临（哈迪斯，v4）：神谕三重效果（均整局）：
+# 1. 己方全体【冥河血誓】：造成实际伤害后 10% 转自疗（raw 固定量，不吃乘区/暴击）。
+# 2. 己方全体【幽影蔽体】：行动窗口开始按已损兵比例刷新减伤（比例×70%，≤70%，
+#    内部不事件化）。
+# 3. 哈迪斯自身【冥祭献统】：行动窗口开始从每名其他存活友军汲取 10 统率，
+#    1:1 提升自身统率并额外获得等量智力（性格·威权 20% 翻倍联动）；
+#    统率削减随哈迪斯阵亡移除（source_defeated 通例）。
 # =============================================================================
 
 STYX_HEAL_BPS = 1000
@@ -52,7 +62,7 @@ STYX_BLOOD_OATH_STATUS = StatusDef(
     response_priority=10, on_damage_dealt=_styx_on_damage_dealt,
 )
 
-SHADOW_VEIL_MAX_REDUCE_BPS = 5000
+SHADOW_VEIL_MAX_REDUCE_BPS = 7000  # v4：50% → 70%
 
 
 def _shadow_on_apply(engine, instance):
@@ -76,7 +86,7 @@ SHADOW_VEIL_STATUS = StatusDef(
     response_priority=10, on_apply=_shadow_on_apply, on_action_start=_shadow_on_action_start,
 )
 
-HADES_DRAIN_PER_ALLY = 5
+HADES_DRAIN_PER_ALLY = 10  # v4：5 → 10
 
 HADES_COMMAND_LOSS_STATUS = StatusDef(
     status_id="hades_command_loss", kind=SPECIAL, duration_rounds=PERMANENT,
@@ -111,6 +121,8 @@ def _hades_drain_on_action_start(engine, status, action_seq):
         gain = engine.apply_status(
             hades, hades, HADES_INT_GAIN_STATUS, parent_seq=action_seq
         )
+    # v4：1:1 统率提升 + 额外等量智力
+    engine.adjust_status_attr(gain, "command", total, parent_seq=action_seq)
     engine.adjust_status_attr(gain, "intelligence", total, parent_seq=action_seq)
 
 
@@ -134,8 +146,8 @@ class HadesUnderworldDominion(Skill):
 
 
 # =============================================================================
-# 冥河汲魂（哈迪斯拆解）：主动 40%——吸取敌全体 10 点统率和智力转为自身
-# （2 回合可叠加），并对敌全体 180% 魔法伤害。
+# 冥河汲魂（哈迪斯拆解，v4 调参）：主动 40%——吸取敌全体各 25 点统率和智力转为
+# 自身（2 回合可刷新），并对敌全体 180% 魔法伤害。
 # =============================================================================
 
 SOUL_DRAIN_LOSS_STATUS = StatusDef(
@@ -144,7 +156,7 @@ SOUL_DRAIN_LOSS_STATUS = StatusDef(
 SOUL_DRAIN_GAIN_STATUS = StatusDef(
     status_id="soul_drain_gain", kind=SPECIAL, duration_rounds=2, refreshable=True,
 )
-SOUL_DRAIN_PER_ENEMY = 10
+SOUL_DRAIN_PER_ENEMY = 25  # v4：10 → 25
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,12 +211,15 @@ class HadesSoulDrain(Skill):
 
 
 # =============================================================================
-# 石化凝视（美杜莎）：被动——受敌方攻击后 70%（普通随机）触发凝视：吸取来源 2 点
-# 智力（累计）转自身，并石化来源 1 回合。
+# 石化凝视（美杜莎，v4）：被动——受敌方攻击并存活后 70%（普通随机）触发凝视：
+# 吸取来源 15 点智力（整场累计）转自身，并石化来源 1 回合；每回合最多 3 次；
+# 来源已石化时仍吸智但不刷新石化；来源已阵亡不触发；美杜莎阵亡后智力削减移除
+# （source_defeated 通例）。
 # =============================================================================
 
 GAZE_RATE_BPS = 7000
-GAZE_INT_DRAIN = 2
+GAZE_INT_DRAIN = 15  # v4：2 → 15
+GAZE_MAX_PER_ROUND = 3
 
 MEDUSA_INT_LOSS_STATUS = StatusDef(
     status_id="medusa_int_loss", kind=SPECIAL, duration_rounds=PERMANENT,
@@ -221,9 +236,12 @@ def _gaze_on_damage_taken(engine, status, ctx):
         return
     if source.team_id == owner.team_id:
         return  # 只凝视敌方来源
+    if status.round_counters.get("gaze", 0) >= GAZE_MAX_PER_ROUND:
+        return  # v4：每回合最多 3 次
     roll = engine.rng.rand_bps("status_trigger", f"gaze:{status.owner_id}")
     if roll >= GAZE_RATE_BPS:
         return
+    status.round_counters["gaze"] = status.round_counters.get("gaze", 0) + 1
     tick_seq = emit_status_trigger(engine, status, ctx["damage_seq"])
     multiplier = engine.drain_multiplier(owner, tick_seq)
     drained = min(GAZE_INT_DRAIN * multiplier, engine.effective_attr(source, "intelligence"))
@@ -236,7 +254,9 @@ def _gaze_on_damage_taken(engine, status, ctx):
         if gain is None:
             gain = engine.apply_status(owner, owner, MEDUSA_INT_GAIN_STATUS, parent_seq=tick_seq)
         engine.adjust_status_attr(gain, "intelligence", drained, parent_seq=tick_seq)
-    engine.apply_status(owner, source, petrify(1), parent_seq=tick_seq)
+    # v4：来源已石化 → 仍吸智但不刷新石化持续时间
+    if engine.find_status(source.hero_id, "petrify") is None:
+        engine.apply_status(owner, source, petrify(1), parent_seq=tick_seq)
 
 
 MEDUSA_GAZE_STATUS = StatusDef(
@@ -255,24 +275,29 @@ class MedusaGaze(Skill):
 
 
 # =============================================================================
-# 蛇瞳一瞥（美杜莎拆解）：主动 35%——敌单体石化 1 回合 + 280% 魔法伤害。
+# 蛇瞳一瞥（美杜莎拆解，v4 改版）：主动 35%——对敌随机 2 人（受击率、互斥）
+# 各 180% 魔法伤害并石化 1 回合。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
 class MedusaGlance(Skill):
     def select_targets(self, engine, actor):
-        target = engine.select_enemy_by_hit_rate(actor, reason=f"skill:{self.skill_id}")
-        return [target] if target is not None else []
+        from battle.skill_common import pick_distinct_enemies
+        n = 2 + engine.rng.rand_index(2, "target_select", f"skill:{self.skill_id}:n")
+        return pick_distinct_enemies(engine, actor, n, f"skill:{self.skill_id}")
 
     def execute(self, engine, actor, targets, trigger_seq):
         for target in targets:
+            if engine.game_over() or not actor.is_alive():
+                return
             if not target.is_alive():
                 continue
-            engine.apply_status(actor, target, petrify(1), parent_seq=trigger_seq)
             engine.deal_damage(
-                actor, target, damage_type="magic", rate_bps=28000,
+                actor, target, damage_type="magic", rate_bps=18000,
                 parent_seq=trigger_seq,
             )
+            if target.is_alive():
+                engine.apply_status(actor, target, petrify(1), parent_seq=trigger_seq)
 
 
 # =============================================================================
@@ -314,26 +339,54 @@ class PersephoneSeasons(Skill):
 
 
 # =============================================================================
-# 春芽（珀耳塞福涅拆解）：主动 40%——驱散己方全体每人 1 种负面并治疗（智力 ×1.0）。
+# 春芽（珀耳塞福涅拆解，v4 改被动）：准备阶段使自身与随机 1 名友军获得【春芽】
+# （3 回合）：受伤 -25%；受实际伤害后 40% 恢复施放者智力 ×0.6 的兵力；
+# 每名持有者每回合最多触发 2 次治疗。
 # =============================================================================
+
+SPROUT_HEAL_RATE_BPS = 6000  # 每回合开始 60% 治疗
+
+
+def _sprout_on_round_start(engine, status, parent_seq, round_no):
+    owner = engine.hero_by_id(status.owner_id)
+    caster = engine.heroes.get(status.source_id)
+    if not owner.is_alive() or caster is None or not caster.is_alive():
+        return
+    roll = engine.rng.rand_bps("status_trigger", f"sprout:{status.owner_id}")
+    if roll >= SPROUT_HEAL_RATE_BPS:
+        return
+    tick_seq = emit_status_trigger(engine, status, parent_seq)
+    base = engine.effective_attr(caster, "intelligence") * 6000 // BPS
+    engine.heal(caster, owner, fixed_base=base, parent_seq=tick_seq)
+
+
+SPROUT_STATUS = StatusDef(
+    status_id="persephone_sprout", kind=SPECIAL, duration_rounds=4,
+    modifiers={"damage_reduce_bps": 2500},
+    on_round_start=_sprout_on_round_start,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class PersephoneSprout(Skill):
     def select_targets(self, engine, actor):
-        return engine.alive_allies(actor)
+        others = [h for h in engine.alive_allies(actor) if h.hero_id != actor.hero_id]
+        picked = []
+        if others:
+            idx = engine.rng.rand_index(len(others), "target_select",
+                                        f"skill:{self.skill_id}")
+            picked.append(others[idx])
+        return [actor] + picked
 
     def execute(self, engine, actor, targets, trigger_seq):
-        base = engine.effective_attr(actor, "intelligence")
         for target in targets:
-            if not target.is_alive():
-                continue
-            engine.dispel(target, count=1, parent_seq=trigger_seq)
-            engine.heal(actor, target, fixed_base=base, parent_seq=trigger_seq)
+            engine.apply_status(actor, target, SPROUT_STATUS, parent_seq=trigger_seq)
 
 
 # =============================================================================
-# 渡魂船费（卡戎）：被动整局——任意武将阵亡时：卡戎智力 +15（累计），
-# 然后治疗己方兵力比例最低者（智力 ×2.5）。
+# 渡魂船费（卡戎，v4）：被动整局——任意武将阵亡时（不分敌我）：
+# ①卡戎智力 +15（累计）；②治疗己方兵力比例最低者（智力 ×2.5）；
+# ③对敌方兵力比例最低单位 200% 魔法伤害。多单位同亡按站位序逐一结算（引擎通例）。
 # =============================================================================
 
 CHARON_INT_GAIN_STATUS = StatusDef(
@@ -353,6 +406,13 @@ def _ferry_on_hero_defeated(engine, status, ctx):
     ally = engine.select_ally_lowest_troops(owner)
     base = engine.effective_attr(owner, "intelligence") * 25000 // BPS
     engine.heal(owner, ally, fixed_base=base, parent_seq=tick_seq)
+    # v4：对敌方兵力比例最低单位 200% 魔法
+    enemies = lowest_ratio_enemies(engine, owner, 1)
+    if enemies and not engine.game_over():
+        engine.deal_damage(
+            owner, enemies[0], damage_type="magic", rate_bps=20000,
+            parent_seq=tick_seq, kind="ferry",
+        )
 
 
 FERRY_STATUS = StatusDef(
@@ -371,73 +431,116 @@ class CharonFerry(Skill):
 
 
 # =============================================================================
-# 摆渡（卡戎拆解）：主动 40%——治疗己方兵力比例最低 (1 + 本局阵亡数) 人（智力 ×2）。
+# 摆渡（卡戎拆解，v4 改被动）：自身对敌方造成实际伤害后，为目标施加【诅咒】
+# （2 回合：智力 -20、受伤 +10%，A2 curse 原语——不可叠加、同 id 只刷新）。
 # =============================================================================
+
+def _ferryman_on_damage_dealt(engine, status, ctx):
+    if ctx["amount"] <= 0 or ctx["kind"] == "ferry":
+        return
+    owner = engine.hero_by_id(status.owner_id)
+    target = ctx["target"]
+    if not owner.is_alive() or not target.is_alive():
+        return
+    if target.team_id == owner.team_id:
+        return
+    tick_seq = emit_status_trigger(engine, status, ctx["damage_seq"])
+    engine.apply_status(owner, target, curse(), parent_seq=tick_seq)
+
+
+FERRYMAN_STATUS = StatusDef(
+    status_id="charon_ferryman", kind=SPECIAL, duration_rounds=PERMANENT,
+    response_priority=35, on_damage_dealt=_ferryman_on_damage_dealt,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CharonFerryman(Skill):
     def select_targets(self, engine, actor):
-        return lowest_ratio_allies(engine, actor, 1 + engine.defeat_count)
+        return [actor]
 
     def execute(self, engine, actor, targets, trigger_seq):
-        base = engine.effective_attr(actor, "intelligence") * 20000 // BPS
-        for target in targets:
-            if target.is_alive():
-                engine.heal(actor, target, fixed_base=base, parent_seq=trigger_seq)
+        engine.apply_status(actor, actor, FERRYMAN_STATUS, parent_seq=trigger_seq)
 
 
 # =============================================================================
-# 死神镰痕（塔纳托斯）：主动 45%，准备 1 回合——对敌方兵力比例最低 2 名各 300% 魔法。
+# 死神镰痕（塔纳托斯，v4 改版）：主动 45%（不再准备）——对敌方兵力比例最低单体
+# 350% 魔法；目标兵力比例 ≤30% 时本次伤害 +30%。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
 class ThanatosScythe(Skill):
     def select_targets(self, engine, actor):
-        return lowest_ratio_enemies(engine, actor, 2)
+        return lowest_ratio_enemies(engine, actor, 1)
 
     def execute(self, engine, actor, targets, trigger_seq):
         for target in targets:
-            if engine.game_over() or not actor.is_alive():
-                return
-            if target.is_alive():
-                engine.deal_damage(
-                    actor, target, damage_type="magic", rate_bps=30000,
-                    parent_seq=trigger_seq,
-                )
+            if not target.is_alive():
+                continue
+            ratio_bps = target.troops * BPS // max(1, target.max_troops)
+            extra = 3000 if ratio_bps <= 3000 else 0
+            engine.deal_damage(
+                actor, target, damage_type="magic", rate_bps=35000,
+                parent_seq=trigger_seq, extra_damage_up_bps=extra,
+            )
 
 
 # =============================================================================
-# 死亡凝望（塔纳托斯拆解）：被动——对兵力比例最低的敌军伤害 +20%（pre_damage）。
+# 死亡凝望（塔纳托斯拆解，v4 改版）：被动——敌方单位每次被成功施加【诅咒】时
+# 60% 对其 150% 魔法；每回合最多 3 次，同一次施加事件只触发一次
+# （on_status_inflicted 分发天然一次一回调）。
 # =============================================================================
 
-def _death_gaze_pre_damage(engine, status, ctx):
-    owner = ctx["source"]
-    lowest = lowest_ratio_enemies(engine, owner, 1)
-    if lowest and lowest[0].hero_id == ctx["target"].hero_id:
-        ctx["damage_up_bonus"] += 2000
+GAZE_STRIKE_RATE_BPS = 6000
+GAZE_STRIKE_MAX_PER_ROUND = 3
+
+
+def _death_gaze_on_inflicted(engine, status, ctx):
+    if ctx["status_id"] != "curse":
+        return
+    owner = engine.hero_by_id(status.owner_id)
+    target = ctx["target"]
+    if target.team_id == owner.team_id or not target.is_alive():
+        return
+    if status.round_counters.get("gaze_strike", 0) >= GAZE_STRIKE_MAX_PER_ROUND:
+        return
+    roll = engine.rng.rand_bps("status_trigger", f"death_gaze:{status.owner_id}")
+    if roll >= GAZE_STRIKE_RATE_BPS:
+        return
+    status.round_counters["gaze_strike"] = (
+        status.round_counters.get("gaze_strike", 0) + 1
+    )
+    tick_seq = emit_status_trigger(engine, status, ctx["apply_seq"])
+    engine.deal_damage(
+        owner, target, damage_type="magic", rate_bps=15000,
+        parent_seq=tick_seq, kind="death_gaze",
+    )
 
 
 DEATH_GAZE_STATUS = StatusDef(
     status_id="thanatos_death_gaze", kind=SPECIAL, duration_rounds=PERMANENT,
-    on_pre_damage_dealt=_death_gaze_pre_damage,
+    response_priority=45, on_status_inflicted=_death_gaze_on_inflicted,
 )
 
 
 # =============================================================================
-# 三首噬咬（刻耳柏洛斯）：追击 40%——普攻后对普攻目标追加 2 次 110% 兵刃。
+# 三首噬咬（刻耳柏洛斯，v4）：追击 40%——普攻后对普攻目标追加 3 次 110% 兵刃；
+# 全部伤害结算后目标存活则施加【恐惧】1 回合（A2 fear 原语）。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
 class CerberusBite(Skill):
     def execute(self, engine, actor, targets, trigger_seq):
         for target in targets:
-            for _ in range(2):
+            for _ in range(3):
                 if not target.is_alive() or engine.game_over():
                     break
                 engine.deal_damage(
                     actor, target, damage_type="physical", rate_bps=11000,
                     parent_seq=trigger_seq, kind="pursuit",
                 )
+            if target.is_alive() and not engine.game_over():
+                engine.apply_status(actor, target, fear(1), parent_seq=trigger_seq)
 
 
 # =============================================================================
@@ -467,11 +570,11 @@ register(HadesSoulDrain(skill_id="hades_soul_drain", trigger_rate_bps=4000,
 register(MedusaGaze(skill_id="medusa_gaze", timing=TIMING_PREPARE))
 register(MedusaGlance(skill_id="medusa_glance", trigger_rate_bps=3500))
 register(PersephoneSeasons(skill_id="persephone_seasons", timing=TIMING_PREPARE))
-register(PersephoneSprout(skill_id="persephone_sprout", trigger_rate_bps=4000))
+register(PersephoneSprout(skill_id="persephone_sprout", timing=TIMING_PREPARE))
 register(CharonFerry(skill_id="charon_ferry", timing=TIMING_PREPARE))
 register(CharonFerryman(skill_id="charon_ferryman", trigger_rate_bps=4000))
-register(ThanatosScythe(skill_id="thanatos_scythe", trigger_rate_bps=4500,
-                        prepare_rounds=1, hint_intensity="ultimate"))
+register(ThanatosScythe(skill_id="thanatos_scythe", trigger_rate_bps=5500,
+                        hint_intensity="ultimate"))
 register(SelfStatusPassive(skill_id="thanatos_gaze", timing=TIMING_PREPARE,
                            status_def=DEATH_GAZE_STATUS))
 register(CerberusBite(skill_id="cerberus_bite", trigger_rate_bps=4000,

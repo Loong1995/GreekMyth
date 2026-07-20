@@ -13,6 +13,8 @@ namespace ClientBattle.Events
     // 做法：把组内每个 status_tick 及其后代事件（按 parent_seq 链）摘出，
     // 拆成独立的 StatusTrigger 组追加在原组之后；同一状态在同组内的多次 tick
     // 各自成组按原 seq 序排列（"逐次触发"）。摘除后的原组保持顺序不变。
+    // 伤害响应类 tick 的 seq 序与引擎一致：先守后攻；同持有者他人施加先于自身
+    // （determinism.md §2）——播放序跟随事件流，不在此二次重排。
     // =========================================================================
 
     public class ReactionRegroupProcessor : IEventProcessor

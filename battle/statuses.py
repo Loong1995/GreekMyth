@@ -26,15 +26,21 @@ from __future__ import annotations
   reflect_rate_bps                                                  反弹率（受伤归零并将本应受伤害反弹给攻击者，特殊伤害不连锁）
   extra_damage_up_bps                                               额外增伤独立乘区（Phase 3 §二）
   crit_damage_up_bps                                                会心/奇谋伤害加成（在 ×2 基础上加）
+  burst_rate_up_bps                                                 连发率加成（Phase 4，作用于持有者全部主动战法）
+  hit_weight_up_bps                                                 受击权重偏置（Phase 4 集火战术：受击点数×(1+bias)，仍加权随机非锁定）
   forbid_basic / forbid_active / forbid_pursuit（bool，不乘层数）  控制禁制
+  charm_targeting（bool）                                           魅惑：普攻/主动选目标敌我不分
+  control_immune（bool）                                            清醒：免疫硬控（CONTROL 施加静默拒绝）
+  注：数值修正键允许负值（如恐惧 damage_up_bps=-1500 表示造成伤害 -15%）
 
 响应钩子（B3，事件驱动状态）：
   on_damage_dealt(engine, status, ctx)   持有者造成伤害结算后（雷霆/血誓/三叉戟…）
   on_damage_taken(engine, status, ctx)   持有者受到伤害结算后（蛇杖/试炼/凝视…）
   on_action_start(engine, status, action_seq)  持有者行动窗口开始（幽影蔽体刷新/
                                           冥祭献统/赫尔墨斯扰心标记…）
-  同一结算点多个状态的响应顺序 = (response_priority, 持有者 hero_order 序, instance_id)，
-  全局确定（任务书 4.4），优先级登记见 docs/mechanics/effects.md。
+  伤害结算点：先守方 on_damage_taken 整段，再攻方 on_damage_dealt 整段；
+  各段内他人施加优先于自身施加，再 (response_priority, instance_id)
+  （determinism.md §2）。优先级登记见 docs/mechanics/effects.md。
 """
 
 from dataclasses import dataclass, field
@@ -74,6 +80,12 @@ class StatusDef:
     on_round_end: Callable | None = None     # 回合结束（冬春轮转/蛇杖收尾治疗…）
     on_hero_defeated: Callable | None = None # 任意武将阵亡后（渡魂船费/胜利羽翼击杀）
     on_control_taken: Callable | None = None # 持有者被施加控制后（圣盾反制控制）
+    on_ally_basic_attack: Callable | None = None  # 队友普攻结算后（Phase 4 协击：
+                                                  # 卡斯托耳双子协战；ctx 含 attacker/
+                                                  # target/strike_no/damage_seq）
+    on_status_inflicted: Callable | None = None   # 任意状态成功施加/刷新后（Phase 4
+                                                  # 死亡凝望盯诅咒；ctx 含 source/target/
+                                                  # status_id/is_refresh/apply_seq）
     on_pre_damage_dealt: Callable | None = None  # 持有者造成伤害结算前（觅踵/死亡凝望/
                                                  # 致命一矢…可改写 ctx 的增伤/必暴）
     mitigation_gate: Callable | None = None  # (engine, status) -> bool：本实例的减免能力
@@ -201,6 +213,46 @@ def charm(duration_rounds: int = 1) -> StatusDef:
     return StatusDef(
         status_id="charm", kind=CONTROL, duration_rounds=duration_rounds,
         modifiers={"charm_targeting": True},
+    )
+
+
+def fear(duration_rounds: int = 1) -> StatusDef:
+    """恐惧（Phase 4 刻耳柏洛斯三首噬咬；口径为临时定案，见 phase4_manual_tasks §一）：
+    硬控轻量版——禁普攻+禁追击，且持有者造成伤害 -15%（damage_up 负值入增伤乘区）。"""
+    return StatusDef(
+        status_id="fear", kind=CONTROL, duration_rounds=duration_rounds,
+        modifiers={"forbid_basic": True, "forbid_pursuit": True, "damage_up_bps": -1500},
+    )
+
+
+def curse(duration_rounds: int = 2) -> StatusDef:
+    """诅咒（Phase 4 卡戎摆渡）：智力 -20、受到伤害 +10%。负面例外**可刷新**
+    （任务书：同一施放者不能叠加只能刷新持续；全局单实例、任意来源刷新为
+    简化口径，A3 校准时若需按来源分实例再扩）。"""
+    return StatusDef(
+        status_id="curse", kind=DEBUFF, duration_rounds=duration_rounds,
+        refreshable=True,
+        modifiers={"intelligence_delta": -20, "vulnerable_bps": 1000},
+    )
+
+
+def certain_crit() -> StatusDef:
+    """必胜（Phase 4 尼刻胜利羽翼族共用）：counters["forced_crit_charges"] 记次数，
+    下一次造成伤害或治疗时必定暴击并消耗 1 次（引擎 _consume_forced_crit 联动，
+    最早实例先消耗）。整局有效，可刷新叠计数。"""
+    return StatusDef(
+        status_id="certain_crit", kind=BUFF, duration_rounds=PERMANENT,
+        refreshable=True,
+        payload={"remove_when_exhausted": True},
+    )
+
+
+def clear_mind(duration_rounds: int) -> StatusDef:
+    """清醒（Phase 4 伊阿宋英雄远征）：免疫各类硬控（kind=CONTROL 的状态施加
+    一律静默拒绝，引擎 apply_status 联动）。犹豫为 SPECIAL，不在免疫范围。"""
+    return StatusDef(
+        status_id="clear_mind", kind=SPECIAL, duration_rounds=duration_rounds,
+        modifiers={"control_immune": True},
     )
 
 

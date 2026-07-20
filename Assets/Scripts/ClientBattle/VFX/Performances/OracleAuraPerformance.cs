@@ -30,10 +30,8 @@ namespace ClientBattle.VFX
             //    单位后一次给这些单位加特效"的整战法播放单元。
             foreach (var ev in group.Events)
             {
-                if (ev is not TraitTriggerEvent)
-                    SettleSideEvent(ev, ctx);
-                else
-                    ctx.Bubbles.Say(ctx.Unit(((TraitTriggerEvent)ev).HeroId), ((TraitTriggerEvent)ev).Line);
+                if (ev is TraitTriggerEvent) continue; // 已拆成 TraitLine 独占组
+                SettleSideEvent(ev, ctx);
             }
 
             // 3. 整盘滤镜（海洋呼吸/血色呼吸）：程序化全屏呼吸色罩，不用粒子

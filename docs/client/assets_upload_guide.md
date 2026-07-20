@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 特效 Prefab | 25 key | **已购三包配齐 v1**（variant 已目视校准尺寸） | 光环/前摇质感一般，可后续换专属 |
 | 整盘滤镜 | 3 key | 程序化色罩（BoardFilterOverlay），**无需上传** | 真棋盘底图定稿后调透明度 |
-| 状态图标 | ~30 | 哈希配色色块占位 | 全部待上传 |
+| 状态图标 | 6 控制类 | 哈希色块占位；**常规上方小图标已取消** | 仅控制 6 个待传（可选） |
 | 立绘 | 24 | 阵营色块+首字母占位 | 全部待上传 |
 | 音效 | ~40 key | 程序化合成哔声占位 | 全部待上传（已购 Universal Sound FX 在手） |
 | UI/卡框 | 4 张 | 程序化圆角矩形占位 | 全部待上传 |
@@ -39,26 +39,44 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `proj_wave` / `hit_wave` | 海神水浪弹道 / 命中 | |
 | `hit_pierce` / `hit_petrify` / `hit_clash` | 穿刺 / 石化反噬 / 单挑对撞 | |
 
+> ~~`proj_aegis_bounce`~~：已取消。圣盾反弹走 `aegis_shield` **Melee**（持盾者闪光后突进），
+> 不配回击弹道。  
+> ~~`overflow_<track>`~~：甲案特效**不必采购**。势能跨 4 档已用乙案
+> （`UnitView.PlayMomentumOverflow` 白闪 + punch）；观感够用再考虑从已购
+> Vefects 里抠一发 burst 做共用 `overflow_burst`（可选精修，非阻塞）。
+
 尺寸红线：variant 根缩放按**目视校准**（禁止按包围盒归一，拖尾会把包围盒撑到
 几十单位）；现值：弹道/治疗/命中 1.0、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。
 演出层只允许相对缩放（`*=`）。
 
 ### 2. 状态图标 `Resources/ClientBattle/StatusIcons/<status_id>.png`
 
-- 控制类（卡牌中央大图标，优先做）：`silence disarm hesitation petrify ming_lock charm`
-- 常规状态（卡牌上方小图标）：`thunder divine_revelation aegis_shield blood_battle
-  ares_might sun_blessing snake_staff_protection moon_hunt nike_wings first_strike
-  achilles_wrath heracles_trials lion_counter trojan_scheme trojan_bomb perseus_mirror
-  poseidon_tide flood styx_blood_oath shadow_veil medusa_gaze …`
-  （全量 id 见 `Names/ChineseNames.cs`，未上传自动哈希配色色块）
+- **仅控制类**（卡牌中央大图标）：`silence disarm hesitation petrify ming_lock charm`
+- ~~常规状态卡牌上方小图标~~：**已取消**（2026-07-20）。增益/神谕/印记等靠光环
+  （`UnitAuraService`）与飘字，不传、不显示上方小图标。
 
 ### 3. 立绘 `Resources/ClientBattle/Portraits/<template_id>.png`
 
+> **路径红线**：必须是 `Assets/Resources/ClientBattle/Portraits/`，
+> 放在 `Assets/Resources/Portraits/` **不会生效**。  
+> **导入红线**：Inspector 里 Texture Type = **Sprite (2D and UI)**；
+> 默认 Default 时 `Resources.Load<Sprite>` 读不到，仍显示色块。  
+> 文件名 = roster 英文 `template_id`（`zeus` 不是「宙斯」、`heracles` 不是 `heracules`）。  
+> **尺寸**：任意分辨率即可；运行时按卡面槽位等比 contain（`UnitView.FitSpriteToSlot`），
+> 不要求统一像素。竖构图更贴卡；极端扁图会留边。
+
 24 名武将，文件名 = roster 模板 id：
 `zeus athena ares hermes apollo asclepius artemis nike`
-`achilles heracles odysseus perseus atalanta paris ajax chiron`
-`poseidon amphitrite triton siren scylla charybdis`
+`achilles heracles odysseus perseus atalanta paris ajax hector jason castor`
+`poseidon amphitrite triton siren scylla`
 `hades medusa persephone charon thanatos cerberus`
+（v4 池：喀戎/卡律布狄斯已下架；奥德修斯/赫尔墨斯 A4 改隶海域/冥界，id 不变）
+
+**头像标复用同一路径（无需另传）**：落雷/吸统等演出的 `PortraitMarkKey`
+（如 `thunder`→`zeus`、`hades_command_drain`→`hades`）调用
+`UnitView.ShowPortraitMark`，从 `Portraits/<key>.png` 取图缩到目标卡头顶短暂浮现。
+上传宙斯立绘后，雷霆落雷会自动显示宙斯小头像；未上传则仍为阵营色占位块。
+雷击本身走 VFX key `lightning_strike` / `hit_lightning`（§一.1），与头像标分开。
 
 ### 4. 音效 `Resources/ClientBattle/SFX/<key>.wav`
 
@@ -69,8 +87,26 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 - 专属：`sfx_thunder_strike sfx_aegis_counter sfx_achilles_pierce sfx_trojan_explosion
   sfx_perseus_swords sfx_trident_quake sfx_medusa_gaze sfx_petrify_on sfx_petrify_off
   sfx_duel_horn sfx_duel_clash sfx_duel_win sfx_trials_counter
+  sfx_lion_counter sfx_cerberus_counter
   sfx_oracle_thunder sfx_oracle_aegis sfx_oracle_ares sfx_oracle_apollo
-  sfx_oracle_hermes sfx_oracle_nike sfx_oracle_poseidon sfx_oracle_hades`
+  sfx_oracle_hermes sfx_oracle_nike sfx_oracle_poseidon sfx_oracle_hades
+  sfx_hades_drain`（B5 新增：冥域献统头像标）
+
+### 4b. BGM `Resources/ClientBattle/BGM/<key>.ogg|wav`（B3，全部可选资产）
+
+- 分层 stem（Demucs 拆层产物，**同 BPM 同长度**，循环点裁齐）：
+  `bgm_stem_drums bgm_stem_bass bgm_stem_melody bgm_stem_other`
+- 占位单曲回退：`bgm_main`（stem 缺失时用，音量+低通随全局势能档）；
+  全缺则 BGM 静默 no-op，不影响播放。
+- 换曲后在 `BgmLayerService` Inspector 登记 Bpm/BeatsPerBar（小节对齐切层用）。
+- 素材路线（Suno+Demucs / 公版古典 / CC-BY 库）与授权红线见
+  `docs/dev/phase4_manual_tasks.md` 与 phase4_plan §四 B3 附。
+
+### 4c. 字体 `Resources/ClientBattle/Fonts/<名>.ttf|otf`（B4）
+
+免费商用：思源黑体 / 得意黑 / 站酷系；导入后在
+`Resources/ClientBattle/FloatingTextTuning.asset` 的 FontName 填资产名即换。
+操作文档：`docs/client/floating_text_tuning.md`。
 
 ### 5. UI 与卡框
 
@@ -85,9 +121,9 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 
 > 原则：一次只换一类资源，换完跑一遍验收（§二.6），改配置不改代码。
 
-### 步骤 1：状态图标（半天，收益/成本最高）
-[game-icons.net](https://game-icons.net)（CC BY 3.0，需署名）按 §一.2 清单逐个
-导出 PNG（128px、统一底色风格），按 status_id 命名放入目录即生效。
+### 步骤 1：控制类状态图标（可选，约 1 小时）
+仅 6 个控制 id（§一.2）。[game-icons.net](https://game-icons.net)（CC BY 3.0）
+导出 PNG 放入即可；常规状态图标**不要做**。
 
 ### 步骤 2：音效（一天体力活）
 Package Manager 导入已购 Universal Sound FX → 按 §一.4 清单逐 key 挑选、
@@ -96,6 +132,8 @@ Package Manager 导入已购 Universal Sound FX → 按 §一.4 清单逐 key �
 ### 步骤 3：立绘（观感提升最大）
 AI 生图初稿（统一 prompt："greek mythology, 2D card game portrait, bust,
 painterly"）全量 24 张先上；后续外包精修主推 8 将（¥200~500/张）逐批同名替换。
+**顺带验收头像标**：有 `zeus.png` / `hades.png` 后，打一场带雷霆/冥域献统的战报，
+确认目标头顶浮现对应小头像（机制见 performance_mechanisms「头像标 C1」）。
 
 ### 步骤 4：UI/卡框
 kenney.nl UI Pack（CC0）或 Asset Store fantasy card frame（$10~25）改色；
@@ -129,7 +167,7 @@ kenney.nl UI Pack（CC0）或 Asset Store fantasy card frame（$10~25）改色�
 | 2D Cartoon/Anime Effects - Mobile Friendly | $4.99 | 2026-07-05 | 已导入 `Assets/VFX/`：弹道/治疗/石化命中 variant |
 | Combat Flipbook VFX - URP | $39.97 | 2026-07-05 | 已导入 `Assets/Vefects/`：雷电/命中/光环/爆炸 variant |
 | 2D Sword Slash VFX | $19.99 | 2026-07-05 | 已导入 `Assets/Cartoon Coffee/`：斩击/穿刺/裂甲 variant |
-| Universal Sound FX | ~$40 | 2026-07-05 | **待导入**（成品化步骤 2） |
+| Universal Sound FX | ~$40 | 已购已导入（2026-07-20，`Assets/Universal Sound FX/`） | 按 §二步骤 2 逐 key 挑选接线；三皇音效优先从本包出 |
 | （候选）magic aura loop 2D 类 | $10~20 | 未购 | 光环族精修备选（步骤 5.2） |
 
 ## 四、维护红线

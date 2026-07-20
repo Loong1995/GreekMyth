@@ -54,7 +54,7 @@
 |---|---|---|---|
 | `hero_id` | string | 1 | 战斗内唯一 id |
 | `template_id` | string | 2 | 英雄模板（立绘/名字由客户端查表） |
-| `position` | int32 | 3 | 站位 0~2 |
+| `position` | int32 | 3 | 站位。1.4.0 起 1~6（4~6=后排）；历史战报 0~2（均前排） |
 | `force` / `intelligence` / `command` / `speed` | int32 | 4~7 | 四维初始面板（术语见 v0_analysis §四） |
 | `max_troops` | int32 | 8 | 兵力上限（支持 >10000 的 NPC） |
 | `initial_troops` | int32 | 9 | 系列开局兵力 |
@@ -123,7 +123,7 @@ SeriesResult：`winner_team_id`（null=系列平局）、`total_games`、逐局�
 - 派生事件（`hero_defeated`、受击率无需事件化、`troops_change`）挂到引发它的
   结算事件之下。
 
-## 4. 事件类型清单（core 级，共 22 个）
+## 4. 事件类型清单（core 级，共 23 个）
 
 字段表 / 触发语义 / JSON 实例逐一见 `battle_events_payloads.md`。
 
@@ -151,6 +151,8 @@ SeriesResult：`winner_team_id`（null=系列平局）、`total_games`、逐局�
 | 节点 | `battle_end` | 系列结束（引用顶层 result） |
 | 节点 | `phase_start` | 相位开始。**仅在相位含事件时发**，空相位不发（省体积；论证见 payloads §22） |
 | 结算 | `trait_trigger` | 性格触发（1.2.0 新增）：`{hero_id, trait_id, effect, line}`，`line` 为预设台词，客户端弹聊天框播出；纯数值静默修正不发 |
+| 结算 | `momentum_change` | 四轨势能变化（1.4.0 新增，纯表现记账）：`{hero_id, track, delta, value, reason, cut_in?}`；`track`=`active`/`passive`/`oracle`/`basic_pursuit`（按轨类型跨技能累计）；`value≥5` 当次起同轨带 `cut_in=true`（客户端播切入；4 分闪光仅客户端）。自身 `action_start` 时该武将四轨静默清零（不发事件） |
+| 节点 | `tactic_applied` | 经理人战术变更生效（1.4.1 新增，round_start 组下）：`{team_id, tactic_id, round_no, change_no, params?}`；客户端播报横幅+更新左侧战术栏。预设战术不发事件（setup_metadata 可查）。机制见 `docs/mechanics/manager_tactics.md` |
 
 对任务书 3.2 最小集的增删论证：`kind=assist/delayed/interrupted` 并入 `skill_trigger`
 而非独立类型（同一播放语义族）；新增 `phase_start` 按需发送。未增其他类型。
@@ -198,4 +200,6 @@ core 内部错误：战斗失败、不产出战报、抛出含完整上下文的
 | 1.1.0 | `normal_attack` / `skill_trigger` / `damage` payload 新增可选字段 `target_select`（受击率选人记录，`battle_events_payloads.md` §23；机制见 `docs/mechanics/targeting.md`） |
 | 1.2.0 | Phase 3：`damage` payload 新增可选字段 `mitigation`（`"block"`/`"evade"`，0 结算格挡/闪避）与 `damage_class`（`"special"` 标震荡等不触发响应的伤害）；新增事件类型 `trait_trigger`（性格触发台词，payloads §24） |
 | 1.3.0 | 客服重放闭环：HeroSnapshot 新增可选字段 `crit_rate_bps` / `heal_crit_rate_bps` / `trait_id` / `gender` / `level`（pb# 11~15）；顶层新增可选字段 `setup_metadata`（影响结算的 setup.metadata，如 trait_rate_overrides）。战报 JSON 自身即可无损还原 BattleSetup（工具 `battle/tools/replay_report.py`） |
-| 1.3.1 | `damage.mitigation` 枚举新增 `"reflect"`（圣盾反弹：受伤归零，随后 status_tick + 子 damage(special) 反弹给攻击者），payloads §8 |
+| 1.3.1 | `damage.mitigation` 枚举新增 `"reflect"`（圣盾反弹：受伤归零，随后 status_tick + 子 damage(special) 反弹给攻击者），payloads §7 |
+| 1.4.0（2026-07-20 冻结，core battle-0.4.0） | 新增事件类型 `momentum_change`（四轨势能，**默认开启**，`setup.metadata.enable_momentum=false` 可关）；`skill_trigger` 新增可选字段 `burst_no`（连发第 N 次释放，2 起，硬上限 7）；`normal_attack` 新增可选字段 `kind`（`"coordinated"`=协击，缺省=普攻）；HeroSnapshot.position 扩展 1~6（4~6=后排）。机制见 `docs/mechanics/momentum.md`、`burst_coordination.md`。golden 已全量重生成 |
+| 1.4.1（2026-07-20，core battle-0.4.1，P4-C） | 新增事件类型 `tactic_applied`（经理人战术变更生效，payloads §26）；`status_remove.reason` 枚举补登 `"exhausted"`（充能耗尽摘除，行为 A2 起已存在）；`setup_metadata.tactics` 承载预设/变更序列（重放闭环）。机制见 `docs/mechanics/manager_tactics.md` |

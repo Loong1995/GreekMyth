@@ -31,7 +31,8 @@
 
 不变量：
 - 原语对已阵亡目标一律 no-op（不结算、不发事件、不消耗 RNG）。
-- RNG 消费顺序固定：暴击 → 随机系数（登记表见 determinism.md §1）。
+- RNG 消费顺序固定：减免逐实例判定（施加序；单实例内 次数格挡→闪避→
+  几率格挡→反弹，v3.2）→ 暴击 → 随机系数（登记表见 determinism.md §1）。
 - 伤害类型 → 属性对：physical=武力 vs 统率；magic=智力 vs 智力；
   true=武力 vs 固定基准 100（无视目标防御属性）。
 
@@ -75,18 +76,15 @@
 | `test_war_cry` | 100% | 自身增伤+暴击 buff，可叠 3 层 | 叠层/修正聚合 |
 | `test_disarm` | 40% | 敌单体禁普攻 1 回合 | 控制/负面不可刷新 |
 | `test_sap` | 40% | 敌单体统率-10（本局） | modify_attr/回滚 |
-| `test_pursuit` | 追击 50% | 普攻目标 80% 兵刃 | 追击时机/跨组 |
+| `test_pursuit` | 追击 50% | 普攻目标 50% 兵刃 | 追击时机/跨组 |
 | `test_combo_drill` | 100% | 自身 2 回合 100% 连击 | 连击 |
-| `test_charged_nova` | 100%，准备 1 回合 | 敌全体 150% 魔法 | 准备协议/打断 |
-| `test_silence` | 100% | 敌单体缄默 1 回合 | 打断准备 |
-| `test_hesitate` | 100% | 敌单体犹豫 2 层 | 延迟行动 |
+| `test_charged_nova` | 50%，准备 1 回合 | 敌随机单体 400% 魔法 | 准备协议/打断 |
+| `test_silence` | 50% | 敌单体缄默 1 回合 | 打断准备 |
+| `test_hesitate` | 60% | 敌单体犹豫 1 实例（持续 2 回合、延迟率 50%，刷新不叠层） | 延迟行动 |
 
-## 5. 标杆战法（B3 落地，`battle/standard_skills.py`）
+## 5. 正式战法池（Phase 3 v3.1，`battle/skills_{gods,men,sea,underworld}.py`）
 
-`battlecore/skill_files.py` 全部 6 个对位实现 + 新增标杆，武将对位见
-`battle/roster.py`，三段式文档见 `docs/skills/`：
-
-雷霆神谕（宙斯）、德尔斐启示（阿波罗）、蛇杖庇护（阿斯克勒庇俄斯）、
-冥界支配（哈迪斯）、海啸神谕（波塞冬）、神行神谕（赫尔墨斯）、战争狂热（阿瑞斯）、
-十二试炼（赫拉克勒斯）、蛇发凝视（美杜莎）、**阿喀琉斯之怒（阿喀琉斯，验收标杆）**、
-石化之瞳（主动）、织谋蓄能（主动）、突击（追击）。
+四阵营 24 将、每将自带+拆解战法（共 56 条），武将对位见 `battle/roster.py`，
+三段式文档见 `docs/skills/`（olympus/heroes/sea/underworld 分文件 + index 总览）。
+共用工具在 `battle/skill_common.py`（status_tick 组根、互异选敌等）。
+验收标杆：**阿喀琉斯之怒**（暴击追伤 120% 兵刃、无视统率、每回合 3 次上限）。

@@ -26,13 +26,23 @@
 | 连携触发（B3） | `rand_bps("assist", ...)` | 主将神谕后按站位序逐副将；不走伪随机补偿 |
 | 犹豫延迟判定（B3） | `rand_bps("hesitation", ...)` | 每行动窗口至多一次；全禁无可延行动时不消费 |
 | 连击判定（B3） | `rand_bps("combo", ...)` | 连击率 ≥100% 或 =0 时不消费 |
-| 状态响应内随机（B3） | 各钩子自带 reason | 如美杜莎凝视石化 roll；顺序=响应分发序 |
+| 减免判定（v3.2） | `rand_bps("evade"/"block"/"reflect", ...)` | deal_damage 落账前，按目标状态施加序逐实例；对应修正键为 0 或次数格挡直接消耗时不消费 |
+| 控制减免判定（Phase 4） | `rand_bps("reflect", "ctrl:<hero>")` | apply_status 硬控落地前，按目标状态施加序逐实例（次数型控制格挡直接消耗不 roll）；反弹落地目标另耗一次 target_select |
+| 反弹随机落点（Phase 4 圣盾 v4） | `rand_weighted_index("target_select", "reflect:/ctrl_reflect:<hero>")` | 伤害/控制反弹给持有者敌方随机存活单位（受击率加权）；仅 payload reflect_to_random_enemy / 控制反弹路径消费 |
+| 优先后排判定（Phase 4） | `rand_bps("target_select", "backline:<hero>")`、`rand_bps("trait", "<hero>:backline")` | 月影狩猎（状态键 prefer_backline_bps）/狡黠；候选中同时存在后排与非后排才 roll |
+| 连发判定（Phase 4） | `rand_bps("burst", ...)` | 经 PseudoRandomBook；有效连发率（战法+状态+性格）为 0 时不消费 |
+| 性格判定（Phase 3） | `rand_bps("trait", ...)` | 各性格钩子（回合 roll/选人偏好/踵之弱等）；顺序=钩子调用点位 |
+| 状态响应内随机（B3） | 各钩子自带 reason（`status_trigger` 等） | 如美杜莎凝视石化 roll；顺序=响应分发序 |
+
+选人权重（Phase 4 集火底层）：最终权重 = 受击点数 ×(1+`hit_weight_up_bps`)，
+无偏置状态时与旧口径逐字节一致（targeting.md §1b）。
 
 行动窗口内消费顺序固定：〔到期清理〕→〔on_action_start 响应（分发序见 §2）〕→
-〔延迟行动补结算（登记序）〕→〔准备型 release〕→〔犹豫 roll（如需）〕→
-〔战法1 触发 → 选目标 → 暴击 → 随机系数 → 伤害响应链〕→〔战法2 …〕→
-〔连击 roll（如需）→ 逐击：普攻选目标 → 暴击 → 随机系数 → 伤害响应链 → 追击触发 →
-追击内部〕。伪随机记账（fail/streak）为战时状态，随局清空。
+〔延迟行动补结算（登记序）〕→〔犹豫 roll（如需）〕→〔准备型 release〕→
+〔战法1 触发 → 选目标 → 减免 → 暴击 → 随机系数 → 伤害响应链〕→〔战法2 …〕→
+〔连击 roll（如需）→ 逐击：普攻选目标 → 减免 → 暴击 → 随机系数 → 伤害响应链 →
+追击触发 → 追击内部〕。（Phase 3 ④⑤ 互换：犹豫判定在准备 release 之前。）
+伪随机记账（fail/streak）为战时状态，随局清空。
 
 ## 2. 遍历与排序规则（全部显式，禁止依赖隐式顺序）
 
@@ -45,8 +55,12 @@
 | 破平链（通用） | 站位序（0→2）→ 队伍序（A→B），决策 D-08 | 各处 |
 | 同武将多主动战法 | 装配顺序（HeroSetup.skills 下标） | `_run_action_window`（B2 落地） |
 | 状态遍历（DoT tick/清理/修正聚合） | hero_order × 施加序（instance_id 升序） | `_tick_periodic_statuses` 等 |
-| 伤害/行动响应钩子分发（B3） | `(response_priority, 持有者 hero_order 序, instance_id)` 升序；先攻方全部 → 后守方全部 | `_dispatch_damage_hooks` |
+| 伤害响应钩子分发（B3） | **先守后攻**；各段内 **他人施加 → 自身施加**，再 `(response_priority, instance_id)`。细则 [response_order.md](response_order.md) | `_dispatch_damage_hooks` / `_owner_hook_key` |
+| 单持有者响应（行动开始/伤前/受控） | **他人施加 → 自身施加** → priority → instance_id | `_owner_hook_key` |
+| 跨持有者响应（回合/协击/施加/阵亡） | `(response_priority, hero_order 序, 他人/自身层, instance_id)` | `_global_hook_key` |
 | 追击战法分发（B3） | 攻击者装配顺序 | `_dispatch_pursuit` |
+| 状态施加响应分发（Phase 4） | 见上「跨持有者响应」；`_in_inflicted_dispatch` 防递归 | `apply_status` → `on_status_inflicted` |
+| 经理人战术结算（P4-C） | round_start 后第一步、setup 队伍序逐队（先 tactic_applied 后状态施加，队内按 hero_order）；不消耗 RNG；变更重算=同 seed+变更序列从头重模拟（前缀逐字节等价） | `_apply_tactics`（`battle/tactics.py`） |
 | 延迟行动补结算（B3） | 登记先后序（FIFO） | `_settle_delayed_actions` |
 | 连携副将遍历（B3） | 站位序 | `_run_assist` |
 | 准备回合施法序（B3） | 与正常回合行动顺序同构（速度 + 先手 roll） | `_run_prepare_round` |

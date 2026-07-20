@@ -8,7 +8,7 @@ namespace ClientBattle.Units
     // =========================================================================
     // 武将卡牌 GameObject（带子物体）：
     //   Frame（阵营色卡框 Sprite）── Portrait（立绘占位）── NameLabel（TextMesh）
-    //   ── HpBar（背景+填充）── StatusIconPanel（上方常规图标 + 中央控制图标）
+    //   ── HpBar（背景+填充）── StatusIconPanel（仅控制类中央大图标）
     //   ── PetrifyOverlay（石化边框变灰版本）── BubbleAnchor（台词气泡锚点）
     // 立绘回退：Resources/ClientBattle/Portraits/<template_id>.png → 阵营色占位。
     // =========================================================================
@@ -29,6 +29,12 @@ namespace ClientBattle.Units
         Color _frameColor;
         const float HpBarWidth = 1.5f;
         float _idlePhase; // 待机呼吸相位（按卡错开，不同步摆动）
+
+        // ---- 势能表现（B2）：四轨迷你条 + 满档常驻流光 + 溢出白闪 ----
+        readonly System.Collections.Generic.Dictionary<string, SpriteRenderer> _momentumBars = new();
+        readonly System.Collections.Generic.List<Color> _momentumFullTints = new();
+        SpriteRenderer _momentumGlow, _overflowFlash;
+        const float MomentumBarWidth = 0.34f;
 
         public static UnitView Create(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position)
         {
@@ -53,13 +59,13 @@ namespace ClientBattle.Units
             _frame = NewSprite("Frame",
                 realFrame != null ? realFrame : PlaceholderFactory.MakeSolidSprite(factionColor, 96), 0);
             if (realFrame != null) _frame.color = factionColor;
-            _frame.transform.localScale = new Vector3(1.7f, 2.3f, 1f);
+            StretchSpriteToSlot(_frame, FrameSlotW, FrameSlotH);
 
-            // 立绘（真实资源：Resources/ClientBattle/Portraits/<template_id>.png）
+            // 立绘：按 sprite 世界 bounds 等比塞进槽位（contain），任意分辨率/PPU 观感一致
             var portraitSprite = PlaceholderFactory.GetSprite(
                 "Portraits", hero.TemplateId, Color.Lerp(factionColor, Color.black, 0.35f), 96);
             _portrait = NewSprite("Portrait", portraitSprite, 1);
-            _portrait.transform.localScale = new Vector3(1.45f, 1.7f, 1f);
+            FitSpriteToSlot(_portrait, PortraitSlotW, PortraitSlotH);
             _portrait.transform.localPosition = new Vector3(0f, 0.18f, 0f);
 
             // 名字
@@ -78,7 +84,7 @@ namespace ClientBattle.Units
             // 石化覆盖层（默认隐藏；石化时显示灰色边框版本）
             _petrifyOverlay = NewSprite("PetrifyOverlay",
                 PlaceholderFactory.GetSprite("CardFrames", "petrify", new Color(0.55f, 0.55f, 0.5f, 0.85f), 96), 5);
-            _petrifyOverlay.transform.localScale = new Vector3(1.7f, 2.3f, 1f);
+            StretchSpriteToSlot(_petrifyOverlay, FrameSlotW, FrameSlotH);
             _petrifyOverlay.gameObject.SetActive(false);
 
             // 状态图标面板
@@ -92,6 +98,35 @@ namespace ClientBattle.Units
             anchor.transform.localPosition = new Vector3(0.7f, 1.35f, 0f);
             BubbleAnchor = anchor.transform;
 
+            // 势能常驻流光（满档轨 rim；默认隐藏，颜色随满档轨叠混）
+            _momentumGlow = NewSprite("MomentumGlow",
+                PlaceholderFactory.MakeSolidSprite(Color.white, 96), -1);
+            StretchSpriteToSlot(_momentumGlow, FrameSlotW * 1.09f, FrameSlotH * 1.07f);
+            _momentumGlow.gameObject.SetActive(false);
+
+            // 溢出爆发白闪（首次满档一瞬）
+            _overflowFlash = NewSprite("OverflowFlash",
+                PlaceholderFactory.MakeSolidSprite(Color.white, 96), 6);
+            StretchSpriteToSlot(_overflowFlash, FrameSlotW, FrameSlotH);
+            _overflowFlash.gameObject.SetActive(false);
+
+            // 四轨势能迷你条（HP 数字下方一排；注册表驱动建条）
+            int trackCount = MomentumService.TrackTable.Count;
+            foreach (var style in MomentumService.TrackTable.Values)
+            {
+                float x = (style.Order - (trackCount - 1) / 2f) * (MomentumBarWidth + 0.05f);
+                NewSprite($"MomentumBack_{style.Track}",
+                        PlaceholderFactory.MakeSolidSprite(new Color(0.1f, 0.1f, 0.1f, 0.8f), 8), 2)
+                    .transform.SetLocalPositionAndScale(
+                        new Vector3(x, -1.34f, 0f), new Vector3(MomentumBarWidth, 0.07f, 1f));
+                var fill = NewSprite($"MomentumFill_{style.Track}",
+                    PlaceholderFactory.MakeSolidSprite(Color.white, 8), 3);
+                fill.color = style.Tint;
+                fill.transform.SetLocalPositionAndScale(
+                    new Vector3(x - MomentumBarWidth / 2f, -1.34f, 0f), new Vector3(0f, 0.07f, 1f));
+                _momentumBars[style.Track] = fill;
+            }
+
             // 待机呼吸相位按位置错开：全场卡牌不同步摆动
             _idlePhase = (position.x * 0.73f + position.y * 1.31f) * 2.4f;
         }
@@ -104,6 +139,112 @@ namespace ClientBattle.Units
             float bob = Mathf.Sin(Time.time * 2.1f + _idlePhase) * 0.035f;
             var p = _portrait.transform.localPosition;
             _portrait.transform.localPosition = new Vector3(p.x, 0.18f + bob, p.z);
+
+            // 满档常驻流光：alpha 呼吸脉动（Update 驱动，零 alloc）
+            if (_momentumGlow != null && _momentumGlow.gameObject.activeSelf)
+            {
+                var c = _momentumGlow.color;
+                c.a = 0.35f + Mathf.PingPong(Time.time * 0.9f, 0.3f);
+                _momentumGlow.color = c;
+            }
+        }
+
+        // ---------------------------------------------------------- 势能表现（B2）
+
+        /// <summary>刷新某轨势能迷你条（value 为事件权威值；按轨类型累计）。
+        /// 分档：0~3 半亮 / ≥Flash(4) 全亮 / ≥Full(5) 常驻流光（叠混各满档轨 tint）。</summary>
+        public void SetMomentum(string track, int value)
+        {
+            if (!_momentumBars.TryGetValue(track, out var fill)) return;
+            var style = MomentumService.TrackTable[track];
+            float ratio = Mathf.Clamp01(value / (float)MomentumService.Full);
+            fill.transform.localScale = new Vector3(MomentumBarWidth * ratio, 0.07f, 1f);
+            fill.transform.localPosition = new Vector3(
+                BarCenterX(style.Order) - MomentumBarWidth * (1f - ratio) / 2f, -1.34f, 0f);
+            fill.color = value >= MomentumService.Flash ? style.Tint
+                : new Color(style.Tint.r, style.Tint.g, style.Tint.b, 0.55f);
+            if (value >= MomentumService.Full && !_momentumFullTints.Contains(style.Tint))
+            {
+                _momentumFullTints.Add(style.Tint);
+                RefreshGlow();
+            }
+        }
+
+        /// <summary>该轨首次跨过闪光档（4）的爆发帧：白闪 + 卡牌 punch 缩放（定稿乙案）。
+        /// 不依赖独立 overflow prefab；日后若要用 Vefects 补一发共用 burst，在表演层追加即可。</summary>
+        public void PlayMomentumOverflow(Color tint)
+        {
+            _overflowFlash.gameObject.SetActive(true);
+            _overflowFlash.color = new Color(1f, 1f, 1f, 0.85f);
+            DOTween.To(() => _overflowFlash.color, c => _overflowFlash.color = c,
+                    new Color(tint.r, tint.g, tint.b, 0f), 0.45f)
+                .OnComplete(() => _overflowFlash.gameObject.SetActive(false));
+            transform.DOPunchScale(Vector3.one * 0.08f, 0.3f, 6).SetLink(gameObject);
+        }
+
+        /// <summary>行动窗清零：四轨条归零、流光撤除。</summary>
+        public void ClearMomentum()
+        {
+            foreach (var pair in _momentumBars)
+            {
+                var style = MomentumService.TrackTable[pair.Key];
+                pair.Value.transform.localScale = new Vector3(0f, 0.07f, 1f);
+                pair.Value.transform.localPosition = new Vector3(
+                    BarCenterX(style.Order) - MomentumBarWidth / 2f, -1.34f, 0f);
+            }
+            _momentumFullTints.Clear();
+            RefreshGlow();
+        }
+
+        // ---------------------------------------------------------- 头像标（B5 皇卡）
+
+        SpriteRenderer _portraitMark;
+        Tween _portraitMarkTween;
+
+        /// <summary>头顶短暂浮现指定武将头像（C1：宙斯落雷/哈迪斯吸统标记）。
+        /// 复用立绘三级回退（Portraits/&lt;template_id&gt;.png → 阵营色占位）。
+        /// sortingOrder 高于 VFX 池默认 40，避免被落雷粒子盖住。</summary>
+        public void ShowPortraitMark(string templateId, float duration = 1.4f)
+        {
+            if (_portraitMark == null)
+            {
+                _portraitMark = NewSprite("PortraitMark", null, 55);
+                // 卡顶正中偏上，避开落雷中心（约 y=0.55）
+                _portraitMark.transform.localPosition = new Vector3(0f, 1.55f, -0.6f);
+            }
+            _portraitMarkTween?.Kill();
+            _portraitMark.sprite = PlaceholderFactory.GetSprite(
+                "Portraits", templateId, new Color(0.5f, 0.4f, 0.6f), 96);
+            FitSpriteToSlot(_portraitMark, PortraitMarkSlot, PortraitMarkSlot);
+            _portraitMark.sortingOrder = 55;
+            _portraitMark.gameObject.SetActive(true);
+            _portraitMark.color = new Color(1f, 1f, 1f, 0f);
+            var seq = DOTween.Sequence().SetLink(gameObject);
+            seq.Append(DOTween.To(() => _portraitMark.color, c => _portraitMark.color = c,
+                Color.white, 0.08f));
+            seq.AppendInterval(duration);
+            seq.Append(DOTween.To(() => _portraitMark.color, c => _portraitMark.color = c,
+                new Color(1f, 1f, 1f, 0f), 0.25f));
+            seq.OnComplete(() => _portraitMark.gameObject.SetActive(false));
+            _portraitMarkTween = seq;
+        }
+
+        float BarCenterX(int order) =>
+            (order - (MomentumService.TrackTable.Count - 1) / 2f) * (MomentumBarWidth + 0.05f);
+
+        void RefreshGlow()
+        {
+            if (_momentumFullTints.Count == 0)
+            {
+                _momentumGlow.gameObject.SetActive(false);
+                return;
+            }
+            var mixed = Color.black; // 多轨满档叠色（加法混合后归一）
+            foreach (var t in _momentumFullTints) mixed += t;
+            mixed /= _momentumFullTints.Count;
+            mixed.a = 0.5f;
+            _momentumGlow.color = mixed;
+            _momentumGlow.gameObject.SetActive(true);
         }
 
         // ---------------------------------------------------------- 状态呈现
@@ -192,9 +333,37 @@ namespace ClientBattle.Units
             SetPetrified(false);
             SetTroops(initialTroops);
             StatusPanel.Clear();
+            ClearMomentum();
         }
 
         // ---------------------------------------------------------- 工具
+
+        // 卡面槽位（世界单位）：等比 fit，避免不同分辨率/PPU 立绘大小不一
+        const float FrameSlotW = 1.7f;
+        const float FrameSlotH = 2.3f;
+        const float PortraitSlotW = 1.45f;
+        const float PortraitSlotH = 1.7f;
+        const float PortraitMarkSlot = 0.72f;
+
+        /// <summary>按 sprite.bounds 等比缩放到槽内（contain，不拉伸）。
+        /// 与 BackgroundFitter 的 cover 同族；立绘用 contain 避免裁切无遮罩时溢出。</summary>
+        static void FitSpriteToSlot(SpriteRenderer sr, float slotW, float slotH)
+        {
+            if (sr == null || sr.sprite == null) return;
+            var size = sr.sprite.bounds.size;
+            if (size.x < 1e-4f || size.y < 1e-4f) return;
+            float s = Mathf.Min(slotW / size.x, slotH / size.y);
+            sr.transform.localScale = new Vector3(s, s, 1f);
+        }
+
+        /// <summary>铺满槽位（可非等比）。卡框/石化层/闪光用：占位方块需拉成卡面比例。</summary>
+        static void StretchSpriteToSlot(SpriteRenderer sr, float slotW, float slotH)
+        {
+            if (sr == null || sr.sprite == null) return;
+            var size = sr.sprite.bounds.size;
+            if (size.x < 1e-4f || size.y < 1e-4f) return;
+            sr.transform.localScale = new Vector3(slotW / size.x, slotH / size.y, 1f);
+        }
 
         SpriteRenderer NewSprite(string name, Sprite sprite, int order)
         {

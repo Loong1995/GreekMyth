@@ -47,6 +47,12 @@ class Skill:
     timing: str = TIMING_ACTIVE
     is_oracle: bool = False    # 神谕：主将准备回合释放后触发副将连携（D-04）
     prepare_rounds: int = 0    # >0 = 准备型主动：触发时进入准备，N 回合后释放
+    # ---- Phase 4：连发（仅 active 有效）----
+    # >0 = 成功释放后按此概率 roll 连发（走伪随机补偿，key=(actor, skill, "burst")），
+    # 可连续；同一行动窗内该战法总释放次数硬上限 7（首发 + 至多 6 次连发）。
+    # 准备型连发不重新准备（释放段直接连发）。
+    burst_rate_bps: int = 0
+    burst_pseudo_random: PseudoRandomParams = PLAIN
 
     def trigger_rate_for(self, engine: "SeriesEngine", actor: "HeroState") -> int:
         """有效触发率（Phase 3：海嗣号角等每次释放递减的动态率可覆盖）。"""

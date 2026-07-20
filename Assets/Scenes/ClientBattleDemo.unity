@@ -152,6 +152,7 @@ MonoBehaviour:
   InlineJson: 
   AutoPlayOnStart: 1
   Speed: 1
+  ShowDiagnostics: 0
 --- !u!4 &32747530
 Transform:
   m_ObjectHideFlags: 0

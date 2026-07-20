@@ -19,6 +19,15 @@
 - 实现：`calc_hit_points_bps()`（`battle/formulas.py`）+
   `HeroState.hit_points_bps()`（`battle/heroes.py`）。
 
+### 1b. 受击权重偏置（Phase 4 集火战术底层）
+
+- 最终选人权重 = 受击点数 × (1 + `hit_weight_up_bps`)——目标身上的状态修正键
+  聚合（`SeriesEngine._hit_weight`）。经理人「集火目标」战术（P4-C）实现为
+  给指定敌方单位挂偏置状态（如 +10000 = 权重 ×2），**仍走加权随机与保残兵
+  递减，非强制锁定**；只影响自由选敌，指名/最低兵力类选人不经过加权。
+- 无偏置状态时权重 = 受击点数，逐字节等价旧行为（golden 保障）。
+- `target_select.hit_bps` 记录的是**偏置后的最终权重**（客服排查口径一致）。
+
 ## 2. 敌方随机选人流程
 
 `SeriesEngine.select_enemy_by_hit_rate(attacker, reason, exclude_ids)`：

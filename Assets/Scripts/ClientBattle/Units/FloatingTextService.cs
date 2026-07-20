@@ -29,7 +29,8 @@ namespace ClientBattle.Units
             public float Age;
         }
 
-        const float FloatDuration = 1.1f;
+        FloatingTextTuning _tuning;
+        FloatingTextTuning Tuning => _tuning ??= FloatingTextTuning.LoadOrDefault();
 
         public static FloatingTextService Ensure()
         {
@@ -71,6 +72,8 @@ namespace ClientBattle.Units
             string chars = ChineseNames.FloatingTextCharacters() + (extraCharacters ?? "");
             foreach (int size in GlyphSizes)
                 runtimeFont.RequestCharactersInTexture(chars, size, FontStyle.Normal);
+            if (System.Array.IndexOf(GlyphSizes, Tuning.FontSize) < 0) // 调参字号一并预热
+                runtimeFont.RequestCharactersInTexture(chars, Tuning.FontSize, FontStyle.Normal);
         }
 
         /// <summary>伤害飘字：技能名 + 数值（暴击更大更红），格挡/闪避/反弹飘对应文案。</summary>
@@ -86,35 +89,35 @@ namespace ClientBattle.Units
                     "reflect" => "反弹!",
                     _ => "闪避!",
                 };
-                Show(unit, $"{skillName} {label}", new Color(0.7f, 0.85f, 1f), 1.0f);
+                Show(unit, $"{skillName} {label}", Tuning.Mitigation, 1.0f);
                 return;
             }
-            var color = damageType == "magic" ? new Color(0.7f, 0.45f, 1f)
-                      : damageType == "true" ? new Color(1f, 0.95f, 0.4f)
-                                             : new Color(1f, 0.35f, 0.3f);
+            var color = damageType == "magic" ? Tuning.MagicDamage
+                      : damageType == "true" ? Tuning.TrueDamage
+                                             : Tuning.PhysicalDamage;
             string critMark = isCrit ? " 暴击!" : "";
-            Show(unit, $"{skillName} -{amount}{critMark}", color, isCrit ? 1.45f : 1.0f);
+            Show(unit, $"{skillName} -{amount}{critMark}", color, isCrit ? Tuning.CritScale : 1.0f);
         }
 
         public void ShowHeal(UnitView unit, string skillName, int amount, bool isCrit)
         {
             if (unit == null) return;
             Show(unit, $"{skillName} +{amount}{(isCrit ? " 暴击!" : "")}",
-                new Color(0.4f, 1f, 0.5f), isCrit ? 1.35f : 1.0f);
+                Tuning.Heal, isCrit ? Tuning.HealCritScale : 1.0f);
         }
 
         public void ShowStatus(UnitView unit, string statusName, bool gained)
         {
             if (unit == null) return;
             Show(unit, gained ? $"+{statusName}" : $"-{statusName}",
-                gained ? new Color(0.55f, 0.8f, 1f) : new Color(0.7f, 0.7f, 0.7f), 0.9f);
+                gained ? Tuning.StatusGain : Tuning.StatusLose, 0.9f);
         }
 
         public void ShowAttr(UnitView unit, string attrName, int delta)
         {
             if (unit == null) return;
             Show(unit, $"{attrName}{(delta >= 0 ? "+" : "")}{delta}",
-                delta >= 0 ? new Color(1f, 0.85f, 0.4f) : new Color(0.85f, 0.5f, 0.85f), 0.85f);
+                delta >= 0 ? Tuning.AttrUp : Tuning.AttrDown, 0.85f);
         }
 
         public void Show(UnitView unit, string text, Color color, float scale = 1f)
@@ -127,8 +130,9 @@ namespace ClientBattle.Units
             mesh.text = text;
             mesh.color = color;
             var t = mesh.transform;
-            t.position = unit.transform.position + new Vector3(0f, 1.55f + depth * 0.35f, -1f);
-            t.localScale = Vector3.one * 0.1f * scale;
+            t.position = unit.transform.position
+                + new Vector3(0f, 1.55f + depth * Tuning.StackSpacing, -1f);
+            t.localScale = Vector3.one * Tuning.BaseScale * scale;
 
             var record = _recordPool.Count > 0 ? _recordPool.Dequeue() : new ActiveFloat();
             record.Mesh = mesh;
@@ -146,10 +150,10 @@ namespace ClientBattle.Units
             {
                 var item = _active[i];
                 item.Age += dt;
-                float p = Mathf.Clamp01(item.Age / FloatDuration);
+                float p = Mathf.Clamp01(item.Age / Tuning.FloatDuration);
                 // OutCubic 上浮 + InQuad 淡出，视觉与旧 DOTween 时间轴一致。
                 float move = 1f - Mathf.Pow(1f - p, 3f);
-                item.Mesh.transform.position = item.Start + Vector3.up * (0.9f * move);
+                item.Mesh.transform.position = item.Start + Vector3.up * (Tuning.RiseDistance * move);
                 float alpha = 1f - p * p;
                 item.Mesh.color = new Color(
                     item.Color.r, item.Color.g, item.Color.b, item.Color.a * alpha);
@@ -192,7 +196,13 @@ namespace ClientBattle.Units
             var go = new GameObject("float_text");
             go.transform.SetParent(transform, false);
             var mesh = go.AddComponent<TextMesh>();
-            mesh.fontSize = 48;
+            var font = Tuning.ResolveFont(); // B4：字体/字号走调参 SO
+            if (font != null)
+            {
+                mesh.font = font;
+                go.GetComponent<MeshRenderer>().material = font.material;
+            }
+            mesh.fontSize = Tuning.FontSize;
             mesh.anchor = TextAnchor.MiddleCenter;
             mesh.alignment = TextAlignment.Center;
             go.GetComponent<MeshRenderer>().sortingOrder = 60;

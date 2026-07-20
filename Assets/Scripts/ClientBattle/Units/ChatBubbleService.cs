@@ -6,10 +6,8 @@ using UnityEngine;
 namespace ClientBattle.Units
 {
     // =========================================================================
-    // 台词气泡服务（client_perform：性格事件推送即播，
-    // 通过武将卡牌弹出聊天框的形式把台词播出来）。
-    // 气泡 = 圆角底板 Sprite + TextMesh；同一单位多条台词排队不叠字。
-    // 底板资源：Resources/ClientBattle/UI/chat_bubble.png → 白色占位。
+    // 台词气泡：TraitLine 播放单元独占时间轴时走 SayExclusive（即时弹出、
+    // 返回应阻塞的秒数）；与气泡动画时长一致，播完立刻接下单元、禁止重叠。
     // =========================================================================
 
     public class ChatBubbleService : MonoBehaviour
@@ -17,9 +15,12 @@ namespace ClientBattle.Units
         public static ChatBubbleService Instance { get; private set; }
 
         readonly Queue<GameObject> _pool = new();
-        readonly Dictionary<int, float> _busyUntil = new(); // unit id → 排队时间戳
 
-        const float BubbleDuration = 1.6f;
+        /// <summary>独占台词单元的可见时长（弹出+停留+收起），与时间轴 Wait 对齐。</summary>
+        public const float AppearSeconds = 0.12f;
+        public const float HoldSeconds = 0.9f;
+        public const float DisappearSeconds = 0.12f;
+        public static float ExclusiveSeconds => AppearSeconds + HoldSeconds + DisappearSeconds;
 
         public static ChatBubbleService Ensure()
         {
@@ -37,7 +38,6 @@ namespace ClientBattle.Units
             Instance = this;
         }
 
-        /// <summary>开战前预建气泡对象与底图，首次台词不在战斗中创建 GameObject/纹理。</summary>
         public void Prewarm(int count = 4)
         {
             int missing = count - _pool.Count;
@@ -49,21 +49,44 @@ namespace ClientBattle.Units
             }
         }
 
-        /// <summary>弹台词气泡；空台词只做性格发作提示（飘性格名由调用方处理）。</summary>
-        public void Say(UnitView unit, string line)
+        /// <summary>独占播放单元用：立刻弹气泡，返回时间轴应阻塞的秒数（未乘 DurationMul）。
+        /// 同卡若已有气泡先杀掉，保证不叠字、不排队延迟。</summary>
+        public float SayExclusive(UnitView unit, string line)
         {
-            if (unit == null || string.IsNullOrEmpty(line)) return;
-
-            // 同一单位台词密集时向后排队，避免气泡互相覆盖
-            int id = unit.gameObject.GetHashCode(); // Unity 6000.5 弃用 GetInstanceID，这里仅作字典键
-            float now = Time.time;
-            float startAt = _busyUntil.TryGetValue(id, out var busy) && busy > now ? busy : now;
-            _busyUntil[id] = startAt + BubbleDuration * 0.7f;
-
+            if (unit == null || string.IsNullOrEmpty(line)) return 0f;
+            CancelBubblesOn(unit);
             var bubble = Rent();
-            bubble.SetActive(false);
-            DOVirtual.DelayedCall(startAt - now, () => Pop(bubble, unit, line), true)
-                .SetLink(bubble);
+            Pop(bubble, unit, line);
+            return ExclusiveSeconds;
+        }
+
+        /// <summary>非时间轴调用（遗留）；等价 SayExclusive，调用方若不等待会与后续演出重叠。</summary>
+        public void Say(UnitView unit, string line) => SayExclusive(unit, line);
+
+        public void CancelAll()
+        {
+            foreach (Transform child in transform)
+            {
+                child.DOKill();
+                if (child.gameObject.activeSelf) Recycle(child.gameObject);
+            }
+        }
+
+        void CancelBubblesOn(UnitView unit)
+        {
+            if (unit == null) return;
+            var anchor = unit.BubbleAnchor;
+            foreach (Transform child in transform)
+            {
+                if (!child.gameObject.activeSelf) continue;
+                // 近似：正在该卡附近的气泡清掉（独占重弹）
+                if (anchor != null &&
+                    (child.position - anchor.position).sqrMagnitude < 2.5f)
+                {
+                    child.DOKill();
+                    Recycle(child.gameObject);
+                }
+            }
         }
 
         void Pop(GameObject bubble, UnitView unit, string line)
@@ -76,16 +99,15 @@ namespace ClientBattle.Units
             var text = bubble.GetComponentInChildren<TextMesh>();
             text.text = Wrap(line, 9);
 
-            // 底板按文字行数拉伸
             var back = bubble.transform.Find("Back").GetComponent<SpriteRenderer>();
             int lines = text.text.Split('\n').Length;
             int width = Mathf.Min(line.Length, 9);
             back.transform.localScale = new Vector3(0.28f * width + 0.5f, 0.42f * lines + 0.25f, 1f);
 
             DOTween.Sequence()
-                .Append(bubble.transform.DOScale(1f, 0.18f).SetEase(Ease.OutBack))
-                .AppendInterval(BubbleDuration)
-                .Append(bubble.transform.DOScale(0f, 0.15f).SetEase(Ease.InBack))
+                .Append(bubble.transform.DOScale(1f, AppearSeconds).SetEase(Ease.OutBack))
+                .AppendInterval(HoldSeconds)
+                .Append(bubble.transform.DOScale(0f, DisappearSeconds).SetEase(Ease.InBack))
                 .OnComplete(() => Recycle(bubble))
                 .SetLink(bubble);
         }
@@ -101,18 +123,6 @@ namespace ClientBattle.Units
             }
             return sb.ToString();
         }
-
-        public void CancelAll()
-        {
-            foreach (Transform child in transform)
-            {
-                child.DOKill();
-                if (child.gameObject.activeSelf) Recycle(child.gameObject);
-            }
-            _busyUntil.Clear();
-        }
-
-        // ---------------------------------------------------------- 池
 
         GameObject Rent()
         {
