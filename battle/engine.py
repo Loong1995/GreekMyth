@@ -11,13 +11,16 @@ B3 范围（在 B2 效果原语/状态系统之上）：
 - 犹豫（延迟行动登记/补结算/行动后计次，决策 D-02 人工修订版）；
 - 准备型战法（prepare → release，被 forbid_active 控制打断 → interrupted）；
 - 准备回合（r=0）施法 + 神谕连携（k=70%，决策 D-04）。
-每局 = 1 准备回合(r=0) + 最多 8 正常回合；平局残血续战，最多 7 局。
+每局 = 1 准备回合(r=0) + 正常回合直到主将阵亡（安全兜底 999 回合）；
+平局残血续战，最多 7 局。
 遍历顺序规则见 docs/mechanics/determinism.md。
 """
 
 from typing import Any
 
+from battle import bonds as bn
 from battle import formulas, statuses as st, status_voice as sv, traits as tr
+from battle import voice_lines_kill as vlk
 from battle.errors import BattleCoreError, SetupError
 from battle.events import (
     PHASE_ACTION,
@@ -44,7 +47,9 @@ from battle.skills import (
 from battle.statuses import StatusDef, StatusInstance
 
 MAX_GAMES = 7
-ROUNDS_PER_GAME = 8
+# 2026-07-22（D-06）：单局默认上限 999（打到主将阵亡；安全兜底防死循环）；
+# metadata["rounds_per_game"] 可覆盖（stalemate 测试/演示显式压 8）。
+ROUNDS_PER_GAME = 999
 BASIC_ATTACK_RATE_BPS = 10000  # 普攻 = 系数 1.0 的兵刃伤害（任务书 5.2）
 
 # 伤害类型（Phase 3 双公式，见 docs/mechanics/damage.md）：
@@ -54,13 +59,16 @@ BASIC_ATTACK_RATE_BPS = 10000  # 普攻 = 系数 1.0 的兵刃伤害（任务书
 DAMAGE_TYPES = ("physical", "magic", "true")
 TRUE_DAMAGE_DEFENSE_BASE = 100
 
-# 单挑规则（决策 D-03）
-DUEL_FORCE_THRESHOLD = 90          # 双方均有武力 > 90 才触发
-DUEL_REJECT_PER_DIFF_BPS = 800     # 拒绝率 = 武力差 × 8%
+# 单挑规则（决策 D-03 演进：配对入池 + 空池拒战剧本）
+DUEL_REJECT_PER_DIFF_BPS = 800     # 真决斗拒绝率 = 武力差 × 8%
 DUEL_REJECT_MAX_BPS = 8000         # 封顶 80%（差 10 以上保留 20% 接受）
-DUEL_WIN_BASE_BPS = 5000           # 胜率 = 50% + 差 × 5%
-DUEL_WIN_PER_DIFF_BPS = 500
+DUEL_WIN_BASE_BPS = 5000           # 胜率 = 50% + d%；d≥50 必胜
+DUEL_WIN_PER_DIFF_BPS = 100
 DUEL_PENALTY = 10                  # 负者四维 -10（scope=game，仅第 1 局）
+# 初对入池：武力差 0→90%、50→5%，线性；差>50 夹到 5%
+DUEL_PAIR_RATE_AT_ZERO_BPS = 9000
+DUEL_PAIR_RATE_AT_50_BPS = 500
+DUEL_PAIR_RATE_SLOPE = (DUEL_PAIR_RATE_AT_ZERO_BPS - DUEL_PAIR_RATE_AT_50_BPS) // 50  # 170
 
 # 连携（Phase 3 改版）：释放率 = 副将自带战法自身 trigger_rate_bps（普通随机，
 # 不走伪随机补偿、不影响该战法伪随机记账）；形式上等于该副将获得一次在准备
@@ -82,7 +90,10 @@ MOMENTUM_TRACK_OF_KIND: dict[str, str] = {
     "lightning": "oracle",
     "trident": "oracle",
     "reflect": "oracle",
+    "fury": "passive",  # 阿喀琉斯之怒追伤：触发即 +1（见 MOMENTUM_ON_TRIGGER_KINDS）
 }
+# 这些 kind 每次造成伤害即记势能（不要求暴击）；暴击不再额外 +1，避免双计。
+MOMENTUM_ON_TRIGGER_KINDS = frozenset({"fury"})
 
 
 class SeriesEngine:
@@ -119,11 +130,9 @@ class SeriesEngine:
         self._preparing: dict[str, dict[str, Any]] = {}
         # 犹豫延迟行动登记：hero_id -> [{"kind": "skill"/"basic", "skill_id", "remaining"}]
         self._delayed_actions: dict[str, list[dict[str, Any]]] = {}
-        # 选人记录暂存：select_enemy_by_hit_rate 产生，随最近的宣告/结算事件带出
-        # （payload 可选字段 target_select，契约加法式演进；见 mechanics/targeting.md）
-        self._pending_target_selects: list[dict[str, Any]] = []
         # 受击率选人记录暂存：select_enemy_by_hit_rate 产生，由下一个承载事件
         # （normal_attack / skill_trigger / damage）作为 target_select 可选字段带出
+        # （payload 可选字段 target_select，契约加法式演进；见 mechanics/targeting.md）
         self._pending_target_selects: list[dict[str, Any]] = []
         # 性格系统（Phase 3）：回合级旗标（每回合开始清空）与额外行动队列
         self._trait_flags: dict[str, set[str]] = {}
@@ -144,6 +153,11 @@ class SeriesEngine:
         # setup.metadata["enable_momentum"]=False 可显式关闭（纯表现记账，不耗 RNG）。
         self.momentum_enabled = bool(setup.metadata.get("enable_momentum", True))
         self.momentum: dict[str, dict[str, int]] = {}
+        # 单局回合上限：默认 999（打到主将阵亡，D-06）；
+        # metadata["rounds_per_game"] 可覆盖（测试平局/续战路径用）
+        self.rounds_per_game = int(
+            setup.metadata.get("rounds_per_game", ROUNDS_PER_GAME)
+        )
 
     # ------------------------------------------------------------------ 查询
 
@@ -301,12 +315,7 @@ class SeriesEngine:
                 if hero_id != attacker.hero_id and self.heroes[hero_id].is_alive()
             ]
             # 魅惑改写选人：临选人前弹台词（同窗同人只弹一次）
-            charm_key = f"{attacker.hero_id}:charm"
-            if not getattr(self, "_status_voice_said", None):
-                self._status_voice_said = set()
-            if charm_key not in self._status_voice_said:
-                self._status_voice_said.add(charm_key)
-                sv.emit_status_voice(self, attacker, "charm", parent_seq=0)
+            sv.emit_voice_once(self, attacker, "charm")
         else:
             pool = self._alive_enemies(attacker)
         candidates = [h for h in pool if h.hero_id not in exclude_ids]
@@ -475,6 +484,9 @@ class SeriesEngine:
                 ],
             },
         )
+        # 登场羁绊对话（全场 S1/S2 单元；无羁绊则跳过）
+        from battle import voice_lines_enter as vle
+        vle.emit_enter_dialogues(self)
         # 单挑：仅第 1 局开局、所有战法执行前（决策 D-03）
         if game_no == 1:
             self._run_duel(game_no)
@@ -489,7 +501,7 @@ class SeriesEngine:
         self.writer.emit("round_end", {"round_no": 0})
 
         if self._game_winner is None:
-            for round_no in range(1, ROUNDS_PER_GAME + 1):
+            for round_no in range(1, self.rounds_per_game + 1):
                 end_round = round_no
                 self._run_round(game_no, round_no)
                 if self._game_winner is not None:
@@ -516,41 +528,134 @@ class SeriesEngine:
         self._reset_game_state()
         return winner, reason, end_round
 
-    # ------------------------------------------------------------------ 单挑（B3）
+    # ------------------------------------------------------------------ 单挑（B3 → 配对升级）
 
-    def _duel_champion(self, team_id: str) -> HeroState | None:
-        """队内武力 > 90 的最高武力者；并列取站位靠前（决策 D-08）。无则 None。
-        Phase 4 约战（C6）：性格注册 challenge_below_threshold（好战）者
-        武力不足也入候选（仍按武力高者优先）。"""
-        best: HeroState | None = None
+    def _duel_contestants(self, team_id: str) -> list[HeroState]:
+        """队内参赛选手：存活且有效武力 > 有效智力；武力降序，并列站位/id。"""
+        pool: list[HeroState] = []
         for hero_id in self.hero_order:
             hero = self.heroes[hero_id]
             if hero.team_id != team_id or not hero.is_alive():
                 continue
-            force = self.effective_attr(hero, "force")
-            if force <= DUEL_FORCE_THRESHOLD:
-                behavior = tr.duel_behavior_of(hero)
-                if behavior is None or not behavior.challenge_below_threshold:
-                    continue
-            if best is None or force > self.effective_attr(best, "force"):
-                best = hero
-        return best
+            if self.effective_attr(hero, "force") <= self.effective_attr(hero, "intelligence"):
+                continue
+            pool.append(hero)
+        pool.sort(key=lambda h: (
+            -self.effective_attr(h, "force"),
+            h.position,
+            h.hero_id,
+        ))
+        return pool
+
+    @staticmethod
+    def _duel_pair_admit_bps(force_diff: int) -> int:
+        """初对入池率（bps）：差 0→90%、差 50→5%，线性；差>50 夹 5%。"""
+        d = max(0, force_diff)
+        if d >= 50:
+            return DUEL_PAIR_RATE_AT_50_BPS
+        return DUEL_PAIR_RATE_AT_ZERO_BPS - d * DUEL_PAIR_RATE_SLOPE
+
+    @staticmethod
+    def _duel_clash_cutins(force_diff: int) -> int:
+        if force_diff <= 10:
+            return 3
+        if force_diff <= 20:
+            return 2
+        return 1
+
+    def _duel_build_prelim_pairs(
+        self, side_a: list[HeroState], side_b: list[HeroState],
+    ) -> list[dict[str, Any]]:
+        """序号对位 + weight∈{1,2} 羁绊对；同人可多对；同键保留更佳羁绊。"""
+        by_key: dict[tuple[str, str], dict[str, Any]] = {}
+
+        def upsert(ha: HeroState, hb: HeroState, bond_w: int | None) -> None:
+            id_lo, id_hi = sorted((ha.hero_id, hb.hero_id))
+            key = (id_lo, id_hi)
+            weight = bond_w if bond_w is not None else bn.NO_BOND_WEIGHT
+            prev = by_key.get(key)
+            if prev is not None and prev["bond_weight"] <= weight:
+                return
+            lo, hi = self.heroes[id_lo], self.heroes[id_hi]
+            by_key[key] = {
+                "hero_a": lo,
+                "hero_b": hi,
+                "force_diff": abs(
+                    self.effective_attr(lo, "force") - self.effective_attr(hi, "force")
+                ),
+                "bond_weight": weight,
+            }
+
+        for i in range(min(len(side_a), len(side_b))):
+            upsert(side_a[i], side_b[i], bn.bond_weight(
+                side_a[i].template_id, side_b[i].template_id))
+        for ha in side_a:
+            for hb in side_b:
+                w = bn.bond_weight(ha.template_id, hb.template_id)
+                if w is not None and w <= 2:
+                    upsert(ha, hb, w)
+
+        # 确定性遍历序：bond_weight → force_diff → id
+        return sorted(
+            by_key.values(),
+            key=lambda p: (
+                p["bond_weight"],
+                p["force_diff"],
+                p["hero_a"].hero_id,
+                p["hero_b"].hero_id,
+            ),
+        )
+
+    def _duel_pick_roles(self, hero_x: HeroState, hero_y: HeroState) -> tuple[HeroState, HeroState, int]:
+        """高武力叫阵、低武力应战；相等则 A 队侧叫阵（队伍序破平）。"""
+        fx = self.effective_attr(hero_x, "force")
+        fy = self.effective_attr(hero_y, "force")
+        team_a = self.teams[0].team_id
+        if fx > fy:
+            return hero_x, hero_y, fx - fy
+        if fy > fx:
+            return hero_y, hero_x, fy - fx
+        if hero_x.team_id == team_a:
+            return hero_x, hero_y, 0
+        return hero_y, hero_x, 0
 
     def _run_duel(self, game_no: int) -> None:
-        champion_a = self._duel_champion(self.teams[0].team_id)
-        champion_b = self._duel_champion(self.teams[1].team_id)
-        if champion_a is None or champion_b is None:
+        side_a = self._duel_contestants(self.teams[0].team_id)
+        side_b = self._duel_contestants(self.teams[1].team_id)
+        if not side_a or not side_b:
             return
-        force_a = self.effective_attr(champion_a, "force")
-        force_b = self.effective_attr(champion_b, "force")
-        # 高武力方叫阵；同武力按队伍序破平（A 先，决策 D-08）
-        if force_a >= force_b:
-            challenger, defender = champion_a, champion_b
-            diff = force_a - force_b
-        else:
-            challenger, defender = champion_b, champion_a
-            diff = force_b - force_a
+        prelim = self._duel_build_prelim_pairs(side_a, side_b)
+        if not prelim:
+            return
 
+        pool: list[dict[str, Any]] = []
+        for pair in prelim:
+            rate = self._duel_pair_admit_bps(pair["force_diff"])
+            reason = f"{pair['hero_a'].hero_id}:{pair['hero_b'].hero_id}"
+            if self.rng.rand_bps("duel_pair", reason) < rate:
+                pool.append(pair)
+
+        if pool:
+            chosen = sorted(
+                pool,
+                key=lambda p: (
+                    p["bond_weight"],
+                    p["force_diff"],
+                    p["hero_a"].hero_id,
+                    p["hero_b"].hero_id,
+                ),
+            )[0]
+            self._resolve_duel_fight(game_no, chosen["hero_a"], chosen["hero_b"])
+            return
+
+        # 空池：初对全集同序取 1 → 固定叫阵-拒绝（性格约战不改写）
+        chosen = prelim[0]
+        self._resolve_duel_scripted_reject(game_no, chosen["hero_a"], chosen["hero_b"])
+
+    def _resolve_duel_scripted_reject(
+        self, game_no: int, hero_x: HeroState, hero_y: HeroState,
+    ) -> None:
+        challenger, defender, diff = self._duel_pick_roles(hero_x, hero_y)
         self.writer.set_time(game_no, 0, PHASE_DUEL, 0)
         challenge_seq = self.writer.emit(
             "duel_challenge",
@@ -559,32 +664,53 @@ class SeriesEngine:
                 "defender_id": defender.hero_id,
                 "challenger_force": self.effective_attr(challenger, "force"),
                 "defender_force": self.effective_attr(defender, "force"),
+                "clash_cutins": self._duel_clash_cutins(diff),
+            },
+        )
+        tr.emit_duel_line(
+            self, challenger, "duel_challenge", challenge_seq, target=defender,
+        )
+        reject_seq = self.writer.emit(
+            "duel_result", {"accepted": False}, parent_seq=challenge_seq
+        )
+        tr.emit_duel_line(
+            self, defender, "duel_reject", reject_seq, target=challenger,
+        )
+
+    def _resolve_duel_fight(
+        self, game_no: int, hero_x: HeroState, hero_y: HeroState,
+    ) -> None:
+        challenger, defender, diff = self._duel_pick_roles(hero_x, hero_y)
+        self.writer.set_time(game_no, 0, PHASE_DUEL, 0)
+        challenge_seq = self.writer.emit(
+            "duel_challenge",
+            {
+                "challenger_id": challenger.hero_id,
+                "defender_id": defender.hero_id,
+                "challenger_force": self.effective_attr(challenger, "force"),
+                "defender_force": self.effective_attr(defender, "force"),
+                "clash_cutins": self._duel_clash_cutins(diff),
             },
         )
 
-        # Phase 4 约战（C6，注册表驱动；空表 = 旧行为）：
-        # 叫阵方 force_duel（强制搦战）或应战方 always_accept（傲慢必应战）
-        # → 跳过拒绝判定（不 roll、不消耗 RNG）；谋深 reject_bonus_bps 抬高拒绝率。
-        challenger_behavior = tr.duel_behavior_of(challenger)
-        defender_behavior = tr.duel_behavior_of(defender)
-        tr.emit_duel_line(self, challenger, "duel_challenge", challenge_seq)
+        tr.emit_duel_line(
+            self, challenger, "duel_challenge", challenge_seq, target=defender,
+        )
         reject_rate = min(diff * DUEL_REJECT_PER_DIFF_BPS, DUEL_REJECT_MAX_BPS)
-        if defender_behavior is not None and defender_behavior.reject_bonus_bps:
-            reject_rate = min(
-                reject_rate + defender_behavior.reject_bonus_bps, DUEL_REJECT_MAX_BPS
-            )
-        forced = challenger_behavior is not None and challenger_behavior.force_duel
-        must_accept = defender_behavior is not None and defender_behavior.always_accept
         rejected = False
-        if not forced and not must_accept and reject_rate > 0:
+        if reject_rate > 0:
             rejected = self.rng.rand_bps("duel_reject", defender.hero_id) < reject_rate
         if rejected:
             reject_seq = self.writer.emit(
                 "duel_result", {"accepted": False}, parent_seq=challenge_seq
             )
-            tr.emit_duel_line(self, defender, "duel_reject", reject_seq)
+            tr.emit_duel_line(
+                self, defender, "duel_reject", reject_seq, target=challenger,
+            )
             return
-        tr.emit_duel_line(self, defender, "duel_accept", challenge_seq)
+        tr.emit_duel_line(
+            self, defender, "duel_accept", challenge_seq, target=challenger,
+        )
 
         win_rate = DUEL_WIN_BASE_BPS + diff * DUEL_WIN_PER_DIFF_BPS
         if win_rate >= BPS:
@@ -597,7 +723,6 @@ class SeriesEngine:
             {"accepted": True, "winner_id": winner.hero_id, "loser_id": loser.hero_id},
             parent_seq=challenge_seq,
         )
-        # 负者四维立即 -10（scope=game：惩罚只存在第 1 局，随局末回滚）
         self.modify_attr(
             loser,
             [(attr, -DUEL_PENALTY) for attr in ATTR_NAMES],
@@ -763,6 +888,16 @@ class SeriesEngine:
 
         # on_round_end 状态钩子（冬春轮转/蛇杖收尾治疗…）
         self._dispatch_round_hooks("on_round_end", round_end_seq, round_no=round_no)
+        # 性格回合末（羁留援手清冰锢等）
+        for hero_id in self.hero_order:
+            hero = self.heroes[hero_id]
+            if not hero.is_alive():
+                continue
+            trait = tr.of(hero)
+            if trait is not None:
+                trait.on_round_end(self, hero, round_end_seq, round_no)
+            if self._game_winner is not None:
+                return
 
     def _apply_tactics(self, round_no: int, parent_seq: int) -> None:
         """经理人战术回合头结算（P4-C）：注册表驱动，主流程零特例。
@@ -814,10 +949,12 @@ class SeriesEngine:
                     parent_seq=round_start_seq,
                 )
                 if definition.dot_rate_bps > 0:
+                    rate = definition.dot_rate_bps * max(1, status.stacks)
                     self.deal_damage(
                         source, hero, damage_type="magic",
-                        rate_bps=definition.dot_rate_bps, parent_seq=tick_seq,
-                        can_crit=False, kind="dot", can_mitigate=False,
+                        rate_bps=rate, parent_seq=tick_seq,
+                        can_crit=definition.dot_can_crit, kind="dot",
+                        can_mitigate=False,
                     )
                 if definition.hot_rate_bps > 0:
                     self.heal(
@@ -830,21 +967,12 @@ class SeriesEngine:
     def _dispatch_round_hooks(self, hook_name: str, parent_seq: int, *, round_no: int) -> None:
         """回合级状态钩子分发：(priority, hero_order, 他人/自身层, instance_id)。
         handler(engine, status, parent_seq, round_no)。"""
-        entries: list[StatusInstance] = []
-        for hero_id in self.hero_order:
-            if not self.heroes[hero_id].is_alive():
-                continue
-            for status in self.hero_statuses(hero_id):
-                if getattr(status.definition, hook_name) is not None:
-                    entries.append(status)
-        entries.sort(key=self._global_hook_key)
-        for status in entries:
-            if self._game_winner is not None:
-                return
-            owner = self.heroes[status.owner_id]
-            if not owner.is_alive() or status not in self.hero_statuses(status.owner_id):
-                continue
-            getattr(status.definition, hook_name)(self, status, parent_seq, round_no)
+        self._run_hook_entries(
+            self._collect_global_hooks(hook_name),
+            lambda status: getattr(status.definition, hook_name)(
+                self, status, parent_seq, round_no
+            ),
+        )
 
     # ------------------------------------------------------------------ 行动窗口
 
@@ -944,16 +1072,7 @@ class SeriesEngine:
             self._log_debug_roll(hero, "*", "skip", reason="禁主动（缴械/噤声等）")
             if not skipped:
                 # 缄默等：临跳过主动前（非全禁跳过——全禁已在 action_start 说过）
-                for sid in ("silence", "ming_lock", "petrify"):
-                    if any(
-                        i.definition.status_id == sid
-                        for i in self.hero_statuses(hero.hero_id)
-                    ):
-                        key = f"{hero.hero_id}:{sid}"
-                        if key not in self._status_voice_said:
-                            self._status_voice_said.add(key)
-                            sv.emit_status_voice(self, hero, sid, parent_seq=0)
-                        break
+                sv.emit_forbid_voice(self, hero, sv.FORBID_ACTIVE_VOICE)
         elif hero.hero_id in self._preparing:
             self._log_debug_roll(
                 hero, self._preparing[hero.hero_id]["skill_id"], "skip", reason="准备中"
@@ -992,16 +1111,7 @@ class SeriesEngine:
         # 普攻（含连击与追击）
         if self.is_forbidden(hero, "forbid_basic"):
             if not skipped:
-                for sid in ("disarm", "fear", "ming_lock", "petrify"):
-                    if any(
-                        i.definition.status_id == sid
-                        for i in self.hero_statuses(hero.hero_id)
-                    ):
-                        key = f"{hero.hero_id}:{sid}"
-                        if key not in self._status_voice_said:
-                            self._status_voice_said.add(key)
-                            sv.emit_status_voice(self, hero, sid, parent_seq=0)
-                        break
+                sv.emit_forbid_voice(self, hero, sv.FORBID_BASIC_VOICE)
         else:
             if delay_rounds > 0:
                 self._voice_hesitation_once(hero, action_seq)
@@ -1018,11 +1128,7 @@ class SeriesEngine:
 
     def _voice_hesitation_once(self, hero: HeroState, parent_seq: int = 0) -> None:
         """犹豫真正延后行动时弹台词（同窗一次；独立 TraitLine 组便于客户端播气泡）。"""
-        key = f"{hero.hero_id}:hesitation"
-        if key in self._status_voice_said:
-            return
-        self._status_voice_said.add(key)
-        sv.emit_status_voice(self, hero, "hesitation", parent_seq=0)
+        sv.emit_voice_once(self, hero, "hesitation")
 
     def _settle_delayed_actions(self, hero: HeroState) -> None:
         """补结算到期延迟行动（D-02 第 3 条）。生效时点被禁的部分作废（静默）；
@@ -1048,11 +1154,14 @@ class SeriesEngine:
                 continue  # 缄默/冥锁/石化 → 主动部分作废
             skill = SKILL_REGISTRY[entry["skill_id"]]
             if skill.prepare_rounds > 0:
-                # 延迟的准备型战法：生效 = 进入准备
+                # 延迟的准备型战法：生效 = 进入准备。本窗稍后还会走
+                # _settle_preparing，须跳过当次倒数，否则 prepare_rounds=1 会
+                # 同窗直接 release（神使戏言犹豫准备技的典型坑）。
                 self._emit_skill_trigger(hero, skill, "prepare", [])
                 self._preparing[hero.hero_id] = {
                     "skill_id": skill.skill_id,
                     "remaining": skill.prepare_rounds,
+                    "skip_tick": True,
                 }
                 continue
             self._cast_active_skill(hero, skill, "release")
@@ -1061,6 +1170,9 @@ class SeriesEngine:
         """准备型战法计数与释放。被打断的登记已在 apply_status 中移除。"""
         preparing = self._preparing.get(hero.hero_id)
         if preparing is None:
+            return
+        # 本窗刚因犹豫补结算进入准备：不倒数，留待下一行动窗释放
+        if preparing.pop("skip_tick", False):
             return
         preparing["remaining"] -= 1
         if preparing["remaining"] > 0:
@@ -1285,13 +1397,13 @@ class SeriesEngine:
         ]
         # 队内：有先攻且存在无先攻、速度更高的队友 → 先攻改写了队内序
         for hero_id in members:
-            if not st.any_forbid(self.hero_statuses(hero_id), "first_strike"):
+            if not st.has_first_strike(self.hero_statuses(hero_id)):
                 continue
             my_spd = self.effective_attr(self.heroes[hero_id], "speed")
             for other_id in members:
                 if other_id == hero_id:
                     continue
-                if st.any_forbid(self.hero_statuses(other_id), "first_strike"):
+                if st.has_first_strike(self.hero_statuses(other_id)):
                     continue
                 if self.effective_attr(self.heroes[other_id], "speed") > my_spd:
                     self._first_strike_voice.add(hero_id)
@@ -1299,7 +1411,7 @@ class SeriesEngine:
         return sorted(
             members,
             key=lambda hero_id: (
-                0 if st.any_forbid(self.hero_statuses(hero_id), "first_strike") else 1,
+                0 if st.has_first_strike(self.hero_statuses(hero_id)) else 1,
                 -self.effective_attr(self.heroes[hero_id], "speed"),
                 self.heroes[hero_id].position,
                 hero_id,
@@ -1314,8 +1426,8 @@ class SeriesEngine:
             hero_a = self.heroes[queues[0][0]]
             hero_b = self.heroes[queues[1][0]]
             # 先攻（Phase 3）：跨队比较时先攻持有者必定先手（不 roll）
-            fs_a = st.any_forbid(self.hero_statuses(hero_a.hero_id), "first_strike")
-            fs_b = st.any_forbid(self.hero_statuses(hero_b.hero_id), "first_strike")
+            fs_a = st.has_first_strike(self.hero_statuses(hero_a.hero_id))
+            fs_b = st.has_first_strike(self.hero_statuses(hero_b.hero_id))
             if fs_a != fs_b:
                 winner = queues[0].pop(0) if fs_a else queues[1].pop(0)
                 self._first_strike_voice.add(winner)  # 跨队抢先
@@ -1449,13 +1561,10 @@ class SeriesEngine:
             "strike_no": strike_no,
             "damage_seq": damage_seq,
         }
-        for status in entries:
-            if self._game_winner is not None:
-                return
-            holder = self.heroes[status.owner_id]
-            if not holder.is_alive() or status not in self.hero_statuses(status.owner_id):
-                continue
-            status.definition.on_ally_basic_attack(self, status, ctx)
+        self._run_hook_entries(
+            entries,
+            lambda status: status.definition.on_ally_basic_attack(self, status, ctx),
+        )
 
     def perform_coordinated_attack(
         self, ally: HeroState, target: HeroState, *, parent_seq: int
@@ -1516,6 +1625,30 @@ class SeriesEngine:
             status.instance_id,
         )
 
+    def _collect_global_hooks(self, hook_name: str) -> list[StatusInstance]:
+        """全场存活持有者身上带某钩子的状态实例，按 _global_hook_key 定序。"""
+        entries = [
+            status
+            for hero_id in self.hero_order
+            if self.heroes[hero_id].is_alive()
+            for status in self.hero_statuses(hero_id)
+            if getattr(status.definition, hook_name) is not None
+        ]
+        entries.sort(key=self._global_hook_key)
+        return entries
+
+    def _run_hook_entries(self, entries: list[StatusInstance], invoke) -> None:
+        """统一钩子执行：逐实例前置检查——局已分胜负则整链终止；持有者响应链
+        中途阵亡或实例已被移除则跳过该实例。entries 须已按显式键排序
+        （_owner_hook_key / _global_hook_key，见 determinism.md §2）。"""
+        for status in entries:
+            if self._game_winner is not None:
+                return
+            owner = self.heroes[status.owner_id]
+            if not owner.is_alive() or status not in self.hero_statuses(status.owner_id):
+                continue
+            invoke(status)
+
     def _dispatch_action_start(self, hero: HeroState, action_seq: int) -> None:
         """行动窗口开始钩子：他人施加优先于自身，再 (priority, instance_id)。"""
         entries = sorted(
@@ -1526,12 +1659,10 @@ class SeriesEngine:
             ),
             key=self._owner_hook_key,
         )
-        for status in entries:
-            if self._game_winner is not None or not hero.is_alive():
-                return
-            if status not in self.hero_statuses(hero.hero_id):
-                continue  # 前一个响应移除了它
-            status.definition.on_action_start(self, status, action_seq)
+        self._run_hook_entries(
+            entries,
+            lambda status: status.definition.on_action_start(self, status, action_seq),
+        )
 
     def _dispatch_damage_hooks(self, ctx: dict[str, Any]) -> None:
         """伤害结算后钩子：同一次伤害——先守方 on_damage_taken，再攻方
@@ -1551,20 +1682,12 @@ class SeriesEngine:
         ]
         taken.sort(key=self._owner_hook_key)
         dealt.sort(key=self._owner_hook_key)
-        for status in taken:
-            if self._game_winner is not None:
-                return
-            owner = self.heroes[status.owner_id]
-            if not owner.is_alive() or status not in self.hero_statuses(status.owner_id):
-                continue  # 响应链中途阵亡/被移除
-            status.definition.on_damage_taken(self, status, ctx)
-        for status in dealt:
-            if self._game_winner is not None:
-                return
-            owner = self.heroes[status.owner_id]
-            if not owner.is_alive() or status not in self.hero_statuses(status.owner_id):
-                continue
-            status.definition.on_damage_dealt(self, status, ctx)
+        self._run_hook_entries(
+            taken, lambda status: status.definition.on_damage_taken(self, status, ctx)
+        )
+        self._run_hook_entries(
+            dealt, lambda status: status.definition.on_damage_dealt(self, status, ctx)
+        )
 
     # ==================================================================
     # 效果原语（任务书 4.4）：战法/状态只通过这五个入口产生作用
@@ -1812,11 +1935,12 @@ class SeriesEngine:
                 target, f"{damage_type}_vulnerable_bps"
             )
 
-            # on_pre_damage_dealt 钩子（觅踵/死亡凝望/致命一矢…改写增伤或必暴）
+            # on_pre_damage_dealt 钩子（觅踵/死亡凝望/致命一矢/十二试炼…改写增伤、
+            # 必暴或兵刃系数加成）
             pre_ctx = {
                 "source": source, "target": target, "damage_type": damage_type,
                 "kind": kind, "damage_up_bonus": 0, "extra_up_bonus": 0,
-                "forced_crit": False,
+                "forced_crit": False, "rate_bonus_bps": 0,
             }
             for status in sorted(
                 (s for s in self.hero_statuses(source.hero_id)
@@ -1826,6 +1950,7 @@ class SeriesEngine:
                 status.definition.on_pre_damage_dealt(self, status, pre_ctx)
             damage_up += pre_ctx["damage_up_bonus"]
             extra_up += pre_ctx["extra_up_bonus"]
+            rate_bps = rate_bps + pre_ctx["rate_bonus_bps"]
 
             crit_multiplier_bps = BPS
             if can_crit:
@@ -1917,13 +2042,19 @@ class SeriesEngine:
             self.clear_trait_flag(target.hero_id, "heel_line_pending")
             if is_crit and damage > 0:
                 tr.emit_trigger(self, target, "heel")
-        # Phase 4 势能：普攻命中（未被闪避）+1 普攻/追击轨；暴击 +1（按 kind 归轨）
+        # Phase 4 势能：普攻命中（未被闪避）+1；追伤等触发类每次造成伤害 +1；
+        # 其余 kind 仅暴击 +1（触发类不叠暴击，防双计）。
         if self.momentum_enabled and source.hero_id != target.hero_id:
             if kind == "basic" and mitigation != "evade":
                 self.add_momentum(
                     source, "basic_pursuit", reason="basic_hit", parent_seq=damage_seq
                 )
-            if is_crit:
+            if kind in MOMENTUM_ON_TRIGGER_KINDS and mitigation != "evade":
+                self.add_momentum(
+                    source, self.momentum_track_of_kind(kind),
+                    reason="trigger", parent_seq=damage_seq,
+                )
+            elif is_crit:
                 self.add_momentum(
                     source, self.momentum_track_of_kind(kind),
                     reason="crit", parent_seq=damage_seq,
@@ -2159,9 +2290,9 @@ class SeriesEngine:
         """
         if not target.is_alive():
             return None
-        # 石化免疫（珀尔修斯镜盾，Phase 3）：静默拒绝
-        if definition.status_id == "petrify" and st.any_forbid(
-            self.hero_statuses(target.hero_id), "petrify_immune"
+        # 状态级免疫键（StatusDef.immune_when_forbid，如石化↔镜盾）：静默拒绝
+        if definition.immune_when_forbid and st.any_forbid(
+            self.hero_statuses(target.hero_id), definition.immune_when_forbid
         ):
             return None
         # 清醒（Phase 4 伊阿宋）：免疫各类硬控（kind=CONTROL），静默拒绝。
@@ -2224,9 +2355,10 @@ class SeriesEngine:
                 definition.on_apply(self, instance)
             result = instance
 
-        # 性格·孤怨照影：美杜莎石化别人成功后 8% 自身石化（防递归：对自己施加不回调）
-        if definition.status_id == "petrify" and source.hero_id != target.hero_id:
-            self.notify_petrify_out(source, parent_seq)
+        # 施加成功回调（StatusDef.on_applied_to_other，如美杜莎孤怨照影）；
+        # 防递归：对自己施加不回调
+        if definition.on_applied_to_other is not None and source.hero_id != target.hero_id:
+            definition.on_applied_to_other(self, source, target, parent_seq)
 
         # on_control_taken 钩子（圣盾反制控制，Phase 3）：目标被敌方施加控制类状态后
         if (
@@ -2258,15 +2390,8 @@ class SeriesEngine:
         # on_status_inflicted 钩子（Phase 4 死亡凝望）：任意状态成功施加/刷新后，
         # 全场持有者按全局响应键定序。钩子引发的施加不再回调（防递归）。
         if not self._in_inflicted_dispatch:
-            entries = [
-                status
-                for hero_id in self.hero_order
-                if self.heroes[hero_id].is_alive()
-                for status in self.hero_statuses(hero_id)
-                if status.definition.on_status_inflicted is not None
-            ]
+            entries = self._collect_global_hooks("on_status_inflicted")
             if entries:
-                entries.sort(key=self._global_hook_key)
                 ctx = {
                     "source": source, "target": target,
                     "status_id": definition.status_id,
@@ -2275,14 +2400,12 @@ class SeriesEngine:
                 }
                 self._in_inflicted_dispatch = True
                 try:
-                    for status in entries:
-                        if self._game_winner is not None:
-                            break
-                        holder = self.heroes[status.owner_id]
-                        if (not holder.is_alive()
-                                or status not in self.hero_statuses(status.owner_id)):
-                            continue
-                        status.definition.on_status_inflicted(self, status, ctx)
+                    self._run_hook_entries(
+                        entries,
+                        lambda status: status.definition.on_status_inflicted(
+                            self, status, ctx
+                        ),
+                    )
                 finally:
                     self._in_inflicted_dispatch = False
         return result
@@ -2399,6 +2522,8 @@ class SeriesEngine:
         self.statuses[target.hero_id] = []
         self._preparing.pop(target.hero_id, None)
         self._delayed_actions.pop(target.hero_id, None)
+        # 击杀台词：击杀者→死者（羁绊池→generic；自杀/击杀者已亡静默）
+        vlk.emit_kill_line(self, killer, target, defeat_seq)
         if target.is_main and self._game_winner is None:
             self._game_winner = killer.team_id  # 仅主将阵亡判定该局失败（任务书 5.1）
 
@@ -2418,24 +2543,13 @@ class SeriesEngine:
                 if self._game_winner is not None:
                     return
             # 状态钩子 on_hero_defeated（渡魂船费/胜利羽翼击杀返还…全局定序）
-            entries: list[StatusInstance] = []
-            for hero_id in self.hero_order:
-                if not self.heroes[hero_id].is_alive():
-                    continue
-                for status in self.hero_statuses(hero_id):
-                    if status.definition.on_hero_defeated is not None:
-                        entries.append(status)
-            entries.sort(key=self._global_hook_key)
-            for status in entries:
-                if self._game_winner is not None:
-                    return
-                owner = self.heroes[status.owner_id]
-                if not owner.is_alive() or status not in self.hero_statuses(status.owner_id):
-                    continue
-                status.definition.on_hero_defeated(
-                    self, status, {"victim": target, "killer": killer,
-                                   "defeat_seq": defeat_seq}
-                )
+            defeat_ctx = {"victim": target, "killer": killer, "defeat_seq": defeat_seq}
+            self._run_hook_entries(
+                self._collect_global_hooks("on_hero_defeated"),
+                lambda status: status.definition.on_hero_defeated(
+                    self, status, defeat_ctx
+                ),
+            )
 
 
 class _BasicAttackStub(Skill):

@@ -26,16 +26,21 @@ namespace ClientBattle.Units
         {
             ["zeus"] = "olympus", ["athena"] = "olympus", ["ares"] = "olympus",
             ["apollo"] = "olympus", ["asclepius"] = "olympus", ["artemis"] = "olympus",
-            ["nike"] = "olympus",
+            ["nike"] = "olympus", ["patroclus"] = "heroes",
             ["achilles"] = "heroes", ["heracles"] = "heroes", ["perseus"] = "heroes",
             ["atalanta"] = "heroes", ["paris"] = "heroes", ["ajax"] = "heroes",
             ["hector"] = "heroes", ["jason"] = "heroes", ["castor"] = "heroes",
             ["poseidon"] = "sea", ["amphitrite"] = "sea", ["triton"] = "sea",
             ["siren"] = "sea", ["scylla"] = "sea", ["odysseus"] = "sea",
+            ["calypso"] = "sea",
             ["hades"] = "underworld", ["medusa"] = "underworld", ["persephone"] = "underworld",
             ["charon"] = "underworld", ["thanatos"] = "underworld", ["cerberus"] = "underworld",
-            ["hermes"] = "underworld",
+            ["hermes"] = "underworld", ["hecate"] = "underworld",
         };
+
+        /// <summary>模板阵营色（cut-in 等全屏演出取色；未登记按 heroes 红）。</summary>
+        public static Color FactionColorOf(string templateId) =>
+            FactionColors[FactionOf.TryGetValue(templateId ?? "", out var f) ? f : "heroes"];
 
         readonly Dictionary<string, UnitView> _units = new();
         BattleReport _report;

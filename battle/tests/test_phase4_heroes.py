@@ -63,6 +63,43 @@ def test_achilles_fury_chains_capped_seven():
     assert len(events_of(engine, "status_tick")) >= fury_count
 
 
+def test_achilles_fury_momentum_on_every_trigger_not_only_crit():
+    """追伤 kind=fury：落地即 passive+1（非暴也记）；暴击不双计 reason=crit。"""
+    setup = duo_vs_duo("t_fury_mom", ("achilles",))
+    engine, anchor = bare_engine(setup)
+    a1, b1 = engine.hero_by_id("a1"), engine.hero_by_id("b1")
+
+    before = len(events_of(engine, "momentum_change"))
+    engine.deal_damage(
+        a1, b1, damage_type="physical", rate_bps=1000,
+        parent_seq=anchor, kind="fury", can_crit=False, ignore_defense=True,
+    )
+    trigger_moms = [
+        e for e in events_of(engine, "momentum_change")[before:]
+        if e["payload"].get("reason") == "trigger"
+        and e["payload"].get("track") == "passive"
+    ]
+    assert len(trigger_moms) == 1, "非暴击追伤也应记 passive 势能"
+
+    # 暴击追伤：仍只记 trigger，不叠 crit（kind 不进事件流，用返回 seq）
+    engine.apply_status(a1, a1, st.StatusDef(
+        status_id="t_crit", kind=st.BUFF, duration_rounds=-1,
+        modifiers={"crit_rate_bps": 10000},
+    ), parent_seq=anchor)
+    before2 = len(events_of(engine, "momentum_change"))
+    dmg_seq = engine.deal_damage(
+        a1, b1, damage_type="physical", rate_bps=1000,
+        parent_seq=anchor, kind="fury", can_crit=True, ignore_defense=True,
+    )
+    assert engine.last_damage_result["is_crit"]
+    moms2 = events_of(engine, "momentum_change")[before2:]
+    assert sum(1 for e in moms2 if e["payload"].get("reason") == "trigger") == 1
+    assert not any(
+        e["payload"].get("reason") == "crit" and e.get("parent_seq") == dmg_seq
+        for e in moms2
+    )
+
+
 def _aoman_fury_engine(*, a_troops: int, b_troops: int, seed: int = 3):
     setup = BattleSetup(
         battle_id="t_aoman_pierce",
@@ -89,21 +126,64 @@ def _aoman_fury_engine(*, a_troops: int, b_troops: int, seed: int = 3):
     return engine
 
 
-def test_aoman_pierce_only_when_target_ratio_higher():
-    """傲慢贯穿：仅目标残兵比例 > 自身时才有机会触发，非每次追伤必播。"""
-    # 目标更残（g1r3 同类）：不得播 pierce
+def test_aoman_pierce_unconditional_with_override():
+    """傲慢贯穿：无条件 25% 判定；override 100% 时任意残兵比均播 pierce。"""
+    # 目标更残 + 100% 傲慢 → 仍播 pierce（已取消残兵比例门槛）
     low = _aoman_fury_engine(a_troops=9000, b_troops=5000)
-    assert not any(
+    assert any(
         e["payload"].get("effect") == "pierce"
         for e in events_of(low, "trait_trigger")
-    ), "残兵比例不高于自身时不得播贯穿"
+    ), "无条件判定成功时应播贯穿"
     assert events_of(low, "status_tick"), "应有追伤以证明场景有效"
 
-    # 目标更满 + 100% 傲慢判定 → 必播 pierce
+    # 目标更满 + 100% → 同样必播
     high = _aoman_fury_engine(a_troops=4000, b_troops=9000, seed=5)
     pierce = [e for e in events_of(high, "trait_trigger")
               if e["payload"].get("effect") == "pierce"]
-    assert pierce, "目标残兵比例更高且判定成功应播贯穿"
+    assert pierce, "判定成功应播贯穿"
+
+
+def test_heracles_trials_next_phys_rate_bonus_consumed():
+    """十二试炼：下一次兵刃系数可叠；非试炼兵刃消费；试炼伤害不消费。"""
+    setup = duo_vs_duo("t_trials_bonus", ("heracles",))
+    engine, anchor = bare_engine(setup)
+    a1, b1 = engine.hero_by_id("a1"), engine.hero_by_id("b1")
+    SKILLS["heracles_trials"].execute(engine, a1, [a1], anchor)
+    trials = engine.find_status("a1", "heracles_trials")
+    assert trials is not None
+    trials.counters["next_phys_rate_bps"] = 1000  # 叠两次试炼
+
+    # 试炼段不消费
+    engine.deal_damage(
+        a1, b1, damage_type="physical", rate_bps=6000,
+        parent_seq=anchor, kind="trial",
+    )
+    assert trials.counters["next_phys_rate_bps"] == 1000
+
+    # 普通兵刃一次吃完叠层
+    engine.deal_damage(
+        a1, b1, damage_type="physical", rate_bps=10000, parent_seq=anchor,
+    )
+    assert trials.counters.get("next_phys_rate_bps", 0) == 0
+
+
+def test_lion_counter_weaken_always_on_hit():
+    """狮皮：反击成功必挂 −15% 伤害（1 回合）。"""
+    setup = duo_vs_duo("t_lion_weaken", ("heracles",), b_count=1)
+    engine, anchor = bare_engine(setup)
+    a1, b1 = engine.hero_by_id("a1"), engine.hero_by_id("b1")
+    from battle.skills_men import LION_COUNTER_STATUS, LION_WEAKEN_STATUS, _lion_on_damage_taken
+    engine.apply_status(a1, a1, st.StatusDef(
+        status_id="lion_counter", kind=st.SPECIAL, duration_rounds=-1,
+        response_priority=50, on_damage_taken=_lion_on_damage_taken,
+        payload={"rate_bps": 10000, "damage_rate_bps": 4500, "weaken_rate_bps": 10000},
+    ), parent_seq=anchor)
+    engine.deal_damage(b1, a1, damage_type="physical", rate_bps=1000, parent_seq=anchor)
+    weaken = engine.find_status("b1", "lion_weaken")
+    assert weaken is not None
+    assert weaken.definition.modifiers["damage_up_bps"] == -1500
+    assert LION_WEAKEN_STATUS.modifiers["damage_up_bps"] == -1500
+    assert LION_COUNTER_STATUS.payload["rate_bps"] == 7000  # 模块常量未被污染
 
 
 # ----------------------------------------------------------------- 镜盾疾袭 v4

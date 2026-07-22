@@ -9,8 +9,9 @@
 同单位连续飘字纵向错开不叠字；若被格挡则飘「技能名 格挡!」蓝灰字。
 性格/状态发作时（傲慢、鲁莽、或被缄默跳过主动等），该卡右上弹白底聊天
 气泡说一句台词——此刻全场其他演出**等它说完**（独占播放单元）再继续。
-回合切换顶部出横幅；势能满档/超高伤时屏幕中上部金字 cut-in 一闪而过
-（不阻塞）。
+回合切换顶部出横幅；势能满档/超高伤时**全屏单人 cut-in**（暗幕+阵营色
+斜带+巨幅立绘+大字）甩入甩出，不阻塞时间轴；单挑接受后播**全屏裂缝
+交错 cut-in**（两张半屏卡对向滑过中央裂缝线）。
 
 ## 二、飘字（FloatingTextService）
 
@@ -35,6 +36,7 @@
 | 类别 | trait_id | 时点（引擎侧） |
 |---|---|---|
 | 性格台词 | 各性格 id | [traits.md](../mechanics/traits.md)；错开时点特例见 [hero_specials.md §1](../mechanics/hero_specials.md) |
+| 单挑台词 | 武将 `trait_id`（或 `voice`） | `effect=duel_challenge/accept/reject`；挂 duel 组，由 `PlayDuel` 播，见 [duel.md](../mechanics/duel.md) |
 | 状态台词 | `"status"` | 控制/犹豫/先攻**临产生影响的执行节点**，见 [status_voice.md](../mechanics/status_voice.md) |
 
 播放机制（2026-07-20 定稿）：
@@ -49,12 +51,32 @@
    `Resources/ClientBattle/UI/chat_bubble.png`（缺省白色占位）。
 4. sortingOrder 70/71（全场最顶）。
 
-## 四、横幅与 cut-in（不阻塞）
+### 击杀台词（2026-07-22）
 
-- **横幅**：回合号/局结果/单挑宣告，OnGUI 白字黑影双绘、按屏高缩放。
-- **cut-in**：金字大横幅 1.4s 淡出+轻震屏；触发源＝满档轨 `cut_in=true` /
-  单笔伤害 >3000 / 行动窗内第 5 次追伤；同播放组去重。
-  代码：`PerformanceRunner.RequestCutIn/DrawCutIn`。
+`hero_defeated` 后服务端发 `trait_trigger`（effect=kill，说话者=击杀者，挂
+defeat 同组）；客户端无特判——`TraitLineExtract` 抽成独占 TraitLine 气泡，
+自然排在阵亡倒下之后。羁绊池→generic 由服务端选定，客户端只播 `line`。
+
+## 四、横幅与 cut-in
+
+- **横幅**（不阻塞）：回合号/局结果/单挑宣告，OnGUI 白字黑影双绘、按屏高缩放。
+- **单人 cut-in**（2026-07-21 全屏化）：暗幕+阵营色斜带甩入+巨幅
+  立绘反向滑入+大字标题，约 0.8s；触发源＝满档轨（**2026-07-22 语义**：轨已满
+  ≥5 后该轨再次进账才切，且**阻塞出手**——出手前 `PlaySoloBlocking` 独占时间轴，
+  切完才开打、出手音效换 `sfx_attack_empowered`）/ 单笔伤害 >3000 /
+  行动窗内第 5 次追伤（后两者不阻塞）；同播放组去重；新请求顶替旧的。
+  **文案（2026-07-22）**：满档 cut-in 标题＝该次即将出手的技能名
+  （战法中文名/「普攻」/状态名，Runner `SkillNameOf`）；
+  高伤 cut-in 文本末尾带伤害额度（`…重创 X！-金额`）。
+  无主体播报（战术变更）回退旧 OnGUI 金字横幅。
+  代码：入口 `CutInService.Request`（组去重）→ `PlaySolo`；阻塞入口
+  `PlaySoloBlocking`；回退 `BannerService.ShowTextCutIn`。
+- **决斗裂缝 cut-in**（阻塞，在 DuelPerformance 时间轴内）：中央斜裂缝线分屏，
+  两张半屏武将卡（阵营色底+巨幅立绘+名字）一张自上而下、一张自下而上
+  对向滑过裂缝算一次交错；`clash_cutins`（1~3）次来回、一次比一次快
+  （×0.72），每次穿越裂缝白闪+震屏+`sfx_duel_clash`；末次拉回中线对峙、
+  弹 VS、白闪后左右弹开。代码：`CutInService.DuelClashRoutine`。
+  层级 80~90 见 [rendering_layout.md §四](rendering_layout.md)。
 
 ## 五、中文名注册表（红线）
 

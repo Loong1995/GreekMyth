@@ -49,7 +49,7 @@ namespace ClientBattle.VFX
                 damage.Mitigation, damage.DamageType);
             if (damage.Troops != null)
                 target.SetTroops(damage.Troops.TroopsAfter);
-            PerformanceRunner.Instance?.NotifyDamageSettled(damage, floatSkillName);
+            ctx.OnDamageSettled?.Invoke(damage, floatSkillName);
         }
 
         /// <summary>结算一条治疗事件：绿字+回血。</summary>
@@ -64,74 +64,10 @@ namespace ClientBattle.VFX
                 target.SetTroops(heal.Troops.TroopsAfter);
         }
 
-        /// <summary>组内非伤害/治疗副事件的兜底表现（状态/属性/兵力/阵亡/台词）。</summary>
-        protected static void SettleSideEvent(BattleEvent ev, VFXContext ctx)
-        {
-            switch (ev)
-            {
-                case StatusApplyEvent apply:   // 含 StatusRefreshEvent（派生）
-                    ApplyStatusVisual(apply, ctx, ev is not StatusRefreshEvent);
-                    break;
-                case StatusRemoveEvent remove:
-                    RemoveStatusVisual(remove, ctx);
-                    break;
-                case AttrChangeEvent attr:
-                    var unit = ctx.Unit(attr.HeroId);
-                    foreach (var change in attr.Changes)
-                        ctx.Floats.ShowAttr(unit, ChineseNames.Attr(change.Attr), change.After - change.Before);
-                    break;
-                case TroopsChangeEvent troops when troops.Troops != null:
-                    ctx.Unit(troops.Troops.HeroId)?.SetTroops(troops.Troops.TroopsAfter);
-                    break;
-                case HeroDefeatedEvent defeated:
-                    var fallen = ctx.Unit(defeated.HeroId);
-                    if (fallen != null)
-                    {
-                        fallen.PlayDefeated();
-                        UnitAuraService.OnUnitDefeated(fallen);
-                        ctx.Sfx.Play("sfx_defeated");
-                        ctx.Floats.Show(fallen, defeated.IsMainHero ? "主将阵亡!" : "阵亡",
-                            new Color(1f, 0.4f, 0.2f), 1.4f);
-                    }
-                    break;
-                case TraitTriggerEvent:
-                    // 台词只走 TraitLine 独占组；落账路径不弹气泡，避免重叠
-                    break;
-                case MomentumChangeEvent momentum: // 势能落账 + 满档 cut-in（B1/B2）
-                    MomentumService.Apply(momentum, ctx.Unit(momentum.HeroId));
-                    if (momentum.CutIn &&
-                        MomentumService.TrackTable.TryGetValue(momentum.Track, out var style))
-                        PerformanceRunner.Instance?.RequestCutIn(
-                            $"{momentum.HeroId} 势能全开·{style.Label}！", momentum.GroupId);
-                    break;
-            }
-        }
-
-        static void ApplyStatusVisual(StatusApplyEvent apply, VFXContext ctx, bool isNew)
-        {
-            var owner = ctx.Unit(apply.Status?.OwnerId);
-            if (owner == null) return;
-            string statusId = apply.Status.StatusId;
-            owner.StatusPanel.AddStatus(statusId);
-            UnitAuraService.OnStatusApplied(owner, statusId); // 有配置则挂常驻循环光环
-            ctx.Floats.ShowStatus(owner, ChineseNames.Status(statusId), gained: true);
-            if (isNew) ctx.Sfx.Play($"sfx_status_{statusId}"); // 同帧与伤害音效由 SfxManager 去重
-            if (statusId == "petrify") owner.SetPetrified(true);
-        }
-
-        static void RemoveStatusVisual(StatusRemoveEvent remove, VFXContext ctx)
-        {
-            var owner = ctx.Unit(remove.Status?.OwnerId);
-            if (owner == null) return;
-            string statusId = remove.Status.StatusId;
-            owner.StatusPanel.RemoveStatus(statusId);
-            UnitAuraService.OnStatusRemoved(owner, statusId);
-            if (statusId == "petrify")
-            {
-                owner.SetPetrified(false);              // 石化渐变回来
-                ctx.Sfx.Play("sfx_petrify_off");        // 石头脱落音效
-            }
-        }
+        /// <summary>组内非伤害/治疗副事件的兜底表现（状态/属性/兵力/阵亡/台词）。
+        /// 落账统一走 EventApplyService（animated=true 带飘字/音效）。</summary>
+        protected static void SettleSideEvent(BattleEvent ev, VFXContext ctx) =>
+            EventApplyService.Apply(ev, ctx, animated: true);
 
         /// <summary>取组内飘字用的战法名：状态触发飘"状态来源的战法名"（用状态中文名等价表达）。</summary>
         protected static string FloatNameOf(EventGroup group)

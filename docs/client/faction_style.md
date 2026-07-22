@@ -11,9 +11,9 @@
 | 阵营 | 英雄（template_id） | 气质关键词 |
 |---|---|---|
 | 奥林匹斯 olympus | zeus、athena、ares、apollo、asclepius、artemis、nike | 神圣、雷光、鎏金 |
-| 英雄 heroes | achilles、heracles、perseus、atalanta、paris、ajax、hector、jason、castor | 血性、青铜、战场 |
-| 海域 sea | poseidon、amphitrite、triton、siren、scylla、odysseus | 深海、浪涌、碧蓝 |
-| 冥界 underworld | hades、medusa、persephone、charon、thanatos、cerberus、hermes | 幽暗、亡魂、冥紫 |
+| 英雄 heroes | achilles、patroclus、heracles、perseus、atalanta、paris、ajax、hector、jason、castor | 血性、青铜、战场 |
+| 海域 sea | poseidon、amphitrite、triton、siren、scylla、odysseus、calypso | 深海、浪涌、碧蓝 |
+| 冥界 underworld | hades、medusa、persephone、charon、thanatos、cerberus、hermes、hecate | 幽暗、亡魂、冥紫 |
 
 - 新增英雄必须在 `FactionOf` 登记（未登记回退 heroes 配色，无告警）。
 - 立绘路径：`Resources/ClientBattle/Portraits/<template_id>.png`，

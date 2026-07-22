@@ -16,7 +16,7 @@ from __future__ import annotations
     heal_up_bonus         治疗量加成（仁心 +15% / 师者 +10% / 柔波 +10%）
     flip_heal_lowest      治疗兵力最低单位前判定改治疗对面（仁心 20%）
     forced_crit_on_taken  受击判定使该次攻击必定暴击（踵之弱 15%）
-    pursuit_boost         追伤最终伤害倍率（傲慢 25% 判定 ×1.5）
+    pursuit_boost         追伤最终伤害倍率（傲慢 无条件 25% 判定 ×1.5）
     attr_drain_multiplier 吸取属性效果翻倍（威权 20% ×2）
     on_kill               己方击杀后（求胜四维+10）
     on_any_defeat         任意武将阵亡后（好战 15% 额外行动一轮）
@@ -135,53 +135,23 @@ class Trait:
         """己方其他单位普攻每击结算后（Phase 4 并辔；先于状态协击钩子分发）。"""
         return None
 
+    def on_round_end(self, engine, hero, parent_seq: int, round_no: int) -> None:
+        """回合结束（持有者存活时）；羁留援手等。"""
+        return None
+
 
 REGISTRY: dict[str, Trait] = {}
 
 
 # =============================================================================
-# 单挑约战行为注册表（Phase 4 C6：trait_id → 约战钩子；注册表驱动，
-# 单挑流程只查表不写死 if。空表 = Phase 3 旧单挑行为，旧 golden 不变。
-# 影响矩阵与扩展方法见 docs/mechanics/duel.md。A3/A4 接线时逐性格注册。
+# 单挑 / 登场台词：见 battle/voice_lines.py、voice_lines_enter.py。
 # =============================================================================
 
-@dataclass(frozen=True)
-class DuelBehavior:
-    """一条性格的单挑行为修正（全部可选，默认不干预）。
-
-    - always_accept：必应战（傲慢）——作为被叫阵方跳过拒绝判定（不 roll、不消耗 RNG）
-    - reject_bonus_bps：拒绝率加成（谋深）——叠加后仍受 DUEL_REJECT_MAX_BPS 封顶
-    - challenge_below_threshold：武力 ≤90 也可入选叫阵候选（好战）
-    - force_duel：强制搦战（好战）——作为叫阵方时对方不得拒绝（跳过拒绝判定）
-    - 台词经性格 lines 表按 effect 轮换：duel_challenge / duel_accept / duel_reject
-      （发 trait_trigger，仅注册了对应台词的性格触发）
-    """
-
-    always_accept: bool = False
-    reject_bonus_bps: int = 0
-    challenge_below_threshold: bool = False
-    force_duel: bool = False
-
-
-DUEL_BEHAVIORS: dict[str, DuelBehavior] = {}
-
-
-def register_duel_behavior(trait_id: str, behavior: DuelBehavior) -> None:
-    if trait_id in DUEL_BEHAVIORS:
-        raise ValueError(f"duel behavior 重复注册: {trait_id}")
-    DUEL_BEHAVIORS[trait_id] = behavior
-
-
-def duel_behavior_of(hero: "HeroState") -> DuelBehavior | None:
-    return DUEL_BEHAVIORS.get(hero.trait_id) if hero.trait_id else None
-
-
 def emit_duel_line(engine: "SeriesEngine", hero: "HeroState", effect: str,
-                   parent_seq: int) -> None:
-    """约战台词：性格 lines 表配有该 effect 才发 trait_trigger（否则静默）。"""
-    trait = REGISTRY.get(hero.trait_id)
-    if trait is not None and trait.lines.get(effect):
-        emit_trigger(engine, hero, effect, parent_seq=parent_seq)
+                   parent_seq: int, *, target: "HeroState") -> int:
+    """转发至 voice_lines（保留 traits 入口，避免引擎多处改 import）。"""
+    from battle import voice_lines as vl
+    return vl.emit_duel_line(engine, hero, effect, target, parent_seq)
 
 
 def register(trait: Trait) -> Trait:
@@ -368,15 +338,11 @@ class _Qiusheng(Trait):
 
 @dataclass(frozen=True)
 class _Aoman(Trait):
-    """阿喀琉斯·傲慢：追伤前若目标残兵比例高于自身，25% 判定成功则追伤 ×1.5
+    """阿喀琉斯·傲慢：追伤前无条件 25% 判定成功则追伤 ×1.5
     并播贯穿台词（pierce）；受击 7.5% 踵之弱→该次攻击必定暴击
     （台词延到暴击伤害落账后，见 engine.deal_damage）。"""
 
     def pursuit_boost_bps(self, engine, source, target, parent_seq):
-        t_ratio = target.troops * BPS // target.max_troops
-        s_ratio = source.troops * BPS // source.max_troops
-        if t_ratio <= s_ratio:
-            return 0
         r = rate(engine, self.trait_id, "pride", 2500)
         if engine.rng.rand_bps("trait", f"{source.hero_id}:pride") < r:
             emit_trigger(engine, source, "pierce", parent_seq=parent_seq)
@@ -791,6 +757,75 @@ register(_Haozhao("haozhao", "号召", {
 }))
 register(_Bingpei("bingpei", "并辔", {
     "certain": ("兄弟，这次一起上！", "双子同辔，万夫莫当！"),
+}))
+
+
+# =============================================================================
+# 2026-07-22：帕特洛克勒斯 / 赫卡忒 / 卡吕普索
+# =============================================================================
+
+@dataclass(frozen=True)
+class _Bonong(Trait):
+    """点将：己方武力/智力/速度最高单位造成伤害各 +8%（一人兼多项则叠加）。"""
+
+    def damage_out_bonus(self, engine, source, target, kind, parent_seq=0):
+        from battle.skill_common import highest_attr_unit
+        bonus = 0
+        for attr in ("force", "intelligence", "speed"):
+            best = highest_attr_unit(engine, source, attr, allies=True)
+            if best is not None and best.hero_id == source.hero_id:
+                bonus += 800
+        return bonus
+
+
+@dataclass(frozen=True)
+class _Chalou(Trait):
+    """赫卡忒·岔路：对【冥火】目标造成伤害 +10%。"""
+
+    def damage_out_bonus(self, engine, source, target, kind, parent_seq=0):
+        if engine.find_status(target.hero_id, "underworld_burn") is not None:
+            return 1000
+        return 0
+
+
+@dataclass(frozen=True)
+class _Jiliu(Trait):
+    """卡吕普索·羁留：对【冰锢】目标伤害 +12%；回合结束 20% 为一名受控友军清除冰锢。"""
+
+    def damage_out_bonus(self, engine, source, target, kind, parent_seq=0):
+        if engine.find_status(target.hero_id, "freeze") is not None:
+            return 1200
+        return 0
+
+    def on_round_end(self, engine, hero, parent_seq, round_no):
+        from battle.statuses import CONTROL
+        candidates = []
+        for ally in engine.alive_allies(hero):
+            if ally.hero_id == hero.hero_id:
+                continue
+            freeze = engine.find_status(ally.hero_id, "freeze")
+            if freeze is None:
+                continue
+            controlled = any(
+                s.definition.kind == CONTROL
+                for s in engine.hero_statuses(ally.hero_id)
+            )
+            if controlled:
+                candidates.append((ally, freeze))
+        if not candidates:
+            return
+        # 站位序确定性遍历；每人独立 20%
+        for ally, freeze in sorted(
+            candidates, key=lambda pair: pair[0].position
+        ):
+            if engine.rng.rand_bps("trait", f"{hero.hero_id}:jiliu:{ally.hero_id}") < 2000:
+                engine.remove_status(freeze, reason="trait", parent_seq=parent_seq)
+
+
+register(_Bonong("bonong", "点将", {}))
+register(_Chalou("chalou", "岔路", {}))
+register(_Jiliu("jiliu", "羁留", {
+    "aid": ("奥杰吉厄的潮水，先松开你们。", "且让寒冰退一寸。"),
 }))
 
 # 忠烈/号召的载体状态（放注册后定义避免循环 import；traits 仅依赖 statuses）

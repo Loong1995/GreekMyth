@@ -81,6 +81,8 @@ def scenario_stalemate() -> BattleSetup:
             TeamSetup(team_id="A", main_hero_id="铁壁甲", heroes=(tank("铁壁甲", 0), tank("铁壁乙", 1))),
             TeamSetup(team_id="B", main_hero_id="磐石甲", heroes=(tank("磐石甲", 0), tank("磐石乙", 1))),
         ),
+        # D-06 修订后默认打到分胜负；本演示显式压回 8 回合保留平局/续战路径
+        metadata={"rounds_per_game": 8},
     )
 
 

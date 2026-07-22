@@ -18,12 +18,12 @@
 
 希腊神话诸神与英雄混战。四阵营（faction id 为代码定论，Phase 4 A4 定稿后不得再改名）：
 
-| faction id | 中文 | 气质 | 武将（template_id，v4 共 29 将：7/9/6/7） |
+| faction id | 中文 | 气质 | 武将（template_id，现行 **32** 将：8/9/7/8） |
 |---|---|---|---|
 | `olympus`（原 gods） | 奥林匹斯 | 神圣、雷光、鎏金 | zeus 宙斯、athena 雅典娜、ares 阿瑞斯、apollo 阿波罗、asclepius 阿斯克勒庇俄斯、artemis 阿尔忒弥斯、nike 尼刻 |
-| `heroes`（原 men） | 英雄 | 血性、青铜、战场 | achilles 阿喀琉斯、heracles 赫拉克勒斯、perseus 珀尔修斯、atalanta 阿塔兰忒、paris 帕里斯、ajax 埃阿斯、hector 赫克托尔、jason 伊阿宋、castor 卡斯托耳 |
-| `sea` | 海域 | 深海、浪涌、碧蓝 | poseidon 波塞冬、amphitrite 安菲特里忒、triton 特里同、siren 塞壬、scylla 斯库拉、odysseus 奥德修斯（A4 迁入） |
-| `underworld` | 冥界 | 幽暗、亡魂、冥紫 | hades 哈迪斯、medusa 美杜莎、persephone 珀耳塞福涅、charon 卡戎、thanatos 塔纳托斯、cerberus 刻耳柏洛斯、hermes 赫尔墨斯（A4 迁入） |
+| `heroes`（原 men） | 英雄 | 血性、青铜、战场 | achilles 阿喀琉斯、**patroclus 帕特洛克勒斯**、heracles 赫拉克勒斯、perseus 珀尔修斯、atalanta 阿塔兰忒、paris 帕里斯、ajax 埃阿斯、hector 赫克托尔、jason 伊阿宋、castor 卡斯托耳 |
+| `sea` | 海域 | 深海、浪涌、碧蓝 | poseidon 波塞冬、amphitrite 安菲特里忒、triton 特里同、siren 塞壬、scylla 斯库拉、odysseus 奥德修斯、**calypso 卡吕普索** |
+| `underworld` | 冥界 | 幽暗、亡魂、冥紫 | hades 哈迪斯、medusa 美杜莎、persephone 珀耳塞福涅、charon 卡戎、thanatos 塔纳托斯、cerberus 刻耳柏洛斯、hermes 赫尔墨斯、**hecate 赫卡忒** |
 
 v4 下架：喀戎（chiron）、卡律布狄斯（charybdis）。
 实现模块沿用历史文件名（`battle/skills_{gods,men,...}.py`），faction 以 roster 为准。
@@ -48,6 +48,9 @@ v4 下架：喀戎（chiron）、卡律布狄斯（charybdis）。
    （`trait_trigger` 事件确定性轮换，客户端弹气泡）。
 2. **自带战法**：主将位神谕（is_oracle，r=0 释放并触发副将连携）或被动/主动。
 3. **拆解战法**：可拆下装给别人（技能池见 `docs/skills/`）。
+
+叙事／商业台词权威（传记·羁绊·登场／单挑／连携／击杀等）：
+[`docs/character.md`](../character.md)（总则）+ `docs/character/` 分册。
 
 ## 六、风格红线（客户端）
 

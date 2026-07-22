@@ -172,6 +172,7 @@ namespace ClientBattle.VFX
                 // 复位缩放：调用方可能改过 localScale（如追击斩击放大），回池复用要还原
                 var stamp = pooled.GetComponent<VfxOriginalScale>();
                 if (stamp != null) pooled.transform.localScale = stamp.Value;
+                pooled.transform.localRotation = Quaternion.identity;
                 pooled.SetActive(true);
                 return pooled;
             }

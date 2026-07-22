@@ -5,10 +5,28 @@
 
 ## achilles_wrath 阿喀琉斯之怒（自带·被动）
 
-- **效果**：自身物理暴击率 +25%（整局）；每次物理/魔法暴击后对原目标追加 80%
+- **效果**：自身物理暴击率 +35%（整局）；每次物理/魔法暴击后对原目标追加 80%
   兵刃（无视统帅、**可暴击**），每回合最多 **7** 次；追加可再触发本战法（链式）。
-- **实现**：性格·傲慢——目标残兵比例高于自身 25% 判定成功则追伤系数 ×1.5 + 贯穿台词。
+- **实现**：性格·傲慢——无条件 25% 判定成功则追伤系数 ×1.5 + 贯穿台词。
 - **事件流**：status_tick(achilles_wrath) + 子 damage(physical, kind=fury)。
+
+## patroclus_standin 代战（帕特洛克勒斯·自带·被动）
+
+- **效果**：准备阶段自身挂【代战】载体。轮到自身行动窗时，主动/普攻前依次：
+  ①我方武力最高→敌方武力最高 **100% 兵刃**；②我方智力最高→敌方智力最高
+  **100% 谋略**；③我方速度最高→敌方速度最高 **100%**（该我方武≥智则兵刃，
+  否则谋略）。并列取小站位；缺端跳过。缄默/石化不禁止（非主动/普攻）。
+- **实现**：`TIMING_PREPARE` 挂 `patroclus_standin`；`on_action_start` 借手
+  `resolve_patroclus_matchups`（`source_id`=出手友军）。
+- **演出**：`BorrowBlade` Melee——每段由伤害 `source_id` 武将突进斩击。
+- **事件流**：prepare status_apply → action_start → status_tick + damage×1~3。
+
+## patroclus_armor 披甲（拆解·主动 55%）
+
+- **效果**：同代战三道结构，系数 **80%**。
+- **实现**：`trigger_rate_bps=5500`；受缄默/石化禁止。
+- **演出**：同自带，借刀 Melee。
+- **事件流**：skill_trigger → damage×1~3。
 
 ## achilles_thrust 怒火突刺（拆解·追击 40%）
 
@@ -20,15 +38,17 @@
 ## heracles_trials 十二试炼（自带·被动）
 
 - **效果**：受攻击后 70%：武力 +6、物理吸血 +3%（累计），对两名敌（受击率互斥）
-  各 60% 兵刃。每局 ≤12、每回合 ≤4；持续伤害可触发。
-- **实现**：kind=`trial`/`counter` 不触发（防递归）。
+  各 60% 兵刃；每次试炼后下一次兵刃系数 +5%（可叠，消费于下一笔非试炼兵刃）。
+  每局 ≤12、每回合 ≤4；持续伤害可触发。
+- **实现**：kind=`trial`/`counter` 不触发（防递归）；`on_pre_damage_dealt` 消费
+  `next_phys_rate_bps`。
 - **事件流**：status_tick → attr + damage×2。
 
 ## heracles_counter 狮皮反击（拆解·被动）
 
-- **效果**：受攻击后 40% 反打 45% 兵刃，并 **70%** 使来源伤害 −20%（1 回合）。
-- **实现**：`LION_COUNTER_STATUS`（`weaken_rate_bps=7000`）。
-- **事件流**：status_tick → damage(counter) + 可选 lion_weaken。
+- **效果**：受攻击后 70% 反打 45% 兵刃，并使来源伤害 −15%（1 回合；反击成功必挂）。
+- **实现**：`LION_COUNTER_STATUS`（`rate_bps=7000`，`weaken_rate_bps=10000`）。
+- **事件流**：status_tick → damage(counter) + lion_weaken。
 
 ## perseus_relics 镜盾疾袭（自带·主动 60%）
 
@@ -46,13 +66,13 @@
 
 ## perseus_flash 镜盾闪击（拆解·主动 55%）
 
-- **效果**：自身 1 层格挡 + 敌单体（受击率）320% 兵刃。
+- **效果**：自身 1 层格挡 + 敌单体（受击率）280% 兵刃。
 - **实现**：`trigger_rate_bps=5500`。
 - **事件流**：skill_trigger → block + damage。
 
 ## hector_warcry 特洛伊战吼（自带·主动 45%·准备 1）
 
-- **效果**：释放对敌全体 170% 兵刃；每目标独立 50% 缄默 / 50% 缴械（各 1 回合）。
+- **效果**：释放对敌全体 190% 兵刃；每目标独立 50% 缄默 / 50% 缴械（各 1 回合）。
   **连发不重新准备**。
 - **性格·忠烈**：统率 +10；自带每次成功释放叠 +15% 连发率（≤2 层）。
 - **实现**：`_cast_active_skill` 连发；`zhonglie_burst`。

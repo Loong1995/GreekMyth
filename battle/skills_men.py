@@ -5,11 +5,11 @@ from __future__ import annotations
 自带：achilles_wrath 阿喀琉斯之怒 / heracles_trials 十二试炼 / odysseus_trojan 木马奇谋 /
       perseus_relics 镜盾疾袭 / hector_warcry 特洛伊战吼 / atalanta_swift 疾风女猎 /
       paris_fatal_arrow 致命一矢 / ajax_shield 七重牛皮盾 /
-      jason_expedition 英雄远征 / castor_twin 双子协战
+      jason_expedition 英雄远征 / castor_twin 双子协战 / patroclus_standin 代战
 拆解：achilles_thrust 怒火突刺 / heracles_counter 狮皮反击 / odysseus_feint 声东击西 /
       perseus_flash 镜盾闪击 / hector_assault 决死猛攻 / atalanta_dash 疾走 /
       paris_heelseek 觅踵 / ajax_bulwark 坚壁 / jason_command 金羊号令 /
-      castor_chase 并辔追击
+      castor_chase 并辔追击 / patroclus_armor 披甲
 喀戎（chiron_medicine/chiron_maxim）v4 下架（manual_tasks 拍板项 2）。
 奥德修斯战法保留在本模块，A4 阵营重划（→海域）时随批迁移。
 """
@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from battle import traits as tr
-from battle.skill_common import BPS, emit_status_trigger, pick_distinct_enemies
+from battle.skill_common import BPS, emit_status_trigger, highest_attr_unit, pick_distinct_enemies
 from battle.skills import TIMING_PREPARE, TIMING_PURSUIT, Skill, register
 from battle.statuses import (
     BUFF,
@@ -30,9 +30,9 @@ from battle.statuses import (
 )
 
 # =============================================================================
-# 阿喀琉斯之怒：被动——物理暴击率 +25%；暴击后追加 80% 兵刃（无视统帅、可暴击），
+# 阿喀琉斯之怒：被动——物理暴击率 +35%；暴击后追加 80% 兵刃（无视统帅、可暴击），
 # 每回合最多 7 次；追加可再触发（链式，回合计数封顶）。
-# 性格·傲慢：目标残兵高于自身 25% 判定 → 追伤 ×1.5。
+# 性格·傲慢：无条件 25% 判定 → 追伤 ×1.5 + 贯穿台词。
 # =============================================================================
 
 ACHILLES_FURY_RATE_BPS = 8000
@@ -51,7 +51,7 @@ def _achilles_on_damage_dealt(engine, status, ctx):
     owner = engine.hero_by_id(status.owner_id)
     rate = ACHILLES_FURY_RATE_BPS
     trait = tr.of(owner)
-    if trait is not None:  # 傲慢：目标残兵比例更高时 25% → 追伤 ×1.5 + 贯穿台词
+    if trait is not None:  # 傲慢：无条件 25% → 追伤 ×1.5 + 贯穿台词
         boost = trait.pursuit_boost_bps(engine, owner, target, ctx["damage_seq"])
         if boost > 0:
             rate = rate * (BPS + boost) // BPS
@@ -64,7 +64,7 @@ def _achilles_on_damage_dealt(engine, status, ctx):
 
 ACHILLES_WRATH_STATUS = StatusDef(
     status_id="achilles_wrath", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"physical_crit_rate_bps": 2500},
+    modifiers={"physical_crit_rate_bps": 3500},
     response_priority=25, on_damage_dealt=_achilles_on_damage_dealt,
 )
 
@@ -109,7 +109,8 @@ class AchillesThrust(Skill):
 
 # =============================================================================
 # 十二试炼（赫拉克勒斯）：被动——受攻击后 70%（普通随机）触发：武力 +6、
-# 物理吸血 +3%（累计）、对随机两名敌方各 60% 兵刃反打。
+# 物理吸血 +3%（累计）、对随机两名敌方各 60% 兵刃反打；每次试炼后挂
+# 「下一次兵刃系数 +5%」（叠层，消费于下一笔非试炼兵刃伤害）。
 # 每局最多 12 次；每回合最多 4 次。
 # =============================================================================
 
@@ -118,6 +119,18 @@ TRIALS_MAX_PER_GAME = 12
 TRIALS_MAX_PER_ROUND = 4
 TRIALS_FORCE_GAIN = 6
 TRIALS_LIFESTEAL_GAIN_BPS = 300
+TRIALS_NEXT_RATE_BONUS_BPS = 500  # 每次试炼后：下一次兵刃系数 +5%
+
+
+def _trials_on_pre_damage_dealt(engine, status, ctx):
+    """消费「下一次兵刃系数」：仅非试炼兵刃；可叠层一次吃完。"""
+    if ctx.get("damage_type") != "physical" or ctx.get("kind") == "trial":
+        return
+    bonus = status.counters.get("next_phys_rate_bps", 0)
+    if bonus <= 0:
+        return
+    ctx["rate_bonus_bps"] = ctx.get("rate_bonus_bps", 0) + bonus
+    status.counters["next_phys_rate_bps"] = 0
 
 
 def _trials_on_damage_taken(engine, status, ctx):
@@ -154,11 +167,16 @@ def _trials_on_damage_taken(engine, status, ctx):
             parent_seq=tick_seq, kind="trial",
         )
         struck.append(target.hero_id)
+    # 试炼结算后：下一次（非试炼）兵刃系数 +5%（可叠）
+    status.counters["next_phys_rate_bps"] = (
+        status.counters.get("next_phys_rate_bps", 0) + TRIALS_NEXT_RATE_BONUS_BPS
+    )
 
 
 HERACLES_TRIALS_STATUS = StatusDef(
     status_id="heracles_trials", kind=SPECIAL, duration_rounds=PERMANENT,
     response_priority=50, on_damage_taken=_trials_on_damage_taken,
+    on_pre_damage_dealt=_trials_on_pre_damage_dealt,
 )
 
 
@@ -172,13 +190,13 @@ class HeraclesTrials(Skill):
 
 
 # =============================================================================
-# 狮皮反击（赫拉克勒斯拆解）：被动（受击响应）40%——受攻击后对来源反打 45% 兵刃，
-# 并 70% 使其造成伤害 -20%（1 回合，削弱独立判定）。
+# 狮皮反击（赫拉克勒斯拆解）：被动（受击响应）70%——受攻击后对来源反打 45% 兵刃，
+# 并使其造成伤害 −15%（1 回合；反击成功必挂，无独立削弱 roll）。
 # =============================================================================
 
 LION_WEAKEN_STATUS = StatusDef(
     status_id="lion_weaken", kind=DEBUFF, duration_rounds=1,
-    refreshable=True, modifiers={"damage_up_bps": -2000},
+    refreshable=True, modifiers={"damage_up_bps": -1500},
 )
 
 
@@ -198,17 +216,20 @@ def _lion_on_damage_taken(engine, status, ctx):
         rate_bps=status.definition.payload["damage_rate_bps"],
         parent_seq=tick_seq, kind="counter",
     )
-    weaken_rate = status.definition.payload.get("weaken_rate_bps", 0)
-    if weaken_rate and source.is_alive():
-        w = engine.rng.rand_bps("status_trigger", f"lion_weaken:{status.owner_id}")
-        if w < weaken_rate:
-            engine.apply_status(owner, source, LION_WEAKEN_STATUS, parent_seq=tick_seq)
+    # 守门恶犬等复用钩子：payload.weaken=False 时不挂削弱
+    if status.definition.payload.get("weaken", True) and source.is_alive():
+        weaken_rate = status.definition.payload.get("weaken_rate_bps", 10000)
+        if weaken_rate:
+            w = engine.rng.rand_bps("status_trigger", f"lion_weaken:{status.owner_id}")
+            if w < weaken_rate:
+                engine.apply_status(owner, source, LION_WEAKEN_STATUS, parent_seq=tick_seq)
 
 
 LION_COUNTER_STATUS = StatusDef(
     status_id="lion_counter", kind=SPECIAL, duration_rounds=PERMANENT,
     response_priority=50, on_damage_taken=_lion_on_damage_taken,
-    payload={"rate_bps": 4000, "damage_rate_bps": 4500, "weaken_rate_bps": 7000},
+    # 70% 反打；削弱必挂（weaken_rate 100%）−15%
+    payload={"rate_bps": 7000, "damage_rate_bps": 4500, "weaken_rate_bps": 10000},
 )
 
 
@@ -377,7 +398,7 @@ class PerseusRelics(Skill):
 
 # =============================================================================
 # 镜盾闪击（珀尔修斯拆解）：主动 55%——自身获得 1 层【格挡】，
-# 并对敌方单体（受击率选人）造成 320% 兵刃。
+# 并对敌方单体（受击率选人）造成 280% 兵刃。
 # =============================================================================
 
 @dataclass(frozen=True, slots=True)
@@ -393,7 +414,7 @@ class PerseusFlash(Skill):
             if not target.is_alive():
                 continue
             engine.deal_damage(
-                actor, target, damage_type="physical", rate_bps=32000,
+                actor, target, damage_type="physical", rate_bps=28000,
                 parent_seq=trigger_seq,
             )
 
@@ -565,12 +586,13 @@ class AjaxBulwark(Skill):
 
 # =============================================================================
 # 特洛伊战吼（赫克托尔·自带，Phase 4 新增）：主动 45%，准备 1 回合。
-# 释放：对敌全体 170% 兵刃；每名目标两次独立 50% 判定——缄默（1 回合）/
+# 释放：对敌全体 210% 兵刃；每名目标两次独立 50% 判定——缄默（1 回合）/
 # 缴械（1 回合）。连发不需重新准备（引擎 _cast_active_skill 释放段直接连发）。
 # 性格·忠烈：每次成功释放叠 +15% 连发率（≤2 层，traits._Zhonglie）。
 # =============================================================================
 
 WARCRY_CONTROL_RATE_BPS = 5000
+WARCRY_DAMAGE_RATE_BPS = 19000
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,7 +608,7 @@ class HectorWarcry(Skill):
             if not target.is_alive():
                 continue
             engine.deal_damage(
-                actor, target, damage_type="physical", rate_bps=17000,
+                actor, target, damage_type="physical", rate_bps=WARCRY_DAMAGE_RATE_BPS,
                 parent_seq=trigger_seq,
             )
             if not target.is_alive():
@@ -768,6 +790,66 @@ CASTOR_CHASE_STATUS = StatusDef(
 
 
 # =============================================================================
+# 代战（帕特洛克勒斯·自带·被动）：准备挂载体；行动窗借手武/智/速对位 100%。
+# 披甲（拆解·主动 55%）：同结构 80%。
+# =============================================================================
+
+def resolve_patroclus_matchups(engine, actor, rate_bps: int, parent_seq: int) -> None:
+    """武→智→速 三道借手伤害；缺端跳过；中途局终即停。"""
+    for attr in ("force", "intelligence", "speed"):
+        ally = highest_attr_unit(engine, actor, attr, allies=True)
+        enemy = highest_attr_unit(engine, actor, attr, allies=False)
+        if ally is None or enemy is None or not ally.is_alive() or not enemy.is_alive():
+            continue
+        if attr == "force":
+            damage_type = "physical"
+        elif attr == "intelligence":
+            damage_type = "magic"
+        else:
+            force = engine.effective_attr(ally, "force")
+            intel = engine.effective_attr(ally, "intelligence")
+            damage_type = "physical" if force >= intel else "magic"
+        engine.deal_damage(
+            ally, enemy, damage_type=damage_type, rate_bps=rate_bps,
+            parent_seq=parent_seq,
+        )
+        if engine.game_over():
+            return
+
+
+def _patroclus_standin_on_action_start(engine, status, action_seq):
+    owner = engine.hero_by_id(status.owner_id)
+    if not owner.is_alive():
+        return
+    tick_seq = emit_status_trigger(engine, status, action_seq)
+    resolve_patroclus_matchups(engine, owner, 10000, tick_seq)
+
+
+PATROCLUS_STANDIN_STATUS = StatusDef(
+    status_id="patroclus_standin", kind=SPECIAL, duration_rounds=PERMANENT,
+    response_priority=20, on_action_start=_patroclus_standin_on_action_start,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PatroclusStandin(Skill):
+    def select_targets(self, engine, actor):
+        return [actor]
+
+    def execute(self, engine, actor, targets, trigger_seq):
+        engine.apply_status(actor, actor, PATROCLUS_STANDIN_STATUS, parent_seq=trigger_seq)
+
+
+@dataclass(frozen=True, slots=True)
+class PatroclusArmor(Skill):
+    def select_targets(self, engine, actor):
+        return engine.alive_enemies(actor)
+
+    def execute(self, engine, actor, targets, trigger_seq):
+        resolve_patroclus_matchups(engine, actor, 8000, trigger_seq)
+
+
+# =============================================================================
 # 注册
 # =============================================================================
 
@@ -802,3 +884,5 @@ register(SelfStatusPassive(skill_id="castor_twin", timing=TIMING_PREPARE,
                            status_def=CASTOR_TWIN_STATUS))
 register(SelfStatusPassive(skill_id="castor_chase", timing=TIMING_PREPARE,
                            status_def=CASTOR_CHASE_STATUS))
+register(PatroclusStandin(skill_id="patroclus_standin", timing=TIMING_PREPARE))
+register(PatroclusArmor(skill_id="patroclus_armor", trigger_rate_bps=5500))

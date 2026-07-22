@@ -23,7 +23,7 @@
 
 | effect | 判定 | 台词弹出 |
 |---|---|---|
-| `pierce` | 追伤前残兵比例条件 + 25% | 判定成功当下（追伤结算链） |
+| `pierce` | 追伤前无条件 25% | 判定成功当下（追伤结算链） |
 | `heel` | 受击暴击判定前 7.5% → 必暴 + 挂 `heel_line_pending` | **暴击伤害事件写出后**（`amount>0`）；独立组根 `parent_seq=0` |
 
 实现：`forced_crit_on_taken` 只判定不弹词；`engine.deal_damage` 在

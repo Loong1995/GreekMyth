@@ -5,24 +5,21 @@ using UnityEngine;
 namespace ClientBattle.Units
 {
     // =========================================================================
-    // 状态图标面板：仅控制类（缄默/缴械/犹豫/石化/冥锁/魅惑）卡中央大图标。
-    // 常规状态上方小图标已取消（2026-07-20）——靠光环 / 飘字即可；勿再上传普通 status 图。
+    // 状态图标面板：卡中央大图标（ControlIcon=true：缄默/缴械/犹豫/石化/冥锁/魅惑/冥火…）。
+    // 常规状态上方小图标已取消（2026-07-20）——靠光环 / 飘字即可。
     // 图标资源：Resources/ClientBattle/StatusIcons/<status_id>.png → 色块占位。
     // =========================================================================
 
     public class StatusIconPanel : MonoBehaviour
     {
-        static readonly HashSet<string> ControlStatuses = new()
-        {
-            "silence", "disarm", "hesitation", "petrify", "ming_lock", "charm",
-        };
-
         const float ControlIconSize = 0.55f;
         const int ControlPerRow = 3;          // 中央区每行最多 3 个，超出折行
 
         readonly Dictionary<string, GameObject> _controlIcons = new();
 
-        public static bool IsControl(string statusId) => ControlStatuses.Contains(statusId);
+        /// <summary>控制类判定收口 StatusPresentationRegistry（新增控制只加注册表行）。</summary>
+        public static bool IsControl(string statusId)
+            => Names.StatusPresentationRegistry.IsControl(statusId);
 
         /// <summary>开战前仅预热控制类图标（常规小图标已关闭）。</summary>
         public static void PrewarmIcon(string statusId)

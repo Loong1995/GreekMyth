@@ -11,6 +11,7 @@ from battle import skills_gods as _skills_gods  # noqa: F401  # 注册 v3.1 战�
 from battle import skills_men as _skills_men  # noqa: F401
 from battle import skills_sea as _skills_sea  # noqa: F401
 from battle import skills_underworld as _skills_underworld  # noqa: F401
+from battle import skills_cal as _skills_cal  # noqa: F401  # 数值标定战法
 from battle import traits as _traits  # noqa: F401  # 注册性格
 
 __all__ = [

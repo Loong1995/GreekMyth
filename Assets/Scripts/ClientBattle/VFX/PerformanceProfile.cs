@@ -30,7 +30,7 @@ namespace ClientBattle.VFX
         public PerformanceTemplate Template = PerformanceTemplate.Auto;
 
         [Header("资源 key（Resources/ClientBattle/ 下同名覆盖生效）")]
-        public string ProjectileKey = "";             // 弹道/刀光（物理默认 slash、魔法默认 magic_bolt）
+        public string ProjectileKey = "";             // 弹道（飞行默认 blade_bolt/magic_bolt；近身斩击默认 slash）
         public string HitKey = "";                    // 命中特效
         public string CastKey = "";                   // 施法前摇特效
         public string AuraKey = "";                   // 常驻光环（神谕挂身/暴击机会等）
@@ -46,6 +46,13 @@ namespace ClientBattle.VFX
         public float ExtraIconScale = 1f;             // 特殊图标缩放（裂甲图标"比一般状态图标大很多"）
         public float StrikeVfxScale = 1f;             // 近身斩击缩放（普攻 1.0 基准、追击组默认更大）
         public bool CameraShakeOnHit = true;
+        /// <summary>连发（BurstNo≥2）时的组内节拍加速倍率（B1）。</summary>
+        public float BurstTempoScale = 1.35f;
+        /// <summary>犹豫延迟宣告（kind=delayed）的「延迟」飘字停留秒数。</summary>
+        public float DelayedAnnouncePause = 0.35f;
+        /// <summary>借刀近战：Melee 时每段由 damage.SourceId 单位突进（帕特洛克勒斯代战），
+        /// 而非组根施法者。</summary>
+        public bool BorrowBlade = false;
 
         public PerformanceProfile Clone() => (PerformanceProfile)MemberwiseClone();
     }

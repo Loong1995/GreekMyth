@@ -24,7 +24,7 @@ Damage = round( 核心
               × (1 + extra_damage_up_bps) 额外增伤（独立乘区，clamp 0~100%）
               × (1 + vulnerable_bps)      易伤（clamp 0~100%）
               × random                    随机系数（9500~10500 bps）
-              × crit                      会心/奇谋伤害率（暴击 20000 bps）
+              × crit                      会心/奇谋伤害率（暴击默认 15000 bps）
               × skill_rate_bps )          技能系数
        + fixed_extra_damage
 ```
@@ -34,7 +34,7 @@ Damage = round( 核心
 - 结果 clamp：`MIN_DAMAGE=1 ≤ Damage ≤ 目标当前兵力`；目标已无兵返回 0。
 - **额外增伤**（`extra_damage_up_bps`）是 Phase 3 新独立乘区：战法/追击单独加成，
   预留兵种/固士/驻守/同盟来源。
-- 会心（物理）与奇谋（谋略）为同一实现（`crit_multiplier_bps`），默认 2.0 倍，
+- 会心（物理）与奇谋（谋略）为同一实现（`crit_multiplier_bps`），默认 **1.5** 倍，
   受 `crit_damage_up_bps` 修正键抬升。
 
 ## 三、兵力系数 TroopCoef

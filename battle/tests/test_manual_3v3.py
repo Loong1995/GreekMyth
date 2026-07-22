@@ -10,7 +10,9 @@ from __future__ import annotations
         "speed": 88, "skills": ("test_blast", "test_mend"), "initial_troops": 8000}
 
 可选公共键：max_troops（默认 10000）、initial_troops、hero_id（模板武将也可改名）。
-列表首位 = 主将（主将阵亡判负）。
+列表首位 = 主将（主将阵亡判负）。每队最多 3 人——换新将时注释掉原有一名。
+同名英雄可以两队各上一个（B 队自动改名「XX（敌）」保证事件流主键唯一），
+但同队内不可重名。
 
 直接运行（仓库根目录）：
     python battle/tests/test_manual_3v3.py               # 打印 brief 日志
@@ -33,27 +35,40 @@ from battle.tests.helpers import make_hero
 
 # ======================= 在这里改阵容 =======================
 
-SEED = 20260709
+SEED = 20260722
 
 TEAM_A = [
-    # 宙斯：谋略主C——天雷击补谋略爆发，神使戏言削敌智力，日光祝祷回蓝续航
-    {"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest", )},
-    # 阿喀琉斯：物理暴击尖刀——怒火突刺提暴击追伤，觅踵打高暴击目标增伤，镜盾闪袭补突袭
-    {"template": "achilles", "extra_skills": ("achilles_thrust", "perseus_flash", )},
-    # 阿斯克勒庇俄斯：纯奶位——灵蛇之吻单奶，导师箴言群体增益，海后之泽持续治疗
-    #{"template": "asclepius", "extra_skills": ("asclepius_kiss", "apollo_blessing", )},
-
-    {"template": "athena", "extra_skills": ("athena_guard", "asclepius_kiss", )},
+    # 宙斯：谋略主C——天雷击 + 神使戏言
+    #{"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest",)},
+    # 雅典娜：防御核心——神盾格挡 + 灵蛇之吻
+    {"template": "athena", "extra_skills": ("athena_guard", "asclepius_kiss",)},
+    # 阿斯克勒庇俄斯：纯奶位
+    #{"template": "asclepius", "extra_skills": ("asclepius_kiss", "athena_guard",)},
+    # ---- 新武将模板（揭开注释，并注释掉上面一名，保持每队 ≤3）----
+    # {"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲
+    #{"template": "hecate", "extra_skills": ("hecate_pyre","athena_guard")},         # 赫卡忒：三火炬+燔祭
+    #{"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
+    {"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
+    # {"template": "medusa", "extra_skills": ("medusa_glance", "siren_charm",)},
+    {"template": "patroclus", "extra_skills": ("patroclus_armor","siren_charm")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
 ]
 
 TEAM_B = [
-    # 哈迪斯：谋略吸取核心——冥河汲魂吸智，死亡凝望压血线，摆渡收割
-    {"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
-    # 赫拉克勒斯：物理前排——狮皮反击惩罚攻击者，坚壁提坦度，血性咆哮多目标输出
-    {"template": "heracles", "extra_skills": ("heracles_counter", "ajax_bulwark",)},
-    # 赫克托尔：全主动——自带特洛伊战吼（准备 1）+ 决解决死猛攻（瞬发）
-    {"template": "hector", "extra_skills": ("hector_assault",)},
-    # 白板示例：想精确控变量时用这种写法
+    # 哈迪斯：谋略吸取——冥河汲魂 + 死亡凝望
+    #{"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
+    {"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
+    # {"template": "hecate", "extra_skills": ("hecate_pyre","athena_guard")},         # 赫卡忒：三火炬+燔祭
+    # {"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
+    {"template": "ares", "extra_skills": ("siren_charm", "ajax_bulwark",)},
+    # 阿喀琉斯：物理尖刀——怒火突刺 + 战争狂热
+    {"template": "achilles", "extra_skills": ("achilles_thrust", "ares_frenzy",)},
+    #{"template": "ajax", "extra_skills": ("ajax_bulwark", "athena_guard",)},
+    # ---- 新武将备选（同样揭开换上）----
+    # {"template": "patroclus", "extra_skills": ("patroclus_armor", "zeus_bolt",)},
+    # {"template": "hecate", "extra_skills": ("hecate_pyre", "thanatos_gaze",)},
+    # {"template": "calypso", "extra_skills": ("calypso_rime", "siren_charm",)},
+    # {"template": "heracles", "extra_skills": ("heracles_counter", "ajax_bulwark",)},
+    # {"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
     # {"hero_id": "木桩", "force": 70, "command": 300, "speed": 60, "skills": ()},
 ]
 
@@ -63,12 +78,11 @@ TRAIT_RATE_OVERRIDES: dict[str, int] = {}
 # ===========================================================
 
 
-def _build_hero(entry: dict, position: int):
+def _build_hero(entry: dict, position: int, hero_id: str):
     if "template" in entry:
-        template = ROSTER[entry["template"]]
         return hero_setup(
             entry["template"],
-            hero_id=entry.get("hero_id", template.name),
+            hero_id=hero_id,
             position=position,
             extra_skills=tuple(entry.get("extra_skills", ())),
             level=entry.get("level", DEFAULT_LEVEL),
@@ -76,7 +90,7 @@ def _build_hero(entry: dict, position: int):
             initial_troops=entry.get("initial_troops"),
         )
     return make_hero(
-        entry["hero_id"], position,
+        hero_id, position,
         force=entry.get("force", 80),
         intelligence=entry.get("intelligence", 70),
         command=entry.get("command", 80),
@@ -89,10 +103,25 @@ def _build_hero(entry: dict, position: int):
     )
 
 
+def _default_name(entry: dict) -> str:
+    if "hero_id" in entry:
+        return entry["hero_id"]
+    return ROSTER[entry["template"]].name
+
+
 def build_setup() -> BattleSetup:
+    # hero_id 是全局事件流主键必须唯一；同名英雄跨队出现时自动改名区分
+    # （同队重名仍是配置错误，直接报 SetupError）。B 队撞名者加「（敌）」后缀。
+    a_names = {_default_name(e) for e in TEAM_A}
     teams = []
     for team_id, entries in (("A", TEAM_A), ("B", TEAM_B)):
-        heroes = tuple(_build_hero(e, i) for i, e in enumerate(entries))
+        heroes = []
+        for i, entry in enumerate(entries):
+            hero_id = _default_name(entry)
+            if team_id == "B" and hero_id in a_names:
+                hero_id += "（敌）"
+            heroes.append(_build_hero(entry, i, hero_id))
+        heroes = tuple(heroes)
         teams.append(TeamSetup(team_id=team_id, main_hero_id=heroes[0].hero_id,
                                heroes=heroes))
     metadata = (

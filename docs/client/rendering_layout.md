@@ -16,7 +16,7 @@
 |---|---|---|
 | 取景权威 | 按当前宽高比每帧调 orthographicSize，保证安全区（半宽 4.6 / 半高 5.2 世界单位）完整可见；分辨率热切换自动跟随 | `VFX/CameraFitter.cs` |
 | 背景铺满 | cover 模式：等比放大到两边都盖住（超出裁切），跟随相机每帧算 | `BattleBoardView.BackgroundFitter` |
-| OnGUI 缩放 | 横幅/按钮/结算表按 `Screen.height/800` 缩放字号与矩形 | `PerformanceRunner.OnGUI` 等 |
+| OnGUI 缩放 | 横幅/按钮/结算表按 `Screen.height/800` 缩放字号与矩形 | `BannerService.OnGUI` / `SettlementPanel.OnGUI` 等 |
 | 禁止事项 | 表现层不得写死 orthoSize / 像素坐标 / 分辨率假设 | — |
 
 ## 三、图像槽位缩放（2026-07-20 定）
@@ -49,17 +49,18 @@
 | 2~4 | 血条/势能条（文字类 +10 → 12/14） | `UnitView` |
 | 5 / 6 | 石化覆盖层 / 溢出白闪 | `UnitView` |
 | 15 | 状态常驻光环 | `UnitAuraService` |
-| 30 | 控制状态大图标 | `StatusIconPanel` |
+| 30 | 中央状态大图标 | `StatusIconPanel` |
 | 40 | **VFX 池默认**（弹道/斩击/落雷/占位块） | `VFXManager` |
 | 55 | 头像标（必须盖过落雷） | `UnitView.ShowPortraitMark` |
 | 60 | 飘字 | `FloatingTextService` |
 | 70 / 71 | 台词气泡底板 / 文字 | `ChatBubbleService` |
+| 80~90 | 全屏 cut-in（80 暗幕 / 82 斜带·半屏卡 / 83 巨幅立绘 / 85 裂缝线 / 90 大字） | `CutInService` |
 
 ## 五、棋盘布局与卡牌结构
 
 - 上下布局：A 队下、B 队上；队内按站位（1~6，4~6 为后排语义）从左到右横排居中。
 - 卡牌 GameObject 树：Frame（阵营色染色）→ Portrait（槽位 contain）→
-  NameLabel → HpBar+HpLabel → 四轨势能迷你条 → StatusIconPanel（仅控制类）→
+  NameLabel → HpBar+HpLabel → 四轨势能迷你条 → StatusIconPanel（中央大图标）→
   PetrifyOverlay → BubbleAnchor（右上，气泡锚点）。
 - 阵营配色唯一源：`BattleBoardView.FactionColors`（神金/人红/海蓝/冥紫），
   规范见 [faction_style.md](faction_style.md)。

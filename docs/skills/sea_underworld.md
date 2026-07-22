@@ -124,17 +124,15 @@
 
 ## hades_underworld_dominion 冥域君临（哈迪斯·自带·神谕）
 
-- **效果**：己方【冥河血誓】（实际伤害 10% 固定自疗）+【幽影蔽体】（损兵比例×70%
-减伤，上限 70%）；自身【冥祭献统】（行动开始从每名其他友军吸统率 10，1:1 转
-自身统率并等量智力）。
-- **实现**：威权 20% 吸取翻倍；源阵亡清理 attr。
-- **事件流**：action_start attr_change（hades_command_loss / hades_int_gain）。
+- **效果**：己方吸血属性+10%+【幽影蔽体】（损兵比例×70% 减伤，上限 70%）；自身【冥祭献统】（行动开始从每名其他友军吸统率 10，1:1 转 自身统率并等量智力）。
+- **实现**：`hades_lifesteal`（`lifesteal_bps=1000`）；威权 20% 吸取翻倍；源阵亡清理 attr。
+- **事件流**：status_apply（吸血/幽影/献统）；action_start attr_change（hades_command_loss / hades_int_gain）。
 
 
 
 ## hades_soul_drain 冥河汲魂（拆解·主动 40%）
 
-- **效果**：吸敌全体各 25 统率与智力（2 回合可刷新可叠），随后全体 180% 魔法。
+- **效果**：吸敌全体各 25 统率与智力（2 回合可刷新可叠），随后全体 150% 魔法。
 - **实现**：成对 attr 状态 + AoE damage。
 - **事件流**：skill_trigger → attr_change×N → damage×N。
 
@@ -151,7 +149,7 @@
 
 ## medusa_glance 蛇瞳一瞥（拆解·主动 35%）
 
-- **效果**：对敌随机 2~3 人（受击率互斥）各 180% 魔法并石化 1 回合。
+- **效果**：对敌随机 2~3 人各 180% 魔法并石化 1 回合。
 - **实现**：`2 + rand_index(2)` 选人数。
 - **事件流**：skill_trigger → damage + petrify ×N。
 
@@ -236,10 +234,42 @@
 
 - **效果**：我方速度最高获【先攻】（1 回合）；敌方速度最高获【犹豫】——
 **下次行动窗必延后**其主动与普攻（整体延 1 回合，不 roll 失败）。
-- **实现**：`hesitation(delay_rate_bps=10000, duration_rounds=1)`。
-  「持续 1 回合」按持有者自身行动窗计次：覆盖其**下一次**行动窗口
-  （该窗计次=1 仍生效并做犹豫判定；再下一窗计次=2 到期），见 statuses.md §3。
+- **实现**：`hesitation(delay_rate_bps=10000, duration_rounds=1)`；
+`first_strike` duration=1（排序用 `has_first_strike`：只覆盖下一次行动序）。
+「持续 1 回合」按持有者自身行动窗计次：覆盖其**下一次**行动窗口
+（该窗计次=1 仍生效并做犹豫判定；再下一窗计次=2 到期），见 statuses.md §3。
+若延后的是准备型主动：窗 N 延后 → 窗 N+1 开始准备 → 窗 N+2 释放。
 - **事件流**：skill_trigger → first_strike（友）+ hesitation（敌）。
+
+## hecate_torch 三火炬（赫卡忒·自带·被动）
+
+- **效果**：准备阶段自身获【岔路火种】。持有者对敌造成**实际魔法伤害**后，
+对目标施加/刷新【冥火】**2 回合**；每人每回合最多 **2 次**。
+- **实现**：`on_damage_dealt`；`amount>0` 且 magic；不计 `kind=dot`/special
+（special 本就不分发钩子）。【冥火】`underworld_burn`：可叠 3 层、可刷新，
+DoT 60%/层（`dot_rate×stacks`），**可暴击**；客户端中央状态图标（无光环）。
+- **事件流**：prepare status_apply → 触发时 status_apply/refresh(冥火)。
+
+## hecate_pyre 燔祭（拆解·主动 50%）
+
+- **效果**：对敌随机 **2** 人各 **160% 谋略**，并各施加/刷新【冥火】**3 回合**；
+若目标已有冥火，本次伤害额外 **+15%**。
+- **实现**：`trigger_rate_bps=5000`；受击率选人。
+- **事件流**：skill_trigger → (damage + 冥火)×2。
+
+## calypso_detain 奥杰吉厄羁留（卡吕普索·自带·主动 45%）
+
+- **效果**：对敌方**速度最高**存活单位先 **140% 谋略**，再施加【冰锢】**2 回合**。
+【冰锢】禁主动+禁普攻（无石化易伤、无 DoT）。
+- **实现**：`trigger_rate_bps=4500`；选速最高并列小站位；`freeze(2)`。
+- **事件流**：skill_trigger → damage → status_apply(freeze)。
+
+## calypso_rime 霜潮（拆解·主动 40%）
+
+- **效果**：对敌随机 **1~2** 人各 **120% 谋略**；各目标独立 **40%** 施加
+【冰锢】**1 回合**。
+- **实现**：`1+rand_index(2)`；`trigger_rate_bps=4000`；冻控率 4000 bps。
+- **事件流**：skill_trigger → (damage + 可选 freeze)×N。
 
 ---
 

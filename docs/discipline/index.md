@@ -13,6 +13,7 @@
 | 3 | [coding_standards.md](coding_standards.md) | 代码规范（后端 Python + 客户端 Unity） | 写任何代码前 |
 | 4 | [doc_standards.md](doc_standards.md) | 文档规范（目录职责/行数/同步义务） | 写任何文档前 |
 | 5 | [ai_workflow_pitfalls.md](ai_workflow_pitfalls.md) | 历史 AI 工作流踩坑录 | 永远；踩新坑必须追记 |
+| 6 | [extension_points.md](extension_points.md) | 通用机制（注册表/钩子）与特殊机制（特例登记）总账本 | 新增战法/状态/性格/演出前 |
 
 ## 与其他文档的关系
 

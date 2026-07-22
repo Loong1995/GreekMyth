@@ -25,6 +25,7 @@ namespace ClientBattle.Names
             ["asclepius_oracle"] = "蛇杖庇护圣谕", ["asclepius_kiss"] = "灵蛇之吻",
             ["artemis_hunt"] = "月影狩猎", ["artemis_arrow"] = "猎月之矢",
             ["nike_wings"] = "胜利羽翼", ["nike_paean"] = "凯歌",
+            ["patroclus_standin"] = "代战", ["patroclus_armor"] = "披甲",
             // ---- 人阵营 ----
             ["achilles_wrath"] = "阿喀琉斯之怒", ["achilles_thrust"] = "怒火突刺",
             ["heracles_trials"] = "十二试炼", ["heracles_counter"] = "狮皮反击",
@@ -43,6 +44,7 @@ namespace ClientBattle.Names
             ["triton_horn"] = "海嗣号角", ["triton_surge"] = "浪涌",
             ["siren_song"] = "魅音", ["siren_charm"] = "迷魂之歌",
             ["scylla_maw"] = "六首撕咬", ["scylla_bite"] = "撕咬",
+            ["calypso_detain"] = "奥杰吉厄羁留", ["calypso_rime"] = "霜潮",
             // ---- 冥阵营 ----
             ["hades_underworld_dominion"] = "冥域君临", ["hades_soul_drain"] = "冥河汲魂",
             ["medusa_gaze"] = "石化凝视", ["medusa_glance"] = "蛇瞳一瞥",
@@ -50,13 +52,15 @@ namespace ClientBattle.Names
             ["charon_ferry"] = "渡魂船费", ["charon_ferryman"] = "摆渡",
             ["thanatos_scythe"] = "死神镰痕", ["thanatos_gaze"] = "死亡凝望",
             ["cerberus_bite"] = "三首噬咬", ["cerberus_guard"] = "守门恶犬",
+            ["hecate_torch"] = "三火炬", ["hecate_pyre"] = "燔祭",
         };
 
         static readonly Dictionary<string, string> Statuses = new()
         {
             ["silence"] = "缄默", ["disarm"] = "缴械", ["ming_lock"] = "冥锁",
-            ["petrify"] = "石化", ["hesitation"] = "犹豫", ["block"] = "格挡",
+            ["petrify"] = "石化", ["freeze"] = "冰锢", ["hesitation"] = "犹豫", ["block"] = "格挡",
             ["charm"] = "魅惑", ["first_strike"] = "先攻",
+            ["underworld_burn"] = "冥火",
             // ---- Phase 4 A2 新状态原语 ----
             ["fear"] = "恐惧", ["curse"] = "诅咒", ["certain_crit"] = "必胜",
             ["clear_mind"] = "清醒", ["zhonglie_burst"] = "忠烈·连发",
@@ -78,6 +82,7 @@ namespace ClientBattle.Names
             ["snake_staff_protection"] = "蛇杖庇护", ["snake_staff_tender"] = "灵蛇看护",
             ["moon_hunt"] = "月影狩猎",
             ["nike_wings"] = "胜利羽翼",
+            ["patroclus_standin"] = "代战",
             // ---- 人 ----
             ["achilles_wrath"] = "阿喀琉斯之怒", ["achilles_thrust_crit"] = "突刺·锐锋",
             ["heracles_trials"] = "十二试炼",
@@ -100,7 +105,7 @@ namespace ClientBattle.Names
             ["triton_surge_flood"] = "浪涌·抑统",
             ["scylla_bite_speed"] = "撕咬·疾游",
             // ---- 冥 ----
-            ["styx_blood_oath"] = "冥河血誓", ["shadow_veil"] = "幽影蔽体",
+            ["hades_lifesteal"] = "冥域吸血", ["shadow_veil"] = "幽影蔽体",
             ["hades_command_drain"] = "冥祭献统", ["hades_command_loss"] = "冥祭献统·被汲",
             ["hades_int_gain"] = "冥祭献统·聚智",
             ["soul_drain_gain"] = "汲魂·得", ["soul_drain_loss"] = "汲魂·失",
@@ -110,6 +115,7 @@ namespace ClientBattle.Names
             ["charon_ferry"] = "渡魂船费", ["charon_ferryman"] = "摆渡",
             ["charon_int_gain"] = "船资·聚智",
             ["thanatos_death_gaze"] = "死亡凝望", ["cerberus_guard"] = "守门恶犬",
+            ["hecate_torch"] = "岔路火种",
         };
 
         static readonly Dictionary<string, string> Attrs = new()

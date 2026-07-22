@@ -24,13 +24,24 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 
 | key | 用途 | 备注 |
 |---|---|---|
-| `slash` / `magic_bolt` | 默认刀光 / 魔法光弹道 | 普攻斩击×1.0、追击×1.5（代码规则） |
+| `slash` | 近身斩击 Burst | 普攻×1.0、追击×1.5；**不作飞行弹道** |
+| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道 | DualBolt Orange / Purple；群攻弧线+朝向+错峰齐射 |
 | `hit_generic` / `heal_generic` | 默认命中 / 治疗命中 | |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
-| `aura_thunder` | 雷霆神谕：闪电缠绕（常驻） | aura_* 挂载时代码强制循环+补发射密度+压半透明（UnitAuraService），一次性特效也能常驻 |
-| `lightning_strike` / `hit_lightning` | 落雷弹道 / 命中 | 雷霆触发专属 |
-| `aura_aegis` / `hit_shield_counter` | 圣盾光环 / 反制命中 | |
-| `aura_bloodlust_weak` / `aura_bloodlust_strong` | 战神怒火弱/强血红 | 另有 Intensity 参数 |
+| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯怒火 key（仅红呼吸，不挂火粒子） | `UnitView.SetAresRage` |
+| `momentum_fire` | 势能火（四轨最高 ≥4/5/6/7 分档） | **CFXR3 Fire (No Smoke)**；卡上缘；非状态光环 |
+| `aura_freeze` | 冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
+| `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
+| `aura_aegis` | 圣盾 | All In 1：卡框金描边+呼吸辉光（`UnitView.SetAegisAura`） |
+| 石化 `petrify` | 美杜莎 | All In 1：立绘+卡框灰阶石色渐变（`UnitView.SetPetrified`） |
+| （程序化）`FireRimFx` | 阿瑞斯卡边火舌 | 血战底边弱 / 战神之勇四边；火焰朝外抖动 |
+| `lightning_strike` / `hit_lightning` | （旧）粒子落雷，触发已改程序化 | 命中闪仍可用 hit_lightning |
+| `aura_aegis` / `hit_shield_counter` | 圣盾光环 / 反制命中 | 光环 ← **CFXR Magic Aura A (Runic)**（符文护环） |
+| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯自带：血战/战神之勇 | 仅卡框红呼吸（不再挂 CFXR 火） |
+| `aura_freeze` | 卡吕普索冰锢 | **CFXR3 Ice Shield**，卡面下方 |
+| `aura_tide` | 波塞冬潮汐挂身（poseidon_tide） | **CFXR LightGlow A (Loop, Blue)** 蓝色呼吸光 |
+| `aura_underworld` | 哈迪斯冥域挂身（吸血/幽影/献统） | **CFXR Suspicious Cloud (Black)**；挂载时强制极透（alpha×0.12） |
+| `aura_bloodlust_weak` / `aura_bloodlust_strong` | （旧）血红光环，已弃用阿瑞斯挂载 | 资源仍可留作他用 |
 | `aura_sunlight` | 呼吸阳光（德尔斐/尼刻复用） | |
 | `aura_hermes_mark` | 神使/扰心印记 | |
 | `icon_spear_crack` | 阿喀琉斯裂甲图标（超大） | ExtraIconScale=2.6 |
@@ -46,14 +57,14 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 > Vefects 里抠一发 burst 做共用 `overflow_burst`（可选精修，非阻塞）。
 
 尺寸红线：variant 根缩放按**目视校准**（禁止按包围盒归一，拖尾会把包围盒撑到
-几十单位）；现值：弹道/治疗/命中 1.0、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。
-演出层只允许相对缩放（`*=`）。
+几十单位）；现值：弹道/治疗/命中 1.0、DualBolt 弹道 variant 0.55、剑击/穿刺 0.35、
+slash 0.25、光环 0.9~1.4。演出层只允许相对缩放（`*=`）。
 
 ### 2. 状态图标 `Resources/ClientBattle/StatusIcons/<status_id>.png`
 
-- **仅控制类**（卡牌中央大图标）：`silence disarm hesitation petrify ming_lock charm`
+- **仅中央大图标**（`ControlIcon=true`）：`silence disarm hesitation petrify freeze ming_lock charm fear underworld_burn`
 - ~~常规状态卡牌上方小图标~~：**已取消**（2026-07-20）。增益/神谕/印记等靠光环
-  （`UnitAuraService`）与飘字，不传、不显示上方小图标。
+  （`UnitAuraService`）与飘字；冥火走中央图标、**不**挂 CFXR 火（火留给势能）。
 
 ### 3. 立绘 `Resources/ClientBattle/Portraits/<template_id>.png`
 
@@ -67,7 +78,7 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 
 24 名武将，文件名 = roster 模板 id：
 `zeus athena ares hermes apollo asclepius artemis nike`
-`achilles heracles odysseus perseus atalanta paris ajax hector jason castor`
+`achilles patroclus heracles odysseus perseus atalanta paris ajax hector jason castor`
 `poseidon amphitrite triton siren scylla`
 `hades medusa persephone charon thanatos cerberus`
 （v4 池：喀戎/卡律布狄斯已下架；奥德修斯/赫尔墨斯 A4 改隶海域/冥界，id 不变）
@@ -78,6 +89,10 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 上传宙斯立绘后，雷霆落雷会自动显示宙斯小头像；未上传则仍为阵营色占位块。
 雷击本身走 VFX key `lightning_strike` / `hit_lightning`（§一.1），与头像标分开。
 
+**全屏 cut-in 复用同一路径（无需另传）**：单人 cut-in（斜带+巨幅立绘）与决斗
+裂缝交错 cut-in（半屏卡）都取 `Portraits/<template_id>.png` contain 放大展示；
+立绘越高清 cut-in 越震撼，建议 ≥1024 高。占位时为阵营色块。
+
 ### 4. 音效 `Resources/ClientBattle/SFX/<key>.wav`
 
 - 默认族：`sfx_active_default sfx_melee_default sfx_pursuit_default
@@ -86,7 +101,7 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 - 状态施加：`sfx_status_<status_id>`（同帧与伤害音效由 SfxManager 去重）
 - 专属：`sfx_thunder_strike sfx_aegis_counter sfx_achilles_pierce sfx_trojan_explosion
   sfx_perseus_swords sfx_trident_quake sfx_medusa_gaze sfx_petrify_on sfx_petrify_off
-  sfx_duel_horn sfx_duel_clash sfx_duel_win sfx_trials_counter
+  sfx_duel_horn sfx_duel_clash sfx_duel_win sfx_cutin_solo sfx_trials_counter
   sfx_lion_counter sfx_cerberus_counter
   sfx_oracle_thunder sfx_oracle_aegis sfx_oracle_ares sfx_oracle_apollo
   sfx_oracle_hermes sfx_oracle_nike sfx_oracle_poseidon sfx_oracle_hades
@@ -114,8 +129,8 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 |---|---|---|
 | `UI/chat_bubble.png` | 256×160，白底圆角+左下尾巴，透明背景 | 台词气泡底板；字号/折行由代码控制，上传底板即可 |
 | `UI/board_background.png` | ≥2048×1152（16:9 基准） | 棋盘背景，cover 铺满不变形；**未上传时为无色（纯黑）** |
-| `CardFrames/frame.png` | 512×692（1.7:2.3），白/灰阶底 | 通用卡框，代码按阵营色染色 |
-| `CardFrames/petrify.png` | 同 frame 尺寸 | 石化覆盖层（灰石纹+裂缝），代码做淡入淡出 |
+| `CardFrames/antique_frame.png` | 1024×1680（doc view 竖框） | 统一立绘边框；立绘等比塞入内窗，框盖在立绘上 |
+| `CardFrames/petrify.png` | 同外框比例 | 石化覆盖层回退（无 All In 1 时） |
 
 ## 二、成品化路线（把演出从占位配成成品）
 

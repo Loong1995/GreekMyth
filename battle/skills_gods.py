@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""奥林匹斯（神）阵营战法（Phase 4 v4 池）。数值以 phase4 任务书为准。
+"""奥林匹斯（神）阵营战法（Phase 4 v4 池）。
 
 自带：thunder_oracle 雷霆神谕 / athena_aegis 埃癸斯圣盾 / ares_warfury 战神怒火 /
       hermes_oracle 赫尔墨斯神谕 / delphi_revelation 德尔斐启示 /
@@ -28,7 +28,7 @@ from battle.statuses import (
 
 # =============================================================================
 # 雷霆神谕（宙斯）：己方全体【雷霆】——造成非落雷伤害后 70%（伪随机：失败+9%、
-# 成功-7%、30%~85%、4 次保底）追加落雷（触发者智力 100% 魔法），每人每回合 3 次。
+# 成功-7%、30%~85%、4 次保底）追加落雷（触发者智力 85% 魔法），每人每回合 3 次。
 # 性格·多情联动：宙斯分神（oracle_suppressed 旗标）本回合全队雷霆不触发。
 # =============================================================================
 
@@ -60,7 +60,7 @@ def _thunder_on_damage_dealt(engine, status, ctx):
     owner = engine.hero_by_id(status.owner_id)
     tick_seq = emit_status_trigger(engine, status, ctx["damage_seq"])
     engine.deal_damage(
-        owner, target, damage_type="magic", rate_bps=10000,
+        owner, target, damage_type="magic", rate_bps=8500,
         parent_seq=tick_seq, kind="lightning",
     )
 
@@ -103,7 +103,7 @@ class ZeusBolt(Skill):
 
 # =============================================================================
 # 埃癸斯圣盾（雅典娜）【皇·反制位】：神谕（Phase 4 v4 版，均整局）：
-# 1. 己方全体【圣盾】：受到伤害或控制时 15% 免疫，并将原伤害/控制反弹给
+# 1. 己方全体【圣盾】：受到伤害或控制时 12% 免疫，并将原伤害/控制反弹给
 #    **敌方随机存活单位**（受击率选取）。伤害走引擎减免通道（reflect_rate_bps
 #    + payload reflect_to_random_enemy），控制走控制减免链（control_reflect_bps）；
 #    反弹为特殊固定伤害/不可连锁（引擎口径）。与格挡/闪避先后 = 状态施加顺序。
@@ -113,7 +113,7 @@ class ZeusBolt(Skill):
 # 性格·明睿联动：匠心旁骛（oracle_suppressed）本回合圣盾不生效（含反弹闸门）。
 # =============================================================================
 
-AEGIS_COUNTER_RATE_BPS = 1500
+AEGIS_COUNTER_RATE_BPS = 1200
 AEGIS_HEAL_THRESHOLD_BPS = 1000
 AEGIS_HEAL_RATE = 9000  # 智力 ×0.9
 AEGIS_HEAL_MAX_PER_ROUND = 2
@@ -243,13 +243,14 @@ class AthenaGuard(Skill):
 
 
 # =============================================================================
-# 战神怒火（阿瑞斯）v4：敌我全体【血战】（受物理伤害易伤 +20%、物理暴击率 +20%，
-# 整局）；己方武力最高者【战神之勇】（武力 +20、速度 +20，整局；并列取小站位）。
+# 战神怒火（阿瑞斯）v5（2026-07-21）：敌我全体【血战】（通用易伤 +20%、
+# 暴击伤害 +50%，整局）；己方武力最高者【战神之勇】（武力 +20、速度 +20，
+# 整局；并列取小站位）。
 # =============================================================================
 
 BLOOD_BATTLE_STATUS = StatusDef(
     status_id="blood_battle", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"physical_vulnerable_bps": 2000, "physical_crit_rate_bps": 2000},
+    modifiers={"vulnerable_bps": 2000, "crit_damage_up_bps": 5000},
 )
 ARES_MIGHT_STATUS = StatusDef(
     status_id="ares_might", kind=SPECIAL, duration_rounds=PERMANENT,
@@ -272,19 +273,21 @@ class AresWarfury(Skill):
         allies = engine.alive_allies(actor)
         best = allies[0]
         for ally in allies[1:]:
-            if engine.effective_attr(ally, "force") > engine.effective_attr(best, "force"):
-                best = ally  # 并列取遍历序靠前（D-08）
+            af = engine.effective_attr(ally, "force")
+            bf = engine.effective_attr(best, "force")
+            if af > bf or (af == bf and ally.position < best.position):
+                best = ally
         engine.apply_status(actor, best, ARES_MIGHT_STATUS, parent_seq=trigger_seq)
 
 
 # =============================================================================
-# 战争狂热（阿瑞斯拆解）v4：被动（准备阶段自身入场）——自身物理伤害 +30%、
-# 暴击率 +10%（整局）。
+# 战争狂热（阿瑞斯拆解）v6（2026-07-21）：被动（准备阶段自身入场）——
+# 自身物理伤害 +30%、暴击率 +15%（整局）。
 # =============================================================================
 
 WAR_FRENZY_STATUS = StatusDef(
     status_id="war_frenzy", kind=SPECIAL, duration_rounds=PERMANENT,
-    modifiers={"physical_damage_up_bps": 3000, "crit_rate_bps": 1000},
+    modifiers={"physical_damage_up_bps": 3000, "crit_rate_bps": 1500},
 )
 
 
@@ -427,7 +430,7 @@ class ApolloBlessing(Skill):
 
 # =============================================================================
 # 蛇杖庇护圣谕（阿斯克勒庇俄斯）v4：己方全体【蛇杖庇护】——受实际伤害后 40%
-# （伪随机：失败+8%、成功-6%、20%~70%、5 次保底）触发治疗（1% 上限 + 施放者智力×1），
+# （伪随机：失败+8%、成功-6%、20%~70%、5 次保底）触发治疗（0.5% 上限 + 施放者智力×1），
 # **每名持有者每回合最多 2 次**；每回合结束时对我方兵力比例最低单位额外治疗一次
 # （挂施放者【灵蛇看护】）。施放者阵亡 → 全部移除（引擎 source_defeated 通例）。
 # =============================================================================
@@ -437,7 +440,7 @@ _SNAKE_PR = PseudoRandomParams(
     min_rate_bps=2000, max_rate_bps=7000, guarantee_fail_count=5,
 )
 SNAKE_RATE_BPS = 4000
-SNAKE_MAX_TROOP_BPS = 100  # 1% 兵力上限
+SNAKE_MAX_TROOP_BPS = 50  # 0.5% 兵力上限
 SNAKE_MAX_PER_ROUND = 2
 
 

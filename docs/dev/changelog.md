@@ -1,5 +1,324 @@
 # Changelog
 
+## 2026-07-22 标定武将属性档 high/mid/low = 300/200/100
+- `cal_teams.py`：全维同值属性档；默认 mid=200；`attr_tier` / `attr_tier_a` / `attr_tier_b`。
+- `calibrate_batch.py`：`--attr` / `--attr-a` / `--attr-b`；报告头显示双方属性档。
+- `test_calibrate.py` 补属性档与分队覆盖断言。
+
+## 2026-07-22 数值标定战法池 + 千场批量脚本；回合上限改回 999
+- `ROUNDS_PER_GAME=999`（打到主将阵亡；stalemate 仍 metadata 压 8）；golden 4 个重生成。
+- 新增 `skills_cal.py`：减伤三档（全队常驻 10/25/40%）+ 主动/追击/被动伤害三档（期望系数 100/150/250）。
+- 新增 `cal_teams.py` 队伍池：`pure` / `regular_low|mid|high`；`tools/calibrate_batch.py` 千场统计（均回合/死伤/技能释放与伤害）。
+- 单测 `test_calibrate.py`；全量 242 通过。
+
+## 2026-07-22 单局回合上限 8 → 16（D-06 修订）
+- `ROUNDS_PER_GAME=16`（当日先改 999 后定 16）；打满仍平局残血续战。
+- `metadata["rounds_per_game"]` 可覆盖；stalemate 测试/演示场景显式压回 8 保留平局续战覆盖。
+- golden 显式重生成；237 后端测试全过。
+
+## 2026-07-22 击杀台词落地（执行者→死者）
+- `hero_defeated` 后击杀者发 `trait_trigger`（effect=kill，挂 defeat 同组）；羁绊池 key=死者模板→generic；自杀/击杀者已亡静默；轮换确定性不耗 RNG。
+- 新增 `voice_lines_kill.py` + `voice_kill_data.py`（抽取工具扩 `kill` 场景，30 将 291 条）；客户端零改动（TraitLineExtract 抽独占气泡）。
+- golden 因新增事件显式重生成（6 个）；新增 `test_kill_voice.py`；235 后端测试全过。
+
+## 2026-07-22 登场羁绊友/敌分池
+- 同队播 `{target}` 友池、跨队播 `{target}_foe` 敌池；分册 `（友）/（敌）` 标记，抽取工具写入双 key。
+- 排查全表 S1/S2 双向：友口吻补敌词、敌口吻补友词；补 athena↔perseus、zeus↔heracles/hermes 反向。
+- 单测 `test_enter_ally_vs_foe_*`；character.md / bonds.md 约定同步。
+
+## 2026-07-22 重播 MissingReferenceException 修复（CameraShaker）
+- 重播重建场景后旧 ShakeDriver 已随相机销毁，`Cancel()` 用 `?.` 绕过 Unity 假 null 判定直接访问 → MissingReferenceException。改为 `!= null` 判空并丢弃已销毁引用（下次 Shake 自动重挂）。
+
+## 2026-07-22 手动测试支持跨队同名英雄
+- `test_manual_3v3.py`：hero_id 是事件流全局主键必须唯一，B 队与 A 队撞名者自动改名「XX（敌）」；羁绊/性格按 template_id 判定不受改名影响。core 校验不变（同队重名仍报错）。
+
+## 2026-07-22 cut-in 文案调整
+- 满档 cut-in 标题改为该次即将出手的技能名（Runner `SkillNameOf`：战法中文名/普攻/状态名）。
+- 高伤 cut-in 文本末尾补伤害额度（`…重创 X！-金额`）。text_system.md 同步。
+
+## 2026-07-22 重播复位修复（cut-in 去重/势能残账）
+- 点「重播」后高伤 cut-in 不再弹：同战报重播 group_id 相同，`CutInService` 组去重记录跨播放残留把切入全吞掉。
+- `BuildWorld` 增加重播复位：`cutIn.ResetDedup()` + `MomentumService.ClearAll()` + `UnitAuraService.ClearAll()`（原主循环只在 gameIdx>0 清，第 1 局带残账）。
+
+## 2026-07-22 满档 cut-in 语义修订（按轨/阻塞/强化音效）
+- 按轨过滤：轨已满（≥5）后**该轨**再次进账才 cut-in，刚满当次不切、他轨不影响（客户端按落账前镜像值过滤，服务端事件不变）。
+- 阻塞出手：动作组出手前 `CutInService.PlaySoloBlocking` 独占时间轴，切完才开打（`PerformanceRunner.FindFullTrackCutIn` 预扫）。
+- 强化音效：cut-in 后该次出手主音效换 `sfx_attack_empowered`（`VFXContext.EmpoweredStrike`）。编译零错误、整场回放无报错。
+
+## 2026-07-22 借刀分段播放（BorrowBladeSplitProcessor）
+- 代战/披甲多段借手伤害原被 group_id 聚合成一个单元连劈，响应/追伤全挤到单元后。
+- 新增 `BorrowBladeSplitProcessor`（管线首位，谓词由 Runner 用 profile.BorrowBlade 注入）：按组根直接子伤害切段、按首事件 seq 稳定重排——段1(借手)→响应→追伤→段2…恢复事件流因果。
+- 离线用 manual_3v3_seed20260722 g1r1 验证拆段序正确；Unity 编译零错误、回放至 r2 无报错。docs/client 3 文档同步。
+
+## 2026-07-22 客户端播放系统结构性重构（行为不变）
+- 新增 `EventApplyService`（全客户端唯一落账入口，animated 双模式），消除 MomentumChange/状态/阵亡等 4 处平行落账；`SkillPerformance.SettleSideEvent` 转调。
+- 新增 `MomentumFireController`：势能火生命周期收拢，Runner 只发相位信号；hold-off 改「抑制同值重挂」——值变化即重新点火，修复 g1r5 响应涨势能无火（探针复现验证通过）。
+- 拆出 `BannerService`（横幅+文字 cut-in 回退）、`SettlementPanel`（战后结算）、`DuelPerformance`、`HighlightSelector`；cut-in 去重收口 `CutInService.Request`；`MomentumService` 与 Audio 解耦（GlobalMomentumChanged 回调）。
+- Runner 809→503 行（纯编排）；连发倍率/延迟停顿改 PerformanceProfile 字段。Unity 编译零错误、manual_3v3_seed20260722 全场回放零报错；docs/client 5 个文档同步。
+
+## 2026-07-22 worldview.md 立绘美术手册
+- 新增 `docs/worldview.md`（外包立绘分发版）：32 将逐条传记/主战法/战斗叙事/羁绊/商业点/立绘风格/台词摘录，含四阵营色彩基调与差分优先级；用户明示豁免 500 行红线。
+- 赫卡忒、卡吕普索台词本待补，文中已标注。
+
+## 2026-07-22 登场台词播放落地
+- `game_start` 后播全部场上 S1/S2 羁绊登场（weight→跨队→均速；单元内 A 队→速度）；同组 TraitLine。
+- 无羁绊时各队主将 `generic` 登场（A 优先）。抽取 `voice_enter_data.py`；golden 因新增事件重生成。
+
+## 2026-07-22 厄里斯→帕特洛克勒斯 + 阿喀琉斯 S1 羁绊
+- 池位替换：`eris`→`patroclus`（英雄）；战法 `patroclus_standin`/`patroclus_armor`；性格 `bonong` 更名「点将」。
+- 新增 S1 `bond.achilles_patroclus`（bonds.py + 分册双池 enter/duel/kill）；阿喀琉斯台词侧补全。
+- 客户端 BorrowBlade / 名表 / FactionOf 同步；单测改名并通过。
+
+## 2026-07-22 势能火 ActionPause 熄灭修复
+- ActionPause 时场上所有势能火渐灭并强制销毁；hold-off 至自身下次 action_start，避免账本仍满被 momentum_change 重挂。
+- 回合横幅前亦可提前开渐灭（末位行动→下回合）。
+
+## 2026-07-22 势能火 ActionPause 渐灭
+- 上一行动窗结束进入 `ActionPauseSeconds` 时，该武将势能火缩放到零；条仍待自身下次 `action_start` 清。
+
+## 2026-07-22 厄里斯借刀 Melee / 冥火图标 / 势能火
+- 厄里斯自带/拆技：`BorrowBlade` Melee，每段由伤害 `source_id` 武将突进斩击。
+- 冥火改为中央状态图标（`controlIcon`），去掉 `aura_underworld_burn` CFXR。
+- CFXR3 Fire 改挂势能：`momentum_fire`，四轨最高 ≥4/5/6/7 分档小→满分大。
+
+## 2026-07-22 冥火/冰锢接 CFXR3
+- 冰锢 `aura_freeze`←**CFXR3 Ice Shield**，卡面下方 y≈−0.3。
+- （冥火曾挂 CFXR 火；已改为中央图标，火留给势能——见上条。）
+
+## 2026-07-22 三将落地：厄里斯/赫卡忒/卡吕普索
+- roster 32 将：`eris`（对位被动+挑拨）、`hecate`（冥火 DoT 可叠可暴击）、`calypso`（冰锢硬控）。
+- 新状态 `freeze` / `underworld_burn`；性格拨弄/岔路/羁留；客户端名表与 FactionOf 同步。
+- 单测 `test_heroes_eris_hecate_calypso.py` 6 通过；正式 skills 分册已写。
+
+## 2026-07-22 对位×犹豫
+- 明确：现行犹豫只延主动+普攻；对位若要同延，须放在犹豫判定后并扩 `_delayed_actions`，不可挂 `on_action_start`。
+- 草案默认 E6：对位与出手同包延 1 窗；石化下仍可 roll 犹豫以拖住对位。
+
+## 2026-07-22 纷争对位草案口径
+- 去掉「整窗 skipped / 冥锁」误写：石化只禁主动+普攻；`skipped` 仅为 action_start 标记，钩子仍跑；冥锁非现役战法。
+- 明确对位被动挂行动窗、不受石化禁止。
+
+## 2026-07-22 武将编制草案（未落地）
+- 新增 `docs/dev/hero_proposal_eris_hecate_calypso.md`：厄里斯对位三连、赫卡忒冥火 DoT、卡吕普索冰锢硬控+DoT。
+- 选型与三段式效果/实现/事件流 + 拍板表；`skills/index` 已挂链；**未改 roster/代码**。
+
+## 2026-07-22 默认群攻弹道精修
+- 飞行弹道不再拖 `slash` Burst：物理 `blade_bolt`（DualBolt Orange）、魔法 `magic_bolt`（DualBolt Purple）。
+- `LaunchProjectile`：朝向切线、二次贝塞尔微弧、缩放呼吸；群攻错峰起飞、同帧抵达结算。
+
+## 2026-07-22 石化冻结呼吸
+- 石化时停立绘浮动、阿瑞斯红呼吸、圣盾描边呼吸、雷霆驱动与光环粒子，解除后恢复，强化「石像静止」。
+
+## 2026-07-21 阿瑞斯改卡框红呼吸
+- 血战/战神之勇常驻：去掉 FireRimFx 火舌，改为 `UnitView.SetAresRage` 卡框红光呼吸（弱档暗红慢、强档更亮更快）。
+
+## 2026-07-21 Antique 立绘可见性
+- Antique 框图中心是实心暗底（非透明挖空），立绘改为叠在框前内窗；先前放框后会被完全挡住。
+
+## 2026-07-21 统一 Antique 竖框
+- 全武将立绘边框改用 `CardFrames/antique_frame`（Interface Frames **doc view** 1024×1680，非正方形那张）。
+- 立绘在框后等比 contain 入内窗；框不染色、不拉伸变形。
+
+## 2026-07-21 石化去遗像感
+- 石化不再 100% 灰阶：立绘最多约 40% 暖砂岩叠染，卡框约 68% + 石色描边；保留五官色彩可读。
+
+## 2026-07-21 圣盾降亮度
+- 圣盾关掉 All In 1 `GLOW_ON`（整卡加亮是罪魁）；只保留卡框金描边 + 轻微 Outline 呼吸。
+
+## 2026-07-21 All In 1 石化/圣盾 + Animated 闪电
+- 宙斯改用 Digital Ruby **Animated** 贴图闪电（Demo 下方那种，`dr_lightning_bolt_anim`）。
+- 石化：`SetPetrified` → All In 1 灰阶+石色 tint 渐变（立绘/卡框）；无 shader 回退旧覆盖层。
+- 圣盾：`aura_aegis` → All In 1 金描边+呼吸辉光（不再挂粒子光环）。
+
+## 2026-07-21 宙斯闪电接入 Digital Ruby 免费包
+- 常驻 `ThunderAuraDriver` / 触发 `RemoteStrike` 改用 `DrLightningUtil` → `LightningBoltScript`。
+- prefab：`Resources/ClientBattle/VFX/dr_lightning_bolt`；asmdef 引用 `DigitalRuby.LightningBolt`。
+- 自写 `LightningBoltFx` 暂留文件，已不再被常驻/触发路径调用。
+
+## 2026-07-21 闪电/火舌减廉价感 + 常驻稍密
+- 闪电：三层（晕/辉/芯）+ 端点收束 + 相关位移折线 + 柔退。
+- 火舌：三层 + 宽曲线 + 双频噪声高低火舌；常驻闪电略加密。
+- 再上一档需 Bloom/专用火焰贴图条（程序化 LineRenderer 上限在此）。
+
+## 2026-07-21 宙斯常驻恢复长道 + 降频
+- 常驻恢复边→边/对角/短弧/竖劈长版形态；透明度 0.7~0.9；频率降低。
+- 触发贯穿对面透明度仍为 0.2。
+
+## 2026-07-21 宙斯闪电短道/透明度
+- 常驻：控长度（≤0.7），透明度随机 0.6~0.8。
+- 触发贯穿对面：透明度 0.2。
+
+## 2026-07-21 宙斯闪电密度/透明度
+- 常驻更密（多道同屏 + 更短间隔）；每道透明度随机 0.35~1。
+- 触发贯穿对面默认半透明（alpha×0.5）。
+
+## 2026-07-21 宙斯常驻闪电多向乱劈
+- 常驻不再只竖直：边→异边 / 对角斜穿 / 短弧跳电 / 少量竖劈 加权混合。
+- 对齐常见卡牌雷环策略（落点卡缘采样、方向灵活、偶发分叉）。
+
+## 2026-07-21 程序化闪电 + 卡边火舌（弃用粒子糊脸）
+- 宙斯：`LightningBoltFx` 折线闪电；常驻卡面频劈，触发 `StrikeWorld` 贯穿对面整卡。
+- 阿瑞斯：`FireRimFx` 卡边火舌带（血战底边弱 / 战神之勇四边）；不再用 CFXR 火粒子。
+- 结论：已购粒子包做不出「常见闪电/卡边火舌」，改程序化。
+
+## 2026-07-21 宙斯雷霆：卡面频劈 / 触发贯穿
+- 常驻：去掉绕身电弧；`ThunderAuraDriver` 在卡面上高频随机竖劈。
+- 触发：RemoteStrike 一道竖雷 Y 拉满贯穿对面整张卡。
+
+## 2026-07-21 宙斯雷霆：自然随机落劈绕身
+- 废止 CFXR Hit Electric 糊脸挂法。
+- `aura_thunder`←绕身微放电；`aura_thunder_bolt`←竖向落雷；
+  `ThunderAuraDriver` 不规则间隔在卡缘随机点播 1~2 道竖劈。
+
+## 2026-07-21 阿瑞斯外侧均匀火带（往外喷）
+- 火贴卡缘外侧；关 CFXR「Small fire」柱状大火苗，只用余烬小粒子。
+- 扁长 Box 高密度出生 + 本地 +Y 向外速度 → 均匀边火带（消点状）。
+- 血战=底边外侧弱带；战神之勇=四边外侧整圈。
+
+## 2026-07-21 阿瑞斯火密度微调
+- 血战：尺寸/透明度/发射略加强（仍弱于战神之勇，带状可见）。
+- 战神之勇：侧边拆 3 段重叠加密 + 更高发射率，消除点状稀疏。
+
+## 2026-07-21 阿瑞斯火：血战微弱底带 / 战神之勇四边整圈
+- `blood_battle`：卡底微弱火带（小尺寸+低压透明度，刚能看出）。
+- `ares_might`：卡四边（顶/底/左/右）整圈着火；拆技仍无火。
+
+## 2026-07-21 阿瑞斯火：仅自带，战神之勇更宽
+- 火焰仅挂自带【战神怒火】：`blood_battle` 卡底 / `ares_might` 卡顶（半宽 1.05，比血战 0.8 更宽）。
+- 拆技【战争狂热】`war_frenzy` 去掉挂身火（注册表 + PerformanceDatabase）。
+
+## 2026-07-21 阿瑞斯火带 + 哈迪斯黑雾极透
+- 阿瑞斯：单实例 Fire 沿卡宽 SingleSidedEdge 连续出火（一带火，废止点状 3 簇）。
+- 哈迪斯黑雾：alpha×0.12 + 降发射密度，避免整卡变黑。
+
+- 新购 CFXR 导入 `Assets/JMO Assets/`；五神常驻特效重配：
+  宙斯雷霆 ← Hit Electric B、雅典娜圣盾 ← Magic Aura A (Runic)、
+  阿瑞斯火 ← Fire (No Smoke) 沿边 3 簇（foot/head）、
+  波塞冬潮汐 ← LightGlow A (Loop, Blue)（新 key `aura_tide`）、
+  哈迪斯冥域 ← Suspicious Cloud (Black)（新 key `aura_underworld`，
+  吸血/幽影/献统三状态共用）。
+- UnitAuraService 重写：直实例化（不回池）、禁 CFXR_Effect 自毁、
+  一次性特效强制循环；不再改粒子形状/染色（此前观感差根源）。
+- poseidon_tide / hades_* 状态首次有挂身光环（注册表加 auraKey）。
+
+## 2026-07-21 阿瑞斯常驻特效改为火焰（客户端）
+- `blood_battle` / `war_frenzy` → `aura_fire_foot`（卡底持续火）；
+  `ares_might` → `aura_fire_head`（卡顶持续火）。
+- 新增 Resources variant（复用已购 Explosion Vertical Loop，无需另购）；
+  StatusPresentation 增 AuraOffset；UnitAuraService 按偏移挂载 + 橙红染色。
+- 着火为卡头/卡底火焰带：单发射器 SingleSidedEdge 全宽随机出火（多柱叠加
+  爆红方案废止）；保留 flipbook 原色渐变；直实例化不回池。
+- 与技能数值无关；旧 bloodlust 光环不再挂阿瑞斯状态。
+
+## 2026-07-21 阿瑞斯自带/拆解数值定稿
+- 【战神怒火】血战：通用易伤 +20% + 暴击伤害 +50%（原物暴 +20% 废止）；
+  战神之勇武/速 +20，并列小站位。
+- 【战争狂热】自身物伤 +30% + 暴击率 +15%（整局）。
+- oracle golden 重生成（血战改暴伤影响结算）。
+
+## 2026-07-21 阿瑞斯拆解【战争狂热】v5
+- 改为仅自身暴击率 +15%（整局）；原 v4 物伤+30%/暴击+10% 废止。
+- golden 无差异（modifiers 不进事件流）；222 测通过。
+
+## 2026-07-21 全屏 cut-in（单人 + 决斗裂缝交错）
+- 新增 `VFX/CutInService`：单人 cut-in＝暗幕+阵营色斜带+巨幅立绘+大字（非阻塞）；
+  决斗 cut-in＝中央斜裂缝线分屏，两半屏卡对向滑过 × clash_cutins 次、逐次加速，
+  末次中线对峙+VS+白闪弹开（阻塞，PlayDuel 内）。
+- RequestCutIn 增 heroId 参数：有主体走全屏 cut-in，战术变更等回退 OnGUI 横幅。
+- 层级 80~90 登记 rendering_layout；立绘复用 Portraits 路径；新 sfx_cutin_solo。
+
+## 2026-07-21 单挑台词双池落地（前后端）
+- 服务端：`voice_lines` + `voice_duel_data`（分册抽取）；`trait_trigger` 挂 duel 组。
+- 客户端：`PlayDuel` 按时点播叫阵/应战/拒战气泡；TraitLineExtract 跳过 Duel 组。
+- 改词：改 `docs/character/*.md` → `python battle/tools/_extract_duel_voice.py`。
+
+## 2026-07-21 单挑配对升级（D-03 演进）
+- 参赛：武力>智力；队内武序后同序号对位 + S1/S2 羁绊初对；武差线性入池。
+- 候选按羁绊→武差取一对真决斗；空池固定叫阵-拒绝；`clash_cutins` 下发。
+- **废除**性格约战机械（`DuelBehavior`）；台词 `duel_*` 仍可播。
+- **胜率**：高武力方 `50% + d`（百分点），d≥50 必胜（原 `50%+d×5%` / d≥10 废止）。
+- 新增 `battle/bonds.py`；客户端 PlayDuel 按段数对撞；golden 重生成。
+
+## 2026-07-21 哈迪斯：血誓→吸血属性；汲魂 150%
+- 冥域君临：【冥河血誓】改为己方 `lifesteal_bps+10%`（`hades_lifesteal`）；
+  幽影/献统不变。冥河汲魂全体魔法 180%→150%。客户端名表/结算映射同步。
+
+## 2026-07-21 犹豫准备技同窗释放 + 先攻多吃一回合排序
+- 延迟补结算进入准备时 `skip_tick`：prepare_rounds=1 不再同窗 release
+  （戏言犹豫战吼类：N 延后 → N+1 准备 → N+2 释放）。
+- `has_first_strike`：排序仅认 `tick < duration`，duration=1 不再多吃下一回合序。
+- manual 202607211 g1r7 同窗「开始准备+释放战吼」即此 bug；hesitation/statuses 文档同步。
+
+## 2026-07-21 奥林匹斯调参（宙斯／阿瑞斯／蛇杖）
+- 雷霆落雷：智力 100%→85% 魔法；血战物伤易伤→通用易伤 +20%（物暴仍 +20%）。
+- 蛇杖治疗基数：1%→0.5% 兵力上限 + 智力；olympus.md + golden 同步。
+
+## 2026-07-21 英雄批数值调参（阿喀琉斯／试炼／狮皮／闪击／战吼）
+- 阿喀琉斯之怒：物暴 +35%、追伤 80%；傲慢去掉残兵比例门槛（无条件 25%）。
+- 十二试炼：每次试炼后下一次兵刃系数 +5%（可叠，非试炼兵刃消费）。
+- 狮皮反击：70% 反打 45%，反击成功必挂来源伤害 −15%（1 回合）。
+- 镜盾闪击 280%、特洛伊战吼 190%；docs/skills/heroes + traits/golden 同步。
+
+## 2026-07-21 全将单挑三态视角通扫
+- 四阵营单挑池按「叫阵／应战／拒战」说话者纠偏：删「应约」入叫阵、
+  「接招／看好了／留力／别冲动／听令退」等反视角；海族（塞壬应战、
+  斯库拉拒战、奥德修斯对雅典娜）同步修正。
+
+## 2026-07-21 单挑拒战视角纠偏（阿喀琉斯样板）
+- 拒战=防守方拒绝对方叫阵；阿喀琉斯原词「逃一次／懦夫的选择」是骂对方拒战，已改。
+- 同步修正阿瑞斯／赫拉克勒斯／尼刻／阿塔兰忒同类反视角；总则拒战条加反例。
+
+## 2026-07-21 台词本视角修正 + 残血台词删除
+- 残血不发台词：29 将 `low_hp` 场景全删（bonds.md 引用同步清理）。
+- character.md §2.2 增「说话者→对象」视角总表（应战=对方先叫阵、
+  击杀=我杀了你、连携=副将对神谕主将）；修正各分册反视角台词
+  （家人/主从羁绊的单挑与击杀池原写成护驾/报仇，改为镜像对阵口径）。
+
+## 2026-07-21 连携台词仅保留自带主动将
+- 按 `assist.md`：仅副将自带 `timing=active` 可被神谕连携；删掉其余将
+  `combo` 台词；保留 perseus/hector/triton/siren/thanatos，且羁绊池只对神谕源头。
+
+## 2026-07-21 角色传记·羁绊·台词本（character）
+- 新增 `docs/character.md` 总则（双池制／场景优先级／单挑三态）与
+  `docs/character/`：bonds + olympus/heroes/sea/underworld 共 29 将；
+  每场景通用+羁绊各 2~3 条；立绘关键词齐全。供玩家传记与剧情策划落地。
+
+## 2026-07-21 追伤触发即记 passive 势能
+- `MOMENTUM_ON_TRIGGER_KINDS` 含 `fury`：追伤伤害落地 +1（不要求再暴击）；
+  暴击不双计。`momentum.md` 同步；heroes 单测固化。
+
+## 2026-07-21 高光回放计入满势能 cut_in
+- 选窗改为观感分 = 伤害 + cut_in×3000（manual 阿喀琉斯伤最高窗常无满势能）；
+  静默落账路径仍会播满档 cut-in 横幅；高光开播重置 cut-in 去重。
+
+## 2026-07-20 特洛伊战吼系数 170%→210%
+- `WARCRY_DAMAGE_RATE_BPS=21000`；heroes.md 同步；golden 重生成。
+
+## 2026-07-20 埃癸斯圣盾反弹率 15%→12%
+- `AEGIS_COUNTER_RATE_BPS` 1500→1200（伤害/控制反弹共用）；olympus.md 同步；golden 重生成。
+
+## 2026-07-20 默认暴击伤害倍率 2.0→1.5
+- `CRIT_DAMAGE_MULTIPLIER_BPS` 20000→15000；治疗暴击仍 ×2。
+  damage/effects/status_interactions 与公式单测同步；golden 重生成。
+
+## 2026-07-20 阿喀琉斯之怒追伤系数 80%→60%
+- `ACHILLES_FURY_RATE_BPS` 8000→6000；heroes.md / effects.md 同步；golden 重生成。
+
+## 2026-07-20 可维护性重构（行为不变，golden 逐字节一致）
+- 双侧架构审计后落地 6 项去耦合重构，确立「通用机制注册表 + 特殊机制登记」
+  总账本 `docs/discipline/extension_points.md`（新增内容只改注册点）。
+- core：状态台词触发映射收口 `status_voice.py`（emit_voice_once /
+  emit_forbid_voice，engine 去两份重复元组）；钩子分发统一
+  `_collect_global_hooks` + `_run_hook_entries`（6 处重复循环合一）；
+  石化免疫/孤怨回调改 StatusDef 扩展点 `immune_when_forbid` /
+  `on_applied_to_other`（engine 零 status_id 特判）。216 测试全绿、
+  11 golden 逐字节一致。
+- client：新增 `Names/StatusPresentationRegistry.cs` 合并四处状态散表
+  （光环/控制图标/结算归因/集体齐发白名单，一状态一行）；
+  `SkillPerformance→PerformanceRunner.Instance` 反向依赖切断（VFXContext
+  注入 OnDamageSettled/OnCutInRequested 回调）；废弃字段
+  TraitLinePauseSeconds 删除。编译零错误。
+
 ## 2026-07-20 文档大重整（机制类文档「叙述+代码机制」双写）
 - 新增 client 三份机制文档：`playback_units.md`（播放单元/时间轴阻塞/台词独占
   三原则/管线四 processor 红线）、`rendering_layout.md`（分辨率适配/图像槽位

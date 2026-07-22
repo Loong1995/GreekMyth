@@ -385,38 +385,10 @@ namespace ClientBattle.Events
             return (fallbackHero, "unknown");
         }
 
-        /// <summary>状态 id → 带出该状态的战法 id（结算表格子键）。</summary>
-        static readonly Dictionary<string, string> StatusToSkill = new()
-        {
-            // 神谕 / 被动载体（status_id ≠ skill_id）
-            ["thunder"] = "thunder_oracle",
-            ["aegis_shield"] = "athena_aegis",
-            ["aegis_ward"] = "athena_aegis",
-            ["snake_staff_protection"] = "asclepius_oracle",
-            ["snake_staff_tender"] = "asclepius_oracle",
-            ["blood_battle"] = "ares_warfury",
-            ["ares_might"] = "ares_warfury",
-            ["war_frenzy"] = "ares_frenzy",
-            ["divine_revelation"] = "delphi_revelation",
-            ["hermes_confusion_mark"] = "hermes_oracle",
-            ["hermes_herald_mark"] = "hermes_oracle",
-            ["poseidon_tide"] = "poseidon_oracle",
-            ["styx_blood_oath"] = "hades_underworld_dominion",
-            ["shadow_veil"] = "hades_underworld_dominion",
-            ["hades_command_drain"] = "hades_underworld_dominion",
-            ["lion_counter"] = "heracles_counter",
-            ["trojan_bomb"] = "odysseus_trojan",
-            ["trojan_scheme"] = "odysseus_trojan",
-            ["perseus_mirror"] = "perseus_relics",
-            ["achilles_thrust_crit"] = "achilles_thrust",
-            ["cerberus_guard"] = "cerberus_guard", // skill id 同名时直通
-        };
-
+        /// <summary>状态 id → 带出该状态的战法 id（结算表格子键）。
+        /// 数据收口 StatusPresentationRegistry（skill 同名状态直通零配置）。</summary>
         static string MapStatusToSkill(string statusId)
-        {
-            if (string.IsNullOrEmpty(statusId)) return "unknown";
-            return StatusToSkill.TryGetValue(statusId, out var skill) ? skill : statusId;
-        }
+            => Names.StatusPresentationRegistry.StatsSkillOf(statusId);
 
         static string ResolveSkillKey(BattleEvent ev, Dictionary<int, BattleEvent> bySeq)
         {

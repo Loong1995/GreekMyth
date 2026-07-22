@@ -37,7 +37,11 @@
   `action_tick_count += 1`，`> duration_rounds` 即到期移除（`status_remove`,
   reason=expired，挂当次 `action_start` 之下）。
 - 「持续 1 回合」= **至少覆盖持有者下一次行动窗口**：第一次计次（=1）不超限，
-  该窗口内控制仍生效；第二次计次（=2）到期。
+  该窗口内控制仍生效；第二次计次（=2）到期。例：缴械 1 回合——持有者第一次
+  行动时身上仍有缴械（算第 1 回合）；下一次行动窗开始即摘除（算第 2、立即移除）。
+- **先攻特例（排序）**：行动序在计次之前读取；`has_first_strike` 要求
+  `action_tick_count < duration`，使 duration=1 只改写**下一次**行动序，
+  避免行动后 tick=1 仍在身时多吃下一回合排序（神使戏言常见坑）。
 - `duration_rounds = -1`：整局有效，不计次，局末随语义清空。
 
 ## 4. 数值修正聚合
@@ -59,7 +63,8 @@
 
 - 每回合 `ROUND_START` 相位、伤兵损耗之后 tick：遍历序 = hero_order × 施加序。
 - 事件形态：`status_tick`（挂 round_start 组下）+ 子 `damage`/`heal`。
-- DoT 走魔法伤害主公式（来源智力 vs 持有者智力，系数=dot_rate_bps），**不暴击**、
+- DoT 走魔法伤害主公式（来源智力 vs 持有者统率，系数=`dot_rate_bps × stacks`）；
+  默认**不暴击**（`StatusDef.dot_can_crit=False`）；冥火等可显式打开；
   吃随机系数；可致死（主将被毒死即局终）。HoT 同理走治疗主公式。
 - 来源阵亡 → 状态已被清理（见 §6），不存在无主 DoT。
 
@@ -82,6 +87,7 @@
 | `disarm(n)` 缴械 | forbid_basic | — | 禁普攻即禁追击；不打断准备 |
 | `ming_lock(n)` 冥锁 | forbid_active + forbid_basic | — | 全禁；打断准备 |
 | `petrify(n)` 石化 | forbid_active + forbid_basic | `vulnerable_bps +1000`（D-01） | 全禁 + 受伤 +10%；打断准备 |
+| `freeze(n)` 冰锢 | forbid_active + forbid_basic | — | 卡吕普索；全禁、无石化易伤、无 DoT；打断准备 |
 | `hesitation(rate, n)` 犹豫 | —（特殊） | 刷新不叠层、固定延后 1 回合、计次统一前移（Phase 3） | 细则见 hesitation.md |
 | `block(n)` 格挡 | —（Phase 3） | `counters["block_charges"]` 次数型 0 结算 | 消耗 1 次伤害置 0；damage.md §五 |
 | `charm(n)` 魅惑 | —（Phase 3） | 选敌敌我不分（charm_targeting） | 塞壬魅惑术 |
@@ -92,6 +98,11 @@
 
 - Phase 4 增键：`burst_rate_up_bps`（连发率加成，作用于持有者全部主动战法）、
   `control_immune`（清醒）；数值键允许负值（恐惧 `damage_up_bps=-1500`）。
+- 施加扩展点（2026-07-20 注册表化，engine 零 status_id 特判）：
+  `immune_when_forbid`（目标持有该 forbid 键即静默拒绝，石化↔`petrify_immune`）、
+  `on_applied_to_other`（对他人施加/刷新成功后回调，美杜莎孤怨照影；
+  对自己施加不回调防递归）。总账本见
+  [extension_points.md](../discipline/extension_points.md)。
 - 格挡上限（Phase 4）：`grant_block(..., max_charges=n)` 叠加封顶，
   已满**静默拒绝**（不发事件）。`grant_certain_crit` 口径相同。
 

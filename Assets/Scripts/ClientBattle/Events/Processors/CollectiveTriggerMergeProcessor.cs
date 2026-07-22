@@ -12,14 +12,12 @@ namespace ClientBattle.Events
     // 合并条件（全部满足才并组，保守起见）：
     // - 相邻两组都是 StatusTrigger、组根都是 status_tick；
     // - 同 status_id 且同 source_id（同一持有者的同一状态连续触发）。
-    // 圣盾等要求"逐次触发"的状态不在此列——通过 CollectiveStatusIds 白名单控制。
+    // 圣盾等要求"逐次触发"的状态不在此列——白名单收口
+    // StatusPresentationRegistry.IsCollective（新集体状态只加注册表行）。
     // =========================================================================
 
     public class CollectiveTriggerMergeProcessor : IEventProcessor
     {
-        /// <summary>要求集体齐发的状态白名单（文档明确"集体触发"的才进）。</summary>
-        public static readonly HashSet<string> CollectiveStatusIds = new() { "thunder" };
-
         public List<EventGroup> Process(List<EventGroup> groups)
         {
             var result = new List<EventGroup>(groups.Count);
@@ -43,7 +41,7 @@ namespace ClientBattle.Events
                 return false;
             if (a.Status == null || b.Status == null) return false;
             return a.Status.StatusId == b.Status.StatusId
-                   && CollectiveStatusIds.Contains(a.Status.StatusId)
+                   && Names.StatusPresentationRegistry.IsCollective(a.Status.StatusId)
                    && a.SourceId == b.SourceId;
         }
     }

@@ -21,6 +21,7 @@
 | template_id | trait_id | 自带 | 拆解 / 隐藏 |
 |---|---|---|---|
 | achilles | aoman | achilles_wrath | achilles_thrust |
+| patroclus | bonong | patroclus_standin | patroclus_armor |
 | heracles | lumang | heracles_trials | heracles_counter |
 | perseus | jiebao | perseus_relics | perseus_flash；隐藏 perseus_mirror |
 | hector | zhonglie | hector_warcry | hector_assault |
@@ -40,6 +41,7 @@
 | siren | sea | meihuo | siren_song | siren_charm |
 | scylla | sea | tanshi | scylla_maw | scylla_bite |
 | odysseus | sea | moushen | odysseus_trojan | odysseus_feint |
+| calypso | sea | jiliu | calypso_detain | calypso_rime |
 | hades | underworld | weiquan | hades_underworld_dominion | hades_soul_drain |
 | medusa | underworld | guyuan | medusa_gaze | medusa_glance |
 | persephone | underworld | huichun | persephone_seasons | persephone_sprout |
@@ -47,6 +49,7 @@
 | thanatos | underworld | lengku | thanatos_scythe | thanatos_gaze |
 | cerberus | underworld | huzhu | cerberus_bite | cerberus_guard |
 | hermes | underworld | jiaoxia | hermes_oracle | hermes_jest |
+| hecate | underworld | chalou | hecate_torch | hecate_pyre |
 
 ## 二、常用机制词 → 代码
 

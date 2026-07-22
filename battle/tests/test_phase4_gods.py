@@ -59,8 +59,8 @@ def test_aegis_ward_blocks_first_control_only():
     athena, b1 = engine.hero_by_id("x1"), engine.hero_by_id("b1")
     ward = engine.find_status("x1", "aegis_ward")
     assert ward is not None and ward.counters["control_block_charges"] == 1
-    # 圣盾自身的控制反弹（15%）会先/后逐实例判定；用高种子循环找一次
     # 「守心消耗且控制未落地」的确定局面：直接清掉反弹率干扰，单测守心本身
+    # （圣盾控制反弹默认 12%）
     aegis = engine.find_status("x1", "aegis_shield")
     engine.remove_status(aegis, reason="dispelled", parent_seq=anchor)
     assert engine.apply_status(b1, athena, st.petrify(), parent_seq=anchor) is None

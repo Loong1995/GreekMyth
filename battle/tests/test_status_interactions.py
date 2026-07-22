@@ -158,12 +158,12 @@ def test_cell_petrify_vulnerable_stacks_additively_with_crit():
     )
     plain = formulas.calc_damage(**base_kwargs)
     petrified = formulas.calc_damage(**base_kwargs, vulnerable_bps=1000)
-    crit = formulas.calc_damage(**base_kwargs, crit_multiplier_bps=20000)
+    crit = formulas.calc_damage(**base_kwargs, crit_multiplier_bps=15000)
     both = formulas.calc_damage(**base_kwargs, vulnerable_bps=1000,
-                                crit_multiplier_bps=20000)
+                                crit_multiplier_bps=15000)
     assert petrified == round(plain * 1.1)
-    assert crit == plain * 2
-    assert abs(both - plain * 2.2) <= 1  # 独立乘区连乘（±1 舍入）
+    assert crit == plain * 3 // 2  # 默认暴击 ×1.5
+    assert abs(both - plain * 165 // 100) <= 1  # 易伤×暴击连乘（±1 舍入）
 
 
 def test_cell_petrified_hero_can_still_be_crit_and_takes_more():

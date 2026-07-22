@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""武将花名册 v4（Phase 4 A4 定稿：29 将 = 奥林匹斯 7 / 英雄 9 / 海域 6 / 冥界 7）。
+"""武将花名册 v4+（32 将 = 奥林匹斯 7 / 英雄 10 / 海域 7 / 冥界 8）。
 
 - 四维属性：表中为 1 级初始值 + 每级成长（centi 精度，×100 存整数）；
   等级 L 的面板 = base + growth_centi × (L-1) // 100（整数下取整），默认 50 级。
@@ -9,6 +9,7 @@ from __future__ import annotations
 - faction（A4 定稿）：olympus/heroes/sea/underworld（原 gods/men 改名）；
   奥德修斯→sea、赫尔墨斯→underworld（manual_tasks 拍板项 1）。
   珀尔修斯借宝性格按 faction=="olympus" 判神阵营友军。
+- 2026-07-22 追加：hecate / calypso；eris 改为 patroclus（英雄·借刀代战）。
 
 用法：hero_setup("achilles", hero_id="a1", position=0, extra_skills=("achilles_thrust",))
 """
@@ -65,6 +66,8 @@ ROSTER: dict[str, HeroTemplate] = {
         # ---- 英雄阵营（暴击与追加）----
         HeroTemplate("achilles", "阿喀琉斯", "heroes", "m", "aoman",
                      (100, 304), (40, 60), (76, 120), (86, 180), "achilles_wrath"),
+        HeroTemplate("patroclus", "帕特洛克勒斯", "heroes", "m", "bonong",
+                     (88, 210), (48, 75), (72, 135), (84, 170), "patroclus_standin"),
         HeroTemplate("heracles", "赫拉克勒斯", "heroes", "m", "lumang",
                      (97, 285), (30, 40), (95, 210), (60, 100), "heracles_trials"),
         HeroTemplate("odysseus", "奥德修斯", "sea", "m", "moushen",
@@ -96,6 +99,8 @@ ROSTER: dict[str, HeroTemplate] = {
                      (30, 50), (87, 195), (45, 75), (90, 185), "siren_song"),
         HeroTemplate("scylla", "斯库拉", "sea", "f", "tanshi",
                      (90, 235), (35, 55), (78, 150), (66, 115), "scylla_maw"),
+        HeroTemplate("calypso", "卡吕普索", "sea", "f", "jiliu",
+                     (28, 45), (94, 235), (55, 90), (84, 165), "calypso_detain"),
         # 卡律布狄斯 v4 下架（manual_tasks 拍板项 2）
         # ---- 冥界阵营（吸取与处决；赫尔墨斯 A4 迁入见上奥林匹斯段位置保持模板序）----
         HeroTemplate("hades", "哈迪斯", "underworld", "m", "weiquan",
@@ -110,6 +115,8 @@ ROSTER: dict[str, HeroTemplate] = {
                      (55, 90), (89, 210), (50, 80), (85, 170), "thanatos_scythe"),
         HeroTemplate("cerberus", "刻耳柏洛斯", "underworld", "m", "huzhu",
                      (93, 245), (15, 30), (85, 175), (62, 105), "cerberus_bite"),
+        HeroTemplate("hecate", "赫卡忒", "underworld", "f", "chalou",
+                     (32, 50), (96, 245), (58, 95), (80, 155), "hecate_torch"),
     )
 }
 

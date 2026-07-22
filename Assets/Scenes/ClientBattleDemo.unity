@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5deb2902fbfff824890926eb08bc687d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ClientBattle::ClientBattle.Test.BattleReportTester
-  ReportPath: D:\games\GreekMyth\battle\out\manual\manual_3v3_seed20260709.json
+  ReportPath: D:\games\GreekMyth\battle\out\manual\manual_3v3_seed20260722.json
   InlineJson: 
   AutoPlayOnStart: 1
   Speed: 1

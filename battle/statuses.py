@@ -25,7 +25,7 @@ from __future__ import annotations
   block_rate_bps                                                    几率型格挡（次数型走 counters.block_charges）
   reflect_rate_bps                                                  反弹率（受伤归零并将本应受伤害反弹给攻击者，特殊伤害不连锁）
   extra_damage_up_bps                                               额外增伤独立乘区（Phase 3 §二）
-  crit_damage_up_bps                                                会心/奇谋伤害加成（在 ×2 基础上加）
+  crit_damage_up_bps                                                会心/奇谋伤害加成（在 ×1.5 基础上加）
   burst_rate_up_bps                                                 连发率加成（Phase 4，作用于持有者全部主动战法）
   hit_weight_up_bps                                                 受击权重偏置（Phase 4 集火战术：受击点数×(1+bias)，仍加权随机非锁定）
   forbid_basic / forbid_active / forbid_pursuit（bool，不乘层数）  控制禁制
@@ -67,8 +67,10 @@ class StatusDef:
     refreshable: bool | None = None  # None=按默认规则（负面否，正面/特殊是）
     modifiers: dict[str, Any] = field(default_factory=dict)
     # DoT/HoT：每回合开始 tick 一次。rate_bps 为对应主公式的技能系数。
+    # 实际系数 = rate_bps × stacks；dot_can_crit 默认 False（冥火等可显式打开）。
     dot_rate_bps: int = 0   # >0 = 每回合按来源谋略结算一次魔法伤害（中毒/燃烧）
     hot_rate_bps: int = 0   # >0 = 每回合按来源结算一次治疗
+    dot_can_crit: bool = False
     # ---- B3：事件驱动响应（见文件头说明） ----
     response_priority: int = 100
     on_apply: Callable | None = None         # 新实例创建后（刷新/叠层不触发）
@@ -87,10 +89,17 @@ class StatusDef:
                                                   # 死亡凝望盯诅咒；ctx 含 source/target/
                                                   # status_id/is_refresh/apply_seq）
     on_pre_damage_dealt: Callable | None = None  # 持有者造成伤害结算前（觅踵/死亡凝望/
-                                                 # 致命一矢…可改写 ctx 的增伤/必暴）
+                                                 # 致命一矢/十二试炼…可改写 ctx 的增伤/
+                                                 # 必暴/rate_bonus_bps）
     mitigation_gate: Callable | None = None  # (engine, status) -> bool：本实例的减免能力
                                              # （evade/block/reflect）是否生效（圣盾受
                                              # 匠心旁骛压制时返回 False）；None=恒生效
+    # ---- 施加扩展点（2026-07-20 注册表化，替代 engine 内按 status_id 的特例） ----
+    immune_when_forbid: str | None = None    # 目标持有该 forbid 键时本状态静默拒绝
+                                             # （石化→"petrify_immune" 珀尔修斯镜盾）
+    on_applied_to_other: Callable | None = None  # 对他人施加/刷新成功后回调
+                                                 # (engine, source, target, parent_seq)
+                                                 # （美杜莎孤怨照影；对自己施加不回调防递归）
     payload: dict[str, Any] = field(default_factory=dict)  # 响应处理器的参数
 
     def is_negative(self) -> bool:
@@ -160,6 +169,25 @@ def any_forbid(statuses: list[StatusInstance], key: str) -> bool:
     return any(status.definition.modifiers.get(key, False) for status in statuses)
 
 
+def has_first_strike(statuses: list[StatusInstance]) -> bool:
+    """先攻是否仍可用于本回合行动序。
+
+    持续 N 回合的先攻只覆盖持有者接下来的 N 次行动窗；排序在行动窗开始计次
+    **之前**读取，故以 `action_tick_count < duration` 判定「尚未消费完」——
+    避免 duration=1 在第一次行动后仍带着 tick=1 多吃下一回合排序（神使戏言/
+    神使印记常见坑）。
+    """
+    for status in statuses:
+        if not status.definition.modifiers.get("first_strike"):
+            continue
+        dur = status.definition.duration_rounds
+        if dur == PERMANENT:
+            return True
+        if status.action_tick_count < dur:
+            return True
+    return False
+
+
 # =============================================================================
 # 标准控制/特殊状态（任务书 5.3 状态清单）。builder 形式：施加方可配持续/参数。
 # 同 status_id 的多个 def 视为同一状态（存在性判断按 status_id）。
@@ -190,10 +218,31 @@ def ming_lock(duration_rounds: int = 1) -> StatusDef:
 
 
 def petrify(duration_rounds: int = 1) -> StatusDef:
-    """石化：禁主动 + 普攻，受到伤害 +10%（决策 D-01：入易伤乘区，加法叠加）。"""
+    """石化：禁主动 + 普攻，受到伤害 +10%（决策 D-01：入易伤乘区，加法叠加）。
+    免疫键与施加回调走 StatusDef 扩展点（镜盾免疫 / 美杜莎孤怨照影）。"""
     return StatusDef(
         status_id="petrify", kind=CONTROL, duration_rounds=duration_rounds,
         modifiers={"forbid_basic": True, "forbid_active": True, "vulnerable_bps": 1000},
+        immune_when_forbid="petrify_immune",
+        on_applied_to_other=lambda engine, source, target, parent_seq:
+            engine.notify_petrify_out(source, parent_seq),
+    )
+
+
+def freeze(duration_rounds: int = 1) -> StatusDef:
+    """冰锢（卡吕普索）：禁主动 + 普攻，无石化易伤；清醒可免。"""
+    return StatusDef(
+        status_id="freeze", kind=CONTROL, duration_rounds=duration_rounds,
+        modifiers={"forbid_basic": True, "forbid_active": True},
+    )
+
+
+def underworld_burn(duration_rounds: int = 2) -> StatusDef:
+    """冥火（赫卡忒）：可叠最多 3 层、可刷新；每层 60% 谋略 DoT（可暴击）。"""
+    return StatusDef(
+        status_id="underworld_burn", kind=DEBUFF, duration_rounds=duration_rounds,
+        max_stacks=3, refreshable=True,
+        dot_rate_bps=6000, dot_can_crit=True,
     )
 
 

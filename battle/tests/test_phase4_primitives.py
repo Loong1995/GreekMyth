@@ -111,69 +111,23 @@ def test_effective_burst_rate_sources():
     assert engine.effective_burst_rate(a1, skill) == 1500
 
 
-# ----------------------------------------------------------------- 约战注册表
+# ----------------------------------------------------------------- 约战（性格机械已废除）
 
-def _duel_setup(trait_a: str = "", trait_b: str = "", force_b: int = 92) -> BattleSetup:
+def test_duel_no_trait_mechanical_hooks():
+    """傲慢/好战等不再改写拒绝判定：同 seed 有无性格结果一致。"""
     from dataclasses import replace
-    hero_a = replace(make_hero("a1", 0, force=99, speed=90), trait_id=trait_a)
-    hero_b = replace(make_hero("b1", 0, force=force_b, speed=85), trait_id=trait_b)
-    return BattleSetup(battle_id="t_duel_p4", teams=(
-        TeamSetup(team_id="A", main_hero_id="a1", heroes=(hero_a,)),
-        TeamSetup(team_id="B", main_hero_id="b1", heroes=(hero_b,)),
-    ))
 
+    def setup(trait_b: str = "") -> BattleSetup:
+        hero_a = replace(make_hero("a1", 0, force=99, intelligence=40, speed=90), trait_id="")
+        hero_b = replace(
+            make_hero("b1", 0, force=92, intelligence=40, speed=85), trait_id=trait_b)
+        return BattleSetup(battle_id="t_duel_p4", teams=(
+            TeamSetup(team_id="A", main_hero_id="a1", heroes=(hero_a,)),
+            TeamSetup(team_id="B", main_hero_id="b1", heroes=(hero_b,)),
+        ))
 
-@pytest.fixture
-def duel_registry():
-    """临时注册约战行为，用后清理（不污染全局注册表 → 其余测试/golden 不受影响）。"""
-    added: list[str] = []
-
-    def add(trait_id: str, behavior: tr.DuelBehavior):
-        tr.register_duel_behavior(trait_id, behavior)
-        added.append(trait_id)
-
-    yield add
-    for trait_id in added:
-        del tr.DUEL_BEHAVIORS[trait_id]
-
-
-def test_duel_always_accept_skips_reject_roll(duel_registry):
-    duel_registry("aoman", tr.DuelBehavior(always_accept=True))
-    # 武力差 7 → 拒绝率 56%：多种子下必应战者永不拒绝
-    for seed in range(12):
-        engine = SeriesEngine(_duel_setup(trait_b="aoman"), seed=seed)
-        engine.writer.begin_game()
-        engine.writer.set_time(1, 0, PHASE_DUEL, 0)
-        engine._run_duel(1)
-        results = events_of(engine, "duel_result")
-        assert results and results[0]["payload"]["accepted"] is True
-
-
-def test_duel_force_duel_cannot_reject(duel_registry):
-    duel_registry("haozhan", tr.DuelBehavior(force_duel=True, challenge_below_threshold=True))
-    for seed in range(12):
-        engine = SeriesEngine(_duel_setup(trait_a="haozhan"), seed=seed)
-        engine.writer.begin_game()
-        engine.writer.set_time(1, 0, PHASE_DUEL, 0)
-        engine._run_duel(1)
-        results = events_of(engine, "duel_result")
-        assert results and results[0]["payload"]["accepted"] is True
-
-
-def test_duel_challenge_below_threshold(duel_registry):
-    duel_registry("haozhan", tr.DuelBehavior(challenge_below_threshold=True))
-    # b1 武力 85 ≤ 90：常规无单挑；好战注册后可叫阵/应战
-    engine = SeriesEngine(_duel_setup(force_b=85), seed=1)
-    assert engine._duel_champion("B") is None
-    engine2 = SeriesEngine(_duel_setup(trait_b="haozhan", force_b=85), seed=1)
-    champion = engine2._duel_champion("B")
-    assert champion is not None and champion.hero_id == "b1"
-
-
-def test_duel_empty_registry_keeps_legacy_behavior():
-    """空注册表 = 旧单挑行为（golden 保障）：有性格但未注册约战行为不改判定。"""
-    engine_plain = SeriesEngine(_duel_setup(), seed=3)
-    engine_trait = SeriesEngine(_duel_setup(trait_b="aoman"), seed=3)
+    engine_plain = SeriesEngine(setup(), seed=3)
+    engine_trait = SeriesEngine(setup("aoman"), seed=3)
     for engine in (engine_plain, engine_trait):
         engine.writer.begin_game()
         engine.writer.set_time(1, 0, PHASE_DUEL, 0)

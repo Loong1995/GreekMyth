@@ -99,7 +99,7 @@ def test_crit_multiplier_in_single_rounding():
         crit_multiplier_bps=formulas.CRIT_DAMAGE_MULTIPLIER_BPS,
     )
     assert base == 739
-    assert crit == 1477  # 738.72×2 = 1477.44 → 1477（≠ 739×2，一次舍入）
+    assert crit == 1108  # 738.72×1.5 = 1108.08 → 1108（≠ 739×1.5，一次舍入）
 
 
 def test_damage_bounds():

@@ -8,11 +8,12 @@
 
 | 文件 | 内容 |
 |---|---|
-| [roster.md](roster.md) | 29 将总表（三阵营展示：olympus / heroes / 海冥） |
+| [roster.md](roster.md) | **32** 将总表（三阵营展示：olympus / heroes / 海冥） |
 | [olympus.md](olympus.md) | 奥林匹斯·神示与落雷 |
-| [heroes.md](heroes.md) | 英雄·暴击/追加/连击/协击 |
-| [sea_underworld.md](sea_underworld.md) | **海域·冥界**（第三册：震荡/节奏 + 吸取/处决） |
+| [heroes.md](heroes.md) | 英雄·暴击/追加/连击/协击（含帕特洛克勒斯代战） |
+| [sea_underworld.md](sea_underworld.md) | **海域·冥界**（含卡吕普索冰锢、赫卡忒冥火） |
 | [code_map.md](code_map.md) | skill_id / status_id / trait_id / timing·kind 对照 |
+| [../dev/hero_proposal_eris_hecate_calypso.md](../dev/hero_proposal_eris_hecate_calypso.md) | 编制草案存档（**已落地**） |
 
 通用口径：
 

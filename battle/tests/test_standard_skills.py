@@ -79,7 +79,7 @@ def test_achilles_crit_rate_plus_25():
 
 
 def test_achilles_fury_on_crit_ignores_command_max_7_per_round():
-    """每次暴击触发追加伤害（80%，无视统帅、可暴击）；每回合最多 7 次。"""
+    """每次暴击触发追加伤害（60%，无视统帅、可暴击）；每回合最多 7 次。"""
     fury_seen = False
     for seed in range(40):
         report = simulate(achilles_setup(), seed=seed)
@@ -185,12 +185,11 @@ def test_snake_staff_heals_after_damage_taken():
 def test_hades_dominion_drain_and_shadow_veil():
     setup = vs_dummies(hero_setup("hades", hero_id="x1", position=0))
     report = simulate(setup, seed=5)
-    events = flat_events(report)
     game1 = [e for e in report["games"][0]["events"]]
 
     # 三个状态在准备回合全军/自身施加
     for status_id, expected_owners in (
-        ("styx_blood_oath", {"x1", "x2", "x3"}),
+        ("hades_lifesteal", {"x1", "x2", "x3"}),
         ("shadow_veil", {"x1", "x2", "x3"}),
         ("hades_command_drain", {"x1"}),
     ):
@@ -211,10 +210,6 @@ def test_hades_dominion_drain_and_shadow_veil():
     for event in drains:
         change = event["payload"]["changes"][0]
         assert change["attr"] == "command" and change["after"] < change["before"]
-
-    # 血誓：造成伤害后有治疗（存在即可）
-    styx_ticks = status_events(events, "styx_blood_oath", "status_tick")
-    assert styx_ticks, "血誓从未触发（长局面下不应如此）"
 
 
 def test_hades_command_returns_after_hades_defeated():
@@ -367,6 +362,13 @@ def test_ares_warfury_blood_battle_on_all_and_might_on_best():
     might = status_events(game1, "ares_might")
     assert len(might) == 1 and might[0]["payload"]["status"]["owner_id"] == "x1", \
         "战神之勇给己方最高武力者（阿瑞斯 100）"
+    from battle.skills_gods import BLOOD_BATTLE_STATUS, WAR_FRENZY_STATUS
+    assert BLOOD_BATTLE_STATUS.modifiers == {
+        "vulnerable_bps": 2000, "crit_damage_up_bps": 5000,
+    }
+    assert WAR_FRENZY_STATUS.modifiers == {
+        "physical_damage_up_bps": 3000, "crit_rate_bps": 1500,
+    }
 
 
 # ---------------------------------------------------------------- 赫尔墨斯神谕

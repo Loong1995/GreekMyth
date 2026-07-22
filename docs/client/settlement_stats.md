@@ -2,7 +2,8 @@
 
 > 客户端只读聚合战报，零重算。实现：
 > `Assets/Scripts/ClientBattle/Events/BattleSkillStatsAggregator.cs`；
-> UI：`PerformanceRunner` 系列结束后弹表 / Tester「打开结算」。
+> UI：`Test/SettlementPanel.cs`（系列结束后 Runner 调 Show 自动弹表 /
+> Tester「打开结算」重开）。
 > 带技能借手口径见 [hero_specials.md](../mechanics/hero_specials.md) §2。
 
 ## 1. 表结构
@@ -52,7 +53,7 @@
 | `divine_revelation` | `delphi_revelation` |
 | `hermes_confusion_mark` / `hermes_herald_mark` | `hermes_oracle` |
 | `poseidon_tide` | `poseidon_oracle` |
-| `styx_blood_oath` / `shadow_veil` / `hades_command_drain` | `hades_underworld_dominion` |
+| `hades_lifesteal` / `shadow_veil` / `hades_command_drain` | `hades_underworld_dominion` |
 | `lion_counter` | `heracles_counter` |
 | `trojan_bomb` / `trojan_scheme` | `odysseus_trojan` |
 | `perseus_mirror` | `perseus_relics` |

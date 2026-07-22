@@ -283,6 +283,8 @@ namespace ClientBattle.Events
     {
         public string ChallengerId, DefenderId;
         public int ChallengerForce, DefenderForce;
+        /// <summary>交锋 cut-in 段数（1~3）；缺省按 3（旧战报兼容）。</summary>
+        public int ClashCutins = 3;
 
         protected internal override void Parse(JObject p)
         {
@@ -290,6 +292,8 @@ namespace ClientBattle.Events
             DefenderId = p.Value<string>("defender_id");
             ChallengerForce = p.Value<int>("challenger_force");
             DefenderForce = p.Value<int>("defender_force");
+            var cutins = p.Value<int?>("clash_cutins");
+            if (cutins is >= 1 and <= 3) ClashCutins = cutins.Value;
         }
     }
 

@@ -40,8 +40,9 @@
 
 - 暴击率 = `clamp(面板 crit_rate_bps + Σ状态 crit_rate_bps, 0, 10000)`；率为 0 不 roll
   （不消耗 RNG）。治疗暴击同构（`heal_crit_rate_bps`）。
-- 暴击倍率 ×2（20000bps），作为独立乘区参与主公式**同一次连乘一次舍入**
-  （非「结果×2」——见 test_formulas.py::test_crit_multiplier_is_independent_zone）。
+- 暴击倍率 ×1.5（15000bps，`CRIT_DAMAGE_MULTIPLIER_BPS`），作为独立乘区参与主公式
+  **同一次连乘一次舍入**（非「结果×1.5」——见 test_formulas.py）。
+  治疗暴击倍率仍为 ×2（`CRIT_HEAL_MULTIPLIER_BPS`）。
 - DoT/HoT tick 不暴击（`can_crit=False`）。
 
 ## 3. 战法基座（B3 全量落地）
@@ -87,4 +88,4 @@
 四阵营 24 将、每将自带+拆解战法（共 56 条），武将对位见 `battle/roster.py`，
 三段式文档见 `docs/skills/`（olympus/heroes/sea/underworld 分文件 + index 总览）。
 共用工具在 `battle/skill_common.py`（status_tick 组根、互异选敌等）。
-验收标杆：**阿喀琉斯之怒**（暴击追伤 120% 兵刃、无视统率、每回合 3 次上限）。
+验收标杆：**阿喀琉斯之怒**（暴击追伤 80% 兵刃、无视统率、每回合 7 次上限、可暴击链式）。

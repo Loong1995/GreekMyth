@@ -26,6 +26,8 @@ SKILL_NAMES: dict[str, str] = {
     "nike_wings": "胜利羽翼",
     "nike_paean": "凯歌",
     # ---- 英雄阵营（battle/skills_men.py）----
+    "patroclus_standin": "代战",
+    "patroclus_armor": "披甲",
     "achilles_wrath": "阿喀琉斯之怒",
     "achilles_thrust": "怒火突刺",
     "heracles_trials": "十二试炼",
@@ -58,6 +60,8 @@ SKILL_NAMES: dict[str, str] = {
     "siren_charm": "迷魂之歌",
     "scylla_maw": "六首撕咬",
     "scylla_bite": "撕咬",
+    "calypso_detain": "奥杰吉厄羁留",
+    "calypso_rime": "霜潮",
     # ---- 冥界阵营（battle/skills_underworld.py）----
     "hades_underworld_dominion": "冥域君临",
     "hades_soul_drain": "冥河汲魂",
@@ -71,6 +75,8 @@ SKILL_NAMES: dict[str, str] = {
     "thanatos_gaze": "死亡凝望",
     "cerberus_bite": "三首噬咬",
     "cerberus_guard": "守门恶犬",
+    "hecate_torch": "三火炬",
+    "hecate_pyre": "燔祭",
     # ---- 测试战法（battle/skills.py）----
     "test_blast": "试·爆裂",
     "test_mend": "试·愈合",
@@ -83,6 +89,19 @@ SKILL_NAMES: dict[str, str] = {
     "test_charged_nova": "试·蓄能新星",
     "test_silence": "试·噤声",
     "test_hesitate": "试·扰心",
+    # ---- 标定战法（battle/skills_cal.py）----
+    "cal_dr_low": "标·减伤低",
+    "cal_dr_mid": "标·减伤中",
+    "cal_dr_high": "标·减伤高",
+    "cal_active_low": "标·主动低",
+    "cal_active_mid": "标·主动中",
+    "cal_active_high": "标·主动高",
+    "cal_pursuit_low": "标·追击低",
+    "cal_pursuit_mid": "标·追击中",
+    "cal_pursuit_high": "标·追击高",
+    "cal_passive_low": "标·被动低",
+    "cal_passive_mid": "标·被动中",
+    "cal_passive_high": "标·被动高",
 }
 
 STATUS_NAMES: dict[str, str] = {
@@ -91,10 +110,12 @@ STATUS_NAMES: dict[str, str] = {
     "disarm": "缴械",
     "ming_lock": "冥锁",
     "petrify": "石化",
+    "freeze": "冰锢",
     "hesitation": "犹豫",
     "block": "格挡",
     "charm": "魅惑",
     "first_strike": "先攻",
+    "underworld_burn": "冥火",
     # ---- Phase 4 A2 新状态原语 ----
     "fear": "恐惧",
     "curse": "诅咒",
@@ -125,6 +146,7 @@ STATUS_NAMES: dict[str, str] = {
     "snake_staff_tender": "灵蛇看护",
     "moon_hunt": "月影狩猎",
     "nike_wings": "胜利羽翼",
+    "patroclus_standin": "代战",
     # ---- 英雄阵营状态 ----
     "achilles_wrath": "阿喀琉斯之怒",
     "achilles_thrust_crit": "突刺·锐锋",
@@ -160,6 +182,7 @@ STATUS_NAMES: dict[str, str] = {
     "scylla_bite_speed": "撕咬·疾游",
     # ---- 冥界阵营状态 ----
     "styx_blood_oath": "冥河血誓",
+    "hades_lifesteal": "冥域吸血",
     "shadow_veil": "幽影蔽体",
     "hades_command_drain": "冥祭献统",
     "hades_command_loss": "冥祭献统·被汲",
@@ -176,11 +199,19 @@ STATUS_NAMES: dict[str, str] = {
     "charon_int_gain": "船资·聚智",
     "thanatos_death_gaze": "死亡凝望",
     "cerberus_guard": "守门恶犬",
+    "hecate_torch": "岔路火种",
     # ---- 测试战法状态（battle/skills.py）----
     "test_poison_status": "试·剧毒",
     "test_war_cry_status": "试·战吼",
     "test_disarm_status": "试·夺械",
     "test_combo_status": "试·连击",
+    # ---- 标定状态（battle/skills_cal.py）----
+    "cal_dr_low": "标·减伤低",
+    "cal_dr_mid": "标·减伤中",
+    "cal_dr_high": "标·减伤高",
+    "cal_passive_low": "标·被动低",
+    "cal_passive_mid": "标·被动中",
+    "cal_passive_high": "标·被动高",
 }
 
 def skill_name(skill_id: str) -> str:

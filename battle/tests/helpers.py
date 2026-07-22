@@ -125,7 +125,10 @@ def standard_3v3_setup(battle_id: str = "t_standard") -> BattleSetup:
 
 
 def stalemate_setup(battle_id: str = "t_stalemate") -> BattleSetup:
-    """超高统率互相打不动 → 每局打满平局 → 7 局系列平局。"""
+    """超高统率互相打不动 + 覆盖回合上限 8 → 每局打满平局 → 7 局系列平局。
+
+    2026-07-22 D-06 修订后默认打到主将阵亡（上限 999）；本场景显式覆盖
+    rounds_per_game=8 以保留平局/续战路径的测试覆盖。"""
     def tank(hero_id: str, position: int) -> HeroSetup:
         return make_hero(hero_id, position, force=10, command=300, speed=80)
 
@@ -135,4 +138,5 @@ def stalemate_setup(battle_id: str = "t_stalemate") -> BattleSetup:
             TeamSetup(team_id="A", main_hero_id="a1", heroes=(tank("a1", 0), tank("a2", 1))),
             TeamSetup(team_id="B", main_hero_id="b1", heroes=(tank("b1", 0), tank("b2", 1))),
         ),
+        metadata={"rounds_per_game": 8},
     )

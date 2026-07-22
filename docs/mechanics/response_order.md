@@ -50,7 +50,7 @@ deal_damage 落账（amount>0、非 mitigation、非 special）
 | priority | 状态（示例） | 钩子侧 |
 |---|---|---|
 | 5 | 木马炸弹 | action_start |
-| 10 | 冥河血誓 / 幽影 | dealt / action |
+| 10 | 幽影蔽体 | action |
 | 15 | 埃癸斯圣盾 | taken（治疗） |
 | 20 | 蛇杖庇护 | taken |
 | 25 | 阿喀琉斯之怒 | dealt |

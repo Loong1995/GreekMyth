@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from battle.skill_common import BPS, emit_status_trigger, lowest_ratio_allies, pick_distinct_enemies
+from battle.skill_common import BPS, emit_status_trigger, highest_attr_unit, lowest_ratio_allies, pick_distinct_enemies
 from battle.skills import TIMING_PREPARE, TIMING_PURSUIT, Skill, register
 from battle.statuses import (
     BUFF,
@@ -21,6 +21,7 @@ from battle.statuses import (
     SPECIAL,
     StatusDef,
     charm,
+    freeze,
 )
 
 # =============================================================================
@@ -392,3 +393,56 @@ register(ScyllaMaw(skill_id="scylla_maw", trigger_rate_bps=10000,
                    timing=TIMING_PURSUIT))
 register(ScyllaBite(skill_id="scylla_bite", trigger_rate_bps=3500,
                     timing=TIMING_PURSUIT))
+
+
+# =============================================================================
+# 奥杰吉厄羁留（卡吕普索·自带·主动 45%）：敌速最高 140% 谋略后【冰锢】2 回合。
+# 霜潮（拆解·主动 40%）：敌随机 1~2 人各 120% 谋略，各 40%【冰锢】1 回合。
+# =============================================================================
+
+CALYPSO_RIME_FREEZE_BPS = 4000
+
+
+@dataclass(frozen=True, slots=True)
+class CalypsoDetain(Skill):
+    def select_targets(self, engine, actor):
+        enemy = highest_attr_unit(engine, actor, "speed", allies=False)
+        return [enemy] if enemy is not None else []
+
+    def execute(self, engine, actor, targets, trigger_seq):
+        for target in targets:
+            if not target.is_alive():
+                continue
+            engine.deal_damage(
+                actor, target, damage_type="magic", rate_bps=14000,
+                parent_seq=trigger_seq,
+            )
+            if target.is_alive():
+                engine.apply_status(actor, target, freeze(2), parent_seq=trigger_seq)
+
+
+@dataclass(frozen=True, slots=True)
+class CalypsoRime(Skill):
+    def select_targets(self, engine, actor):
+        n = 1 + engine.rng.rand_index(2, "target_select", f"skill:{self.skill_id}:n")
+        return pick_distinct_enemies(engine, actor, n, "calypso_rime")
+
+    def execute(self, engine, actor, targets, trigger_seq):
+        for i, target in enumerate(targets):
+            if not target.is_alive():
+                continue
+            engine.deal_damage(
+                actor, target, damage_type="magic", rate_bps=12000,
+                parent_seq=trigger_seq,
+            )
+            if not target.is_alive():
+                continue
+            roll = engine.rng.rand_bps(
+                "status_trigger", f"calypso_rime_freeze:{actor.hero_id}:{i}"
+            )
+            if roll < CALYPSO_RIME_FREEZE_BPS:
+                engine.apply_status(actor, target, freeze(1), parent_seq=trigger_seq)
+
+
+register(CalypsoDetain(skill_id="calypso_detain", trigger_rate_bps=4500))
+register(CalypsoRime(skill_id="calypso_rime", trigger_rate_bps=4000))

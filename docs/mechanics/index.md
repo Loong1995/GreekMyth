@@ -23,7 +23,7 @@ simulate(battle_setup, seed)                          battle/api.py
      ├─ battle_start（第 1 局事件流头部）
      ├─ 逐局（最多 7 局，平局残血续战）：
      │   ├─ game_start（含本局兵力三池快照）
-     │   ├─ DUEL 相位：单挑（仅第 1 局，双方均有武力>90 时；D-03）→ duel.md
+     │   ├─ DUEL 相位：单挑（仅第 1 局；武力>智力参赛 + 配对入池；D-03）→ duel.md
      │   ├─ 准备回合 r=0：timing=prepare 战法按行动顺序施放（神谕/被动入场）；
      │   │   主将神谕后两副将自带主动按各自触发率连携立即释放（Phase 3）→ assist.md
      │   ├─ 正常回合 r=1..8：
@@ -72,7 +72,7 @@ simulate(battle_setup, seed)                          battle/api.py
 | **状态台词** | 控制/犹豫/先攻临「产生影响」的执行节点发 trait_trigger（trait_id=status）；每类 3 条确定性轮换、parent_seq=0 自成组 | 2026-07-20 | [status_voice.md](status_voice.md) |
 | 伪随机补偿 | 战法触发保底（fail 补偿真累计一局内，D-09）；先手/暴击用普通随机 | B2 落地 | `battle/pseudo_random.py` |
 | 数值等价验证 | 新旧核同种子批 1000 场统计对比，胜率差 ≤4pp、均值差 ≤2% | B2 通过 | `docs/dev/numeric_equivalence.md` |
-| 单挑 | 第 1 局开局、双方均有武力>90 触发；拒绝率=差×8%封顶80%；胜率=50%+差×5%；负者四维-10 仅第 1 局 | B3 落地 | [duel.md](duel.md) |
+| 单挑 | 第 1 局开局、武力>智力参赛；拒绝率=差×8%封顶80%；胜率=50%+d（d≥50必胜）；负者四维-10 仅第 1 局 | B3 落地 | [duel.md](duel.md) |
 | 追击 + 连击 | 追击=普攻命中后时机（禁普攻即无追击）；连击率≥100% 普攻两次、每击独立追击 | B3 落地 | [pursuit_combo.md](pursuit_combo.md) |
 | 连携 | 主将神谕释放后两副将自带主动按**各自触发率**立即释放（kind=assist），不占正常释放机会 | Phase 3 修订 | [assist.md](assist.md) |
 | 犹豫 | 特殊，刷新不叠层；一窗一 roll 整体延后 1 回合（N→N+1）；计次统一前移至 action_start；已寄存延迟不受影响 | Phase 3 修订 | [hesitation.md](hesitation.md) |

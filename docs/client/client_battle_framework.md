@@ -17,6 +17,8 @@
    ▼
 【第2层 事件流处理管线】Events/EventPipeline.cs
    按 group_id 初始分组 → processor 链：
+     BorrowBladeSplitProcessor       借刀组按段拆单元并回插事件流原生位置
+                                     （段→响应→追伤→下一段；谓词由 Runner 注入）
      ReactionRegroupProcessor        把组内 status_tick 子链（雷霆/圣盾/试炼/震荡…）
                                      摘出为独立 StatusTrigger 组，追加在主单元之后
      CollectiveTriggerMergeProcessor 相邻同状态同来源的 StatusTrigger 组合并
@@ -30,10 +32,12 @@
    未配置 skillId 首次 LogWarning；任何情况必有 profile 返回
    ▼
 【第4层 演出执行】VFX/PerformanceRunner.cs（单例，一键 PlayBattleReport(json)）
-   节点/单挑/台词/阵亡 → Runner 内置演出
+   纯编排：分组遍历、节奏停顿、势能火相位信号；落账统一走 EventApplyService
+   节点/台词 → Runner 内置轻演出；横幅 → BannerService；cut-in → CutInService.Request
    战斗动作组 → SkillPerformance.Play(group, profile, ctx) 协程：
      DefaultPerformance     群攻中心 AOE / 单体逐段 / 普攻近身 / 状态触发
      OracleAuraPerformance  神谕：施加完所有单位后一次性挂光环 + 整盘滤镜
+     DuelPerformance        单挑全流程（压暗/号角/台词/裂缝交错 cut-in/胜负）
    ▼
 【第5层 基础设施】
    VFXManager(对象池 PlayAt/PlayOn/Release + 离屏实渲预热) CameraShaker(trauma 噪声震动)
@@ -53,17 +57,25 @@
 | `Events/Processors/ReactionRegroupProcessor.cs` | 状态触发子链拆组后置（补发重组） |
 | `Events/Processors/CollectiveTriggerMergeProcessor.cs` | 相邻同状态同来源 StatusTrigger 组合并（雷霆集体齐发） |
 | `Events/Processors/NodeMergeProcessor.cs` | 静默节点并行标记 |
+| `Events/Processors/BorrowBladeSplitProcessor.cs` | 借刀分段：BorrowBlade 组按直接子伤害切段、按首事件 seq 稳定重排恢复与响应/追伤的原生交错（2026-07-22） |
 | `VFX/VFXResolver.cs` | 三级配置查找 + 未配置告警 |
 | `VFX/PerformanceProfile.cs` | 单条演出配置（模板 + 资源 key + 强度参数） |
 | `VFX/PerformanceDatabase.cs` | 配置库 SO；缺资产时代码内置全部特殊战法配置 |
-| `VFX/SkillPerformance.cs` | 演出抽象基类 + 结算事件→表现公共原语 |
+| `VFX/SkillPerformance.cs` | 演出抽象基类 + 结算事件→表现公共原语；跨层通知走 `VFXContext.OnDamageSettled/OnCutInRequested` 回调（禁止反向引用 Runner 单例） |
 | `VFX/Performances/DefaultPerformance.cs` | 默认策略族（AOE 中心/逐段/近身/状态触发） |
 | `VFX/Performances/OracleAuraPerformance.cs` | 神谕整单元宣告 + 程序化整盘滤镜 BoardFilterOverlay（Intensity 可调；光环本体由 UnitAuraService 按状态挂） |
-| `Units/UnitAuraService.cs` | **状态常驻光环表**：status_id→aura key（雷霆/圣盾/血红/阳光/神使印记）；粒子强制循环+补密度+半透明 |
-| `Units/MomentumService.cs` | **四轨势能镜像账本**（Phase 4 B1/B2）：momentum_change 落账、TrackTable 注册表（轨→tint/标签）、满档溢出触发、action_start 清零；细则见 performance_mechanisms §一b |
-| `VFX/PerformanceRunner.cs` | 播放主循环单例：PlayBattleReport / SkipToEnd / OnAllComplete；开战前 PrewarmFromReport（字形/图标/音效/气泡按战报内容前置生成） |
+| `VFX/Performances/DuelPerformance.cs` | 单挑播放单元（压暗/号角/duel_* 台词/裂缝交错 cut-in/胜负横幅/败者惩罚落账），2026-07-22 自 Runner 拆出 |
+| `VFX/EventApplyService.cs` | **统一落账入口**（2026-07-22）：`Apply(ev, ctx, animated)` 把事件权威结果刷进视图；animated 追加飘字/音效；cut-in 请求统一由此发出 |
+| `VFX/BannerService.cs` | 顶部横幅 + 无主体 cut-in 的 OnGUI 文字回退（2026-07-22 自 Runner 拆出） |
+| `VFX/HighlightSelector.cs` | 高光选窗纯函数（观感分=伤害+满势能 cut_in×3000），重播复用 Runner 主循环 |
+| `Units/MomentumFireController.cs` | **势能火生命周期唯一管理**：Refresh/Fade/Extinguish/Clear + 棋盘级相位信号；hold-off=抑制同值重挂（值变化即重新点火，2026-07-22 修 g1r5） |
+| `Test/SettlementPanel.cs` | 战后结算面板 OnGUI 绘制（三谋式分队/分局 Tab），2026-07-22 自 Runner 拆出 |
+| `Units/UnitAuraService.cs` | **状态常驻光环表**：status_id→aura key+偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记）；粒子强制循环+补密度+半透明 |
+| `Units/MomentumService.cs` | **四轨势能镜像账本**（Phase 4 B1/B2）：momentum_change 落账、TrackTable 注册表（轨→tint/标签）、满档溢出触发、action_start 清零；BGM 经 `GlobalMomentumChanged` 回调解耦；细则见 performance_mechanisms §一b |
+| `VFX/PerformanceRunner.cs` | 播放主循环单例（纯编排）：PlayBattleReport / SkipToEnd / OnAllComplete / PlayGroupsRange（主循环与高光共用）；开战前 PrewarmFromReport（字形/图标/音效/气泡按战报内容前置生成） |
 | `VFX/VFXManager.cs` | 特效池 + 离屏实渲预热（Prewarm：全部 prefab 在离屏 RT 相机前实渲 3 帧，shader 编译/贴图上传压进加载期，PlayLoop 等 PrewarmComplete 再开播） |
 | `VFX/CameraShaker.cs` | trauma 噪声模型震动：连抖累加封顶、Perlin 偏移、衰减自动复位（升级点：Cinemachine Impulse） |
+| `VFX/CutInService.cs` | **全屏 cut-in**：请求入口 Request（组去重+主体分发+duck）；单人斜带+巨幅立绘（PlaySolo，非阻塞）；决斗裂缝交错（DuelClashRoutine，阻塞，两半屏卡对向滑过裂缝线×clash_cutins） |
 | `VFX/CameraFitter.cs` | **机型兼容唯一权威**：按宽高比动态调 orthoSize 保安全区（半宽 4.6/半高 5.2），分辨率热切换每帧跟随；表现层禁止写死 orthoSize/像素坐标 |
 | `Units/BattleBoardView.cs` | 建棋盘（A 下 B 上按站位横排）、unitId→UnitView、背景（默认无色纯黑，上传底图则 BackgroundFitter cover 铺满）、整盘滤镜挂点 |
 | `Units/UnitView.cs` | 卡牌 GameObject：立绘/血条/受击/石化边框渐变/压暗/阵亡/待机呼吸（立绘错相位浮动，画面永远有活物）/四轨势能迷你条+满档流光 |
@@ -75,6 +87,7 @@
 | `Units/FloatingTextTuning.cs` | 飘字调参 SO（B4）：字体/字号/颜色/上浮曲线，Inspector 实时调；操作文档 floating_text_tuning.md |
 | `Placeholder/PlaceholderFactory.cs` | 占位资源三级回退最后一层（程序化色块/合成音） |
 | `Names/ChineseNames.cs` | 战法/状态/属性中文名（与 battle/names.py 同步维护） |
+| `Names/StatusPresentationRegistry.cs` | **状态表现注册表**（2026-07-20 收口）：一状态一行配置光环 key/控制大图标/结算归因战法/集体齐发；UnitAuraService、StatusIconPanel、StatsAggregator、CollectiveTriggerMerge 只读本表 |
 | `Test/BattleReportTester.cs` | 测试入口：文件或粘贴 JSON、调速/跳过/重播按钮；vSync/后台运行/窗口化基线、ESC 退出（新 Input System） |
 | `Test/FrameSpikeProbe.cs` | 诊断（默认关）：帧尖峰日志 + 心跳转子；性能验证以独立版探针数据为准 |
 

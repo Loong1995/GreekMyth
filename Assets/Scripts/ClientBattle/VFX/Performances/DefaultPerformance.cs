@@ -10,7 +10,7 @@ namespace ClientBattle.VFX
     // 通用默认演出（client_perform §一 默认策略）：
     //
     // - 群攻主动（选敌数 N≥2）：整战法一个单元——施法者移动至棋盘中心，
-    //   释放 N 道刀光/魔法光（按伤害类型）指向被打者，然后掉血。
+    //   释放 N 道弹道（物理 blade_bolt / 魔法 magic_bolt）弧线飞向被打者，然后掉血。
     // - 非群攻主动：按伤害段数每段为一个播放节拍逐段播放。
     // - 普攻：施法者移动至被打者卡牌近身，命中帧在被打者身上闪斩击（1.0 基准）；
     //   一个普攻一个单元。
@@ -54,7 +54,8 @@ namespace ClientBattle.VFX
                                            : PerformanceTemplate.PerSegment;
             }
 
-            ctx.Sfx.Play(SfxOf(group, profile));
+            // 满档 cut-in 后的出手（势能全开）：主音效换强化版
+            ctx.Sfx.Play(ctx.EmpoweredStrike ? "sfx_attack_empowered" : SfxOf(group, profile));
             if (!string.IsNullOrEmpty(profile.CastKey) && actor != null)
             {
                 ctx.Vfx.PlayAt(profile.CastKey, actor.transform.position, ctx.Scaled(0.4f));
@@ -120,17 +121,20 @@ namespace ClientBattle.VFX
                               Units.UnitView actor, List<DamageEvent> damages, string floatName)
         {
             // 近身斩击尺寸：普攻 1.0；追击/状态追伤突进 1.5；再乘 profile 缩放
-            float strikeScale = (group.Kind is GroupKind.Pursuit or GroupKind.StatusTrigger ? 1.5f : 1.0f)
-                                * Mathf.Max(0.05f, profile.StrikeVfxScale);
-            string strikeKey = ProjectileKeyOf(profile, damages);
-            // 每段伤害都突进（含格挡/反弹 amount=0）：出击动画与减免无关
+            // 借刀（帕特洛克勒斯）：按普攻基准，不因 StatusTrigger 组放大
+            float strikeScale = profile.BorrowBlade ? Mathf.Max(0.05f, profile.StrikeVfxScale)
+                : (group.Kind is GroupKind.Pursuit or GroupKind.StatusTrigger ? 1.5f : 1.0f)
+                  * Mathf.Max(0.05f, profile.StrikeVfxScale);
+            string strikeKey = StrikeKeyOf(profile, damages);
             foreach (var damage in damages)
             {
+                // 借刀：出击者 = 伤害来源武将；否则 = 组根施法者
+                var striker = profile.BorrowBlade ? ctx.Unit(damage.SourceId) : actor;
                 var target = ctx.Unit(damage.TargetId);
-                if (actor != null && target != null && !actor.Defeated)
+                if (striker != null && target != null && !striker.Defeated)
                 {
-                    Vector3 strikePos = Vector3.Lerp(target.HomePosition, actor.HomePosition, 0.28f);
-                    var dash = actor.transform.DOMove(strikePos, ctx.Scaled(0.22f)).SetEase(Ease.InQuad);
+                    Vector3 strikePos = Vector3.Lerp(target.HomePosition, striker.HomePosition, 0.28f);
+                    var dash = striker.transform.DOMove(strikePos, ctx.Scaled(0.22f)).SetEase(Ease.InQuad);
                     yield return dash.WaitForCompletion();
                 }
                 if (target != null)
@@ -140,9 +144,9 @@ namespace ClientBattle.VFX
                     strike.transform.localScale *= strikeScale;
                 }
                 SettleDamage(damage, profile, ctx, floatName);
-                if (actor != null && !actor.Defeated)
+                if (striker != null && !striker.Defeated)
                 {
-                    var back = actor.transform.DOMove(actor.HomePosition, ctx.Scaled(0.24f)).SetEase(Ease.OutQuad);
+                    var back = striker.transform.DOMove(striker.HomePosition, ctx.Scaled(0.24f)).SetEase(Ease.OutQuad);
                     yield return back.WaitForCompletion();
                 }
             }
@@ -160,17 +164,20 @@ namespace ClientBattle.VFX
                 yield return move.WaitForCompletion();
             }
 
-            // N 道刀光/魔法光同时指向各被打者 → 命中帧同帧结算掉血
+            // N 道弹道错峰起飞、同时段抵达 → 命中帧同帧结算掉血
             string projectileKey = ProjectileKeyOf(profile, damages);
-            foreach (var damage in damages)
+            Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
+            float flightBase = ctx.Scaled(0.38f);
+            float stagger = damages.Count > 1 ? ctx.Scaled(0.045f) : 0f;
+            for (int i = 0; i < damages.Count; i++)
             {
-                var target = ctx.UnitTransform(damage.TargetId);
-                if (target != null)
-                    LaunchProjectile(ctx, projectileKey,
-                        actor != null ? actor.transform.position : ctx.BoardCenter,
-                        target.position, ctx.Scaled(0.28f));
+                var target = ctx.UnitTransform(damages[i].TargetId);
+                if (target == null) continue;
+                float delay = i * stagger;
+                LaunchProjectile(ctx, projectileKey, from, target.position,
+                    flightBase - delay, delay);
             }
-            yield return new WaitForSeconds(ctx.Scaled(0.28f)); // 弹道飞行（弹道全程可见）
+            yield return new WaitForSeconds(flightBase); // 弹道飞行（弹道全程可见）
             foreach (var damage in damages)
                 SettleDamage(damage, profile, ctx, floatName);
             // 命中特效/受击闪烁与回身位移同播，命中后不垫定格
@@ -186,11 +193,8 @@ namespace ClientBattle.VFX
         IEnumerator PlayRemoteStrike(EventGroup group, PerformanceProfile profile, VFXContext ctx,
                                      List<DamageEvent> damages, string floatName)
         {
-            // 头像标在卡顶；落雷拉成贯穿整张牌面的竖长闪电（上→下）
-            string strikeKey = !string.IsNullOrEmpty(profile.ProjectileKey)
-                ? profile.ProjectileKey
-                : ProjectileKeyOf(profile, damages);
-            float strikeTime = ctx.Scaled(0.55f);
+            // 触发：Digital Ruby 闪电贯穿对面整张卡（上→下，透明度 0.2）
+            float strikeTime = ctx.Scaled(0.35f);
             foreach (var damage in damages)
             {
                 var target = ctx.Unit(damage.TargetId);
@@ -198,19 +202,21 @@ namespace ClientBattle.VFX
                 if (!string.IsNullOrEmpty(profile.PortraitMarkKey))
                     target.ShowPortraitMark(profile.PortraitMarkKey, duration: ctx.Scaled(1.6f));
             }
-            yield return new WaitForSeconds(ctx.Scaled(0.1f));
+            yield return new WaitForSeconds(ctx.Scaled(0.06f));
             foreach (var damage in damages)
             {
                 var target = ctx.Unit(damage.TargetId);
                 if (target == null) continue;
-                // 卡面中心；Y 向拉长约盖住 FrameSlotH(2.3)，视觉「一条雷从上劈穿到底」
-                var bolt = ctx.Vfx.PlayAt(strikeKey,
-                    target.HomePosition + new Vector3(0f, 0.15f, -0.55f), strikeTime);
-                var s = bolt.transform.localScale;
-                bolt.transform.localScale = new Vector3(s.x * 1.35f, s.y * 3.6f, s.z);
+                var center = target.HomePosition;
+                // FrameSlotH≈2.3：从卡顶上方劈穿到卡底下方
+                var from = center + new Vector3(Random.Range(-0.08f, 0.08f), 1.35f, -0.55f);
+                var to = center + new Vector3(Random.Range(-0.12f, 0.12f), -1.35f, -0.55f);
+                var bolt = DrLightningUtil.Spawn(ctx.Vfx.transform, "StrikeBolt");
+                DrLightningUtil.Fire(bolt, from, to, duration: strikeTime, chaos: 0.22f,
+                                     generations: 6, alpha: 0.2f, widthMul: 0.7f, sortingOrder: 50);
+                Object.Destroy(bolt.gameObject, strikeTime + 0.05f);
                 if (!string.IsNullOrEmpty(profile.HitKey))
-                    ctx.Vfx.PlayAt(profile.HitKey,
-                        target.HomePosition + new Vector3(0f, -0.15f, -0.4f), ctx.Scaled(0.45f));
+                    ctx.Vfx.PlayAt(profile.HitKey, to + new Vector3(0f, 0.1f, 0.1f), ctx.Scaled(0.35f));
             }
             yield return new WaitForSeconds(strikeTime);
             foreach (var damage in damages)
@@ -228,10 +234,11 @@ namespace ClientBattle.VFX
                 var target = ctx.UnitTransform(damage.TargetId);
                 if (target != null)
                 {
+                    float flight = ctx.Scaled(0.30f);
                     LaunchProjectile(ctx, projectileKey,
                         actor != null ? actor.transform.position : ctx.BoardCenter,
-                        target.position, ctx.Scaled(0.22f));
-                    yield return new WaitForSeconds(ctx.Scaled(0.22f)); // 弹道飞行可见
+                        target.position, flight);
+                    yield return new WaitForSeconds(flight); // 弹道飞行可见
                 }
                 SettleDamage(damage, profile, ctx, floatName);
                 // 段间不垫定格：下一段弹道立刻起飞，受击闪烁/飘字与其同播
@@ -246,18 +253,77 @@ namespace ClientBattle.VFX
 
         // ---------------------------------------------------------- 工具
 
-        static void LaunchProjectile(VFXContext ctx, string key, Vector3 from, Vector3 to, float flightTime)
+        /// <summary>弹道：朝向飞行、二次贝塞尔微弧、出生缩放；可选起飞错峰（群攻齐射）。</summary>
+        static void LaunchProjectile(VFXContext ctx, string key, Vector3 from, Vector3 to,
+                                     float flightTime, float launchDelay = 0f)
         {
-            var projectile = ctx.Vfx.PlayAt(key, from, flightTime + 0.05f);
-            projectile.transform.DOMove(to, flightTime).SetEase(Ease.InQuad).SetLink(projectile);
+            float life = flightTime + launchDelay + 0.1f;
+            var projectile = ctx.Vfx.PlayAt(key, from, life);
+            var t = projectile.transform;
+            DOTween.Kill(t);
+
+            var stamp = projectile.GetComponent<VfxOriginalScale>();
+            Vector3 baseScale = stamp != null ? stamp.Value : Vector3.one;
+            Vector3 delta = to - from;
+            float dist = delta.magnitude;
+            float arc = Mathf.Clamp(dist * 0.2f, 0.28f, 0.9f);
+            // 弧高朝棋盘上方，略压向镜头，避免贴在卡面上「拖过去」
+            Vector3 mid = Vector3.Lerp(from, to, 0.48f)
+                          + new Vector3(0f, arc, -0.12f);
+
+            static float FaceZ(Vector3 a, Vector3 b)
+            {
+                Vector3 d = b - a;
+                if (d.sqrMagnitude < 1e-8f) return 0f;
+                return Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+            }
+
+            t.position = from;
+            t.rotation = Quaternion.Euler(0f, 0f, FaceZ(from, mid));
+            t.localScale = launchDelay > 0f ? Vector3.zero : baseScale * 0.4f;
+
+            var seq = DOTween.Sequence().SetLink(projectile);
+            if (launchDelay > 0f)
+            {
+                seq.AppendInterval(launchDelay);
+                seq.AppendCallback(() =>
+                {
+                    t.position = from;
+                    t.rotation = Quaternion.Euler(0f, 0f, FaceZ(from, mid));
+                    t.localScale = baseScale * 0.4f;
+                });
+            }
+
+            seq.Append(DOTween.To(() => 0f, u =>
+            {
+                float o = 1f - u;
+                Vector3 p = o * o * from + 2f * o * u * mid + u * u * to;
+                Vector3 prev = t.position;
+                t.position = p;
+                if ((p - prev).sqrMagnitude > 1e-8f)
+                    t.rotation = Quaternion.Euler(0f, 0f, FaceZ(prev, p));
+                // 前半放大、后半略收，命中前更有「砸入」感
+                float s = u < 0.55f
+                    ? Mathf.Lerp(0.4f, 1.08f, u / 0.55f)
+                    : Mathf.Lerp(1.08f, 0.72f, (u - 0.55f) / 0.45f);
+                t.localScale = baseScale * s;
+            }, 1f, flightTime).SetEase(Ease.InOutSine));
         }
 
-        /// <summary>刀光/魔法光按伤害类型选：物理 slash、魔法 magic_bolt（可被特殊配置覆盖）。</summary>
-        static string ProjectileKeyOf(PerformanceProfile profile, List<DamageEvent> damages)
+        /// <summary>近身斩击用：物理 slash、魔法 magic_bolt（可被 profile.ProjectileKey 覆盖）。</summary>
+        static string StrikeKeyOf(PerformanceProfile profile, List<DamageEvent> damages)
         {
             if (!string.IsNullOrEmpty(profile.ProjectileKey)) return profile.ProjectileKey;
             bool magic = damages.Count > 0 && damages[0].DamageType == "magic";
             return magic ? "magic_bolt" : "slash";
+        }
+
+        /// <summary>飞行弹道：物理 blade_bolt、魔法 magic_bolt（可被 profile.ProjectileKey 覆盖）。</summary>
+        static string ProjectileKeyOf(PerformanceProfile profile, List<DamageEvent> damages)
+        {
+            if (!string.IsNullOrEmpty(profile.ProjectileKey)) return profile.ProjectileKey;
+            bool magic = damages.Count > 0 && damages[0].DamageType == "magic";
+            return magic ? "magic_bolt" : "blade_bolt";
         }
 
         static int CountDistinctTargets(List<DamageEvent> damages)

@@ -50,6 +50,7 @@ def test_hades_drain_gains_command_and_int():
     a1 = engine.hero_by_id("a1")
     SKILLS["hades_underworld_dominion"].execute(
         engine, a1, engine.alive_allies(a1), anchor)
+    assert engine.modifier(a1, "lifesteal_bps") == 1000
     cmd_before = engine.effective_attr(a1, "command")
     int_before = engine.effective_attr(a1, "intelligence")
     drain = engine.find_status("a1", "hades_command_drain")

@@ -1,0 +1,14 @@
+{
+    "name": "DigitalRuby.LightningBolt",
+    "rootNamespace": "DigitalRuby.LightningBolt",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

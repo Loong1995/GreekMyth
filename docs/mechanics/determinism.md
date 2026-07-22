@@ -21,8 +21,9 @@
 | 战法触发判定 | `rand_bps("skill_trigger", ...)` | 经 PseudoRandomBook（补偿/保底）；率 ≥100% 或保底命中时不消费 |
 | 暴击判定（伤害/治疗） | `rand_bps("crit", ...)` | 暴击率为 0 时不消费；DoT/HoT tick 不判暴击 |
 | 伤害/治疗随机系数 | `rand_index(1001, "random_coef", ...)` | 0.95~1.05，每次 deal_damage/heal 各一次（含 DoT/HoT tick） |
-| 单挑拒绝（B3） | `rand_bps("duel_reject", ...)` | 仅第 1 局至多一次；武力差 0 时不消费 |
-| 单挑胜负（B3） | `rand_bps("duel_win", ...)` | 接受后一次；差 ≥10 必胜不消费 |
+| 单挑入池（2026-07-21） | `rand_bps("duel_pair", ...)` | 第 1 局初对逐条；序固定 |
+| 单挑拒绝（B3） | `rand_bps("duel_reject", ...)` | 真决斗至多一次；武力差 0 时不消费 |
+| 单挑胜负（B3） | `rand_bps("duel_win", ...)` | 接受后一次；差 ≥50 必胜不消费 |
 | 连携触发（B3） | `rand_bps("assist", ...)` | 主将神谕后按站位序逐副将；不走伪随机补偿 |
 | 犹豫延迟判定（B3） | `rand_bps("hesitation", ...)` | 每行动窗口至多一次；全禁无可延行动时不消费 |
 | 连击判定（B3） | `rand_bps("combo", ...)` | 连击率 ≥100% 或 =0 时不消费 |

@@ -156,6 +156,93 @@ def test_hesitation_reapply_refreshes_not_stacks():
     raise AssertionError("200 个种子未见犹豫刷新（status_refresh）")
 
 
+def test_delayed_prepare_does_not_release_same_window():
+    """犹豫延后的准备技：补结算窗只进入 prepare，下一窗才 release。"""
+    from battle.engine import SeriesEngine
+    from battle.events import PHASE_ACTION
+    from battle.setup import BattleSetup, TeamSetup
+    from battle.tests.helpers import make_hero
+
+    setup = BattleSetup(
+        battle_id="t_delay_prep",
+        teams=(
+            TeamSetup(team_id="A", main_hero_id="a1", heroes=(
+                make_hero("a1", 0, skills=("test_charged_nova",), speed=90),
+            )),
+            TeamSetup(team_id="B", main_hero_id="b1", heroes=(
+                make_hero("b1", 0, speed=80),
+            )),
+        ),
+    )
+    engine = SeriesEngine(setup, seed=1)
+    engine.writer.begin_game()
+    engine.writer.set_time(1, 1, PHASE_ACTION, 0)
+    a1 = engine.hero_by_id("a1")
+    engine._delayed_actions[a1.hero_id] = [
+        {"kind": "skill", "skill_id": "test_charged_nova", "remaining": 1},
+    ]
+    engine._run_action_window(a1, 0)
+    events = engine.writer.games_events()[-1]
+
+    def triggers(round_no, kind):
+        return [
+            e for e in events
+            if e["type"] == "skill_trigger"
+            and e["t"]["r"] == round_no
+            and e["payload"].get("skill_id") == "test_charged_nova"
+            and e["payload"].get("kind") == kind
+        ]
+
+    assert triggers(1, "prepare"), "补结算应进入准备"
+    assert not triggers(1, "release"), "同窗不得 release"
+    assert a1.hero_id in engine._preparing
+
+    engine._acted_this_round.clear()
+    engine.writer.set_time(1, 2, PHASE_ACTION, 0)
+    engine._run_action_window(a1, 0)
+    events = engine.writer.games_events()[-1]
+    assert triggers(2, "release"), "下一窗才应 release"
+
+
+def test_first_strike_order_consumes_one_window():
+    """先攻 duration=1：仅覆盖下一次行动窗的排序，行动后不再改写下一回合序。"""
+    from battle import statuses as st
+    from battle.engine import SeriesEngine
+    from battle.events import PHASE_ACTION
+    from battle.setup import BattleSetup, TeamSetup
+    from battle.tests.helpers import make_hero
+
+    setup = BattleSetup(
+        battle_id="t_fs_once",
+        teams=(
+            TeamSetup(team_id="A", main_hero_id="a1", heroes=(
+                make_hero("a1", 0, speed=50),  # 慢
+                make_hero("a2", 1, speed=100),  # 快
+            )),
+            TeamSetup(team_id="B", main_hero_id="b1", heroes=(
+                make_hero("b1", 0, speed=80),
+            )),
+        ),
+    )
+    engine = SeriesEngine(setup, seed=1)
+    engine.writer.begin_game()
+    engine.writer.set_time(1, 1, PHASE_ACTION, 0)
+    a1, a2 = engine.hero_by_id("a1"), engine.hero_by_id("a2")
+    engine.apply_status(a1, a1, st.StatusDef(
+        status_id="first_strike", kind=st.BUFF, duration_rounds=1,
+        refreshable=True, modifiers={"first_strike": True},
+    ), parent_seq=0)
+    assert st.has_first_strike(engine.hero_statuses("a1"))
+    q = engine._team_queue("A")
+    assert q[0] == "a1", "先攻应压过更快的 a2"
+
+    engine._run_action_window(a1, 0)  # tick → 1
+    assert engine.find_status("a1", "first_strike") is not None  # 仍在身至下窗才摘
+    assert not st.has_first_strike(engine.hero_statuses("a1")), "已消费，不再改写排序"
+    q2 = engine._team_queue("A")
+    assert q2[0] == "a2", "下一回合排序应按速度"
+
+
 def test_hesitation_expires_by_window_end_ticks():
     """犹豫按行动窗口末计次（D-02 修订）：持续 2 回合 = 覆盖 2 个行动窗口后移除。"""
     for seed in range(40):

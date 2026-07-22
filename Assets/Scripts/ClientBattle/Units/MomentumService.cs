@@ -14,6 +14,7 @@ namespace ClientBattle.Units
     //   禁止在播放流程写死轨名（phase4_plan 注册表驱动通则）。
     // - 分档：0~3 半亮；≥Flash(4) 首次白闪爆发；≥Full(5) 常驻 rim +
     //   事件 cut_in 驱动切入（服务端 value≥5 带 cut_in）。
+    // - 势能火（CFXR3）：取该武将四轨最高值 —— ≥4 小火 / ≥5 / ≥6 / ≥7 满分大。
     // - 服务器在武将自身行动窗开始时四轨静默清零（不发事件），客户端在
     //   action_start 落账处调 OnActionStart 同步镜像。
     // =========================================================================
@@ -52,6 +53,10 @@ namespace ClientBattle.Units
         /// <summary>全局势能 = 双方全部武将四轨之和（BGM 分层档位输入，C8）。</summary>
         public static int GlobalTotal { get; private set; }
 
+        /// <summary>全局势能变化回调（编排层接线到 BgmLayerService；
+        /// 本服务不直接依赖 Audio 层）。</summary>
+        public static System.Action<int> GlobalMomentumChanged;
+
         public static int ValueOf(string heroId, string track) =>
             Values.TryGetValue(heroId, out var t) && t.TryGetValue(track, out var v) ? v : 0;
 
@@ -65,10 +70,14 @@ namespace ClientBattle.Units
             tracks.TryGetValue(ev.Track, out int before);
             tracks[ev.Track] = ev.Value; // 事件权威值，不做客户端加法
             GlobalTotal += ev.Value - before;
-            Audio.BgmLayerService.Instance?.SetGlobalMomentum(GlobalTotal);
+            GlobalMomentumChanged?.Invoke(GlobalTotal);
 
             if (unit == null) return;
             unit.SetMomentum(ev.Track, ev.Value);
+            int max = 0;
+            foreach (var v in tracks.Values)
+                if (v > max) max = v;
+            unit.RefreshMomentumFire(max);
             if (silent) return;
 
             // 4 分闪光：该轨首次跨过 Flash 档播白闪（与 cut_in 门槛 Full 分离）
@@ -91,7 +100,7 @@ namespace ClientBattle.Units
             Values.Remove(heroId);
             OverflowShown.Remove(heroId);
             unit?.ClearMomentum();
-            Audio.BgmLayerService.Instance?.SetGlobalMomentum(GlobalTotal);
+            GlobalMomentumChanged?.Invoke(GlobalTotal);
         }
 
         /// <summary>整局/整场重置。</summary>
@@ -100,7 +109,7 @@ namespace ClientBattle.Units
             Values.Clear();
             OverflowShown.Clear();
             GlobalTotal = 0;
-            Audio.BgmLayerService.Instance?.SetGlobalMomentum(0);
+            GlobalMomentumChanged?.Invoke(0);
         }
     }
 }

@@ -52,3 +52,17 @@ def lowest_ratio_enemies(engine, actor, n: int) -> list:
                        engine.hero_order.index(h.hero_id)),
     )
     return enemies[:n]
+
+
+def highest_attr_unit(engine, actor, attr: str, *, allies: bool):
+    """有效属性最高单位；并列取站位更小（与战神之勇口径一致）。无存活则 None。"""
+    pool = engine.alive_allies(actor) if allies else engine.alive_enemies(actor)
+    if not pool:
+        return None
+    best = pool[0]
+    for unit in pool[1:]:
+        ua = engine.effective_attr(unit, attr)
+        ba = engine.effective_attr(best, attr)
+        if ua > ba or (ua == ba and unit.position < best.position):
+            best = unit
+    return best

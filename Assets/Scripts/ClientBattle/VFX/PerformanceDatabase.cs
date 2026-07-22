@@ -62,7 +62,7 @@ namespace ClientBattle.VFX
             db.GlobalDefault = new PerformanceProfile
             {
                 Template = PerformanceTemplate.Auto,
-                ProjectileKey = "slash", HitKey = "hit_generic",
+                ProjectileKey = "", HitKey = "hit_generic",
                 SfxKey = "sfx_active_default", HitSfxKey = "sfx_hit_default",
             };
             db.ActiveDefault = db.GlobalDefault.Clone();
@@ -91,10 +91,10 @@ namespace ClientBattle.VFX
             // ---------------- 特殊配置（client_perform §二~五）----------------
             db.SpecialProfiles = new List<PerformanceProfile>
             {
-                // 神：雷霆神谕——挂身随机闪电环绕；落雷触发用专属闪电光+音效
+                // 神：雷霆神谕——常驻卡面频繁落劈；触发贯穿对面用 RemoteStrike
                 new() { SkillOrStatusId = "thunder_oracle", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_thunder", SfxKey = "sfx_oracle_thunder" },
-                // 雷霆落雷：不位移；目标头顶宙斯头像 + 闪电下劈（RemoteStrike）
+                // 雷霆落雷：不位移；目标头顶宙斯头像 + 一道竖雷贯穿对面整卡
                 new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.RemoteStrike,
                         ProjectileKey = "lightning_strike", HitKey = "hit_lightning",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
@@ -108,12 +108,15 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "aegis_ward", Template = PerformanceTemplate.StatusTrigger,
                         CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
                         SfxKey = "sfx_aegis_counter" },
-                // 神：战神怒火——全场血红呼吸滤镜（弱），战神之勇获得者强一档（Intensity）
+                // 神：战神怒火（自带）——血战卡底火带；战神之勇卡顶更宽火带
                 new() { SkillOrStatusId = "ares_warfury", Template = PerformanceTemplate.OracleAura,
-                        AuraKey = "aura_bloodlust_weak", BoardFilterKey = "filter_bloodlust",
+                        AuraKey = "aura_fire_foot", BoardFilterKey = "filter_bloodlust",
                         Intensity = 0.4f, SfxKey = "sfx_oracle_ares" },
                 new() { SkillOrStatusId = "ares_might", Template = PerformanceTemplate.OracleAura,
-                        AuraKey = "aura_bloodlust_strong", Intensity = 1.0f },
+                        AuraKey = "aura_fire_head", Intensity = 1.0f },
+                // 拆技战争狂热：无挂身火焰（仅数值被动）
+                new() { SkillOrStatusId = "ares_frenzy", Template = PerformanceTemplate.None },
+                new() { SkillOrStatusId = "war_frenzy", Template = PerformanceTemplate.None },
                 // 神：德尔斐启示——呼吸阳光特效（强度可调）
                 new() { SkillOrStatusId = "delphi_revelation", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_sunlight", Intensity = 0.7f, SfxKey = "sfx_oracle_apollo" },
@@ -125,6 +128,13 @@ namespace ClientBattle.VFX
                 // 神：胜利羽翼——暴击机会者呼吸阳光（复用阿波罗资源 key）
                 new() { SkillOrStatusId = "nike_wings", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_sunlight", Intensity = 0.7f, SfxKey = "sfx_oracle_nike" },
+                // 帕特洛克勒斯：借刀近战——每段由伤害来源武将突进斩击
+                new() { SkillOrStatusId = "patroclus_standin", Template = PerformanceTemplate.Melee,
+                        BorrowBlade = true, ProjectileKey = "slash", StrikeVfxScale = 1.15f,
+                        HitKey = "hit_generic", SfxKey = "sfx_active_default" },
+                new() { SkillOrStatusId = "patroclus_armor", Template = PerformanceTemplate.Melee,
+                        BorrowBlade = true, ProjectileKey = "slash", StrikeVfxScale = 1.0f,
+                        HitKey = "hit_generic", SfxKey = "sfx_active_default" },
                 // 人：阿喀琉斯之怒——追伤复用近身突进（Melee，与单体追击同观感），
                 // 敌方身上闪超大长矛裂甲图标+专属音效；禁止走 PerSegment 否则只剩飘字
                 new() { SkillOrStatusId = "achilles_wrath", Template = PerformanceTemplate.Melee,

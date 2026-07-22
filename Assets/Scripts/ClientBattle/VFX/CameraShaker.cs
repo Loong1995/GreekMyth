@@ -30,7 +30,13 @@ namespace ClientBattle.VFX
         }
 
         /// <summary>跳过/快进时立刻停抖并复位。</summary>
-        public static void Cancel() => _driver?.Reset();
+        public static void Cancel()
+        {
+            // 不能用 ?.：重播重建相机后旧 driver 是"已销毁的假 null"，
+            // ?. 会绕过 Unity 重载判空直接访问导致 MissingReferenceException
+            if (_driver != null) _driver.Reset();
+            else _driver = null; // 丢掉已销毁引用，下次 Shake 重挂
+        }
 
         class ShakeDriver : MonoBehaviour
         {

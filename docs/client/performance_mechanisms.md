@@ -13,7 +13,8 @@
 | 3 | 反应后置 | 响应类 status_tick 拆到主组之后；序=事件流=引擎先守后攻，同持有者他人施加先于自身 | `Events/Processors/ReactionRegroupProcessor.cs` | 同上 |
 | 4 | 节点合并 | 纯记账节点（自然损耗等）标记 ParallelWithNext 静默落账不停顿；大节点（回合/单挑/终局）独立演出 | `Events/Processors/NodeMergeProcessor.cs` | 同上 |
 | 5 | 三级演出配置 | 特殊配置(每战法一条) → 组默认(主动/普攻/追击/状态/神谕) → 全默认兜底；未配置 LogWarning | `VFX/VFXResolver.cs` + `VFX/PerformanceDatabase.cs` | [framework §第3层](client_battle_framework.md) |
-| 6 | 播放主循环 | 逐组协程播放；Speed 调速、SkipToEnd 静默落账快进 | `VFX/PerformanceRunner.cs` | [framework §第4层](client_battle_framework.md) |
+| 6 | 播放主循环 | 逐组协程播放；Speed 调速、SkipToEnd 静默落账快进；纯编排（落账/横幅/cut-in/单挑/结算表均已拆出） | `VFX/PerformanceRunner.cs` | [framework §第4层](client_battle_framework.md) |
+| 7 | 统一落账 | 全客户端唯一事件落账入口 `Apply(ev, ctx, animated)`：兵力/状态/光环/石化/势能/属性/阵亡；animated=true 追加飘字/音效；cut-in 请求统一由此发出（2026-07-22 重构，消除动画版/静默版 4 处平行实现） | `VFX/EventApplyService.cs` | — |
 
 **队列阻塞规则（2026-07-20 改定）**：行动类播放单元（主动/普攻/追击/
 状态触发/单挑）占用时间轴，结束后加 `GroupPauseSeconds`；**台词（TraitLine）
@@ -39,6 +40,7 @@
 「第 N 局 / 系列合计」。**带技能归因**与 status→skill 映射见
 [settlement_stats.md](settlement_stats.md)；英雄特例见
 [hero_specials.md](../mechanics/hero_specials.md)。右上角「打开结算」可重开。
+面板绘制已拆为 `Test/SettlementPanel.cs`（Runner 只负责聚合数据并调 Show）。
 
 **响应/触发序（服务器）**：先守后攻、他人施加优先——见
 [response_order.md](../mechanics/response_order.md)；播放跟随事件流不重排。
@@ -49,9 +51,13 @@
 违反 client_perform「群攻战法以该战法为一个播放单元（一次释放 N 道光）」。
 雷霆落雷经 `CollectiveTriggerMergeProcessor` 合并为**一次集体齐发**（同状态
 同来源的连续 StatusTrigger 组并组，白名单控制）；圣盾等保持逐次触发。
+**借刀例外（2026-07-22）**：代战/披甲（profile.BorrowBlade）每段由不同借手
+执行、段间交错响应/追伤，`BorrowBladeSplitProcessor` 按段拆单元并回插事件流
+原生位置（段1→响应→追伤→段2…），不受「群攻=一个播放单元」约束——
+借刀语义上是 N 次独立出手，不是一次齐射。
 
 **节点组子事件落账（红线）**：round_start / action_start 等节点组的**全部子事件**
-（状态到期移除、伤兵损耗、属性回写）必须 ApplySilently 落账——状态到期移除
+（状态到期移除、伤兵损耗、属性回写）必须经 `EventApplyService.Apply(…, animated:false)` 落账——状态到期移除
 （石化解除等）挂在节点之下，漏掉会造成图标与石化覆盖层残留。
 
 ## 一b、Phase 4 势能/连发/协击/cut-in（B1/B2，2026-07-20）
@@ -60,10 +66,12 @@
 |---|---|---|
 | 势能镜像 | momentum_change → 四轨分值镜像账本（value 取事件权威值，零客户端加法）；action_start 该武将四轨清零（与服务器静默清零同步） | `Units/MomentumService.cs` |
 | 势能条 | 每卡 HP 下四条迷你轨条（按**轨类型**跨技能累计，非单技能独立条；注册表 `TrackTable`：主动暖金/被动铜绿/神谕雷紫/普攻追击赤红；0~3 半亮、≥4 全亮） | `UnitView.SetMomentum` |
+| 势能火 | 四轨最高 ≥4 小 / ≥5 / ≥6 / ≥7 满分大；`momentum_fire`←CFXR3 Fire；**ActionPauseSeconds 渐灭**（条仍待自身下次 action_start 清）。生命周期收拢进控制器，Runner 只发相位信号（OnActionPauseBegin/End/OnRoundBanner）；hold-off 语义=**抑制同值重挂**——任何值变化的 momentum_change 即解除抑制按新档点火（2026-07-22 修 g1r5 响应涨势能无火 bug） | `Units/MomentumFireController.cs` |
 | 闪光档（4） | 某轨首次 `value≥Flash(4)`：白闪爆发帧 + punch 缩放（**乙案已定稿**；不采购专属 overflow 包） | `MomentumService.Apply` → `PlayMomentumOverflow` |
 | 满档（5） | `value≥Full(5)`：常驻 rim 流光（多轨叠混色+呼吸）；服务端同档起每次 `cut_in=true` | `UnitView.RefreshGlow` / `add_momentum` |
-| cut-in 通道 | 非阻塞金字横幅（屏幕 30% 高度，1.4s 淡出 + 轻震屏）；触发源①满档轨每次触发（事件 `cut_in=true`，满 5 当次起）②高伤 >3000 ③行动窗内追伤第 5 次；**同一播放组只播 1 次**去重，不做回合级限流（C10 定案） | `PerformanceRunner.RequestCutIn/DrawCutIn` |
-| 连发演出 | `skill_trigger.burst_no≥2`：**与首发完全同模板整套重播**（`Classify` 按 burst_no 判为 ActiveSkill——连发 parent 指回首发触发事件，若不判会误分类成追击）；在此之上叠加节拍 ×1.35 加速（`VFXContext.TempoScale`，播完复位）+ 施法者「连发 ×N」金色角标 | `EventPipeline.Classify` / `PerformanceRunner.PlayGroup` |
+| cut-in 通道 | **全屏单人 cut-in**（2026-07-21 升级）：暗幕 + 阵营色斜带甩入 + 巨幅立绘反向滑入 + 大字标题，约 0.8s 甩出；触发源①满档轨（见下行语义）②高伤 >3000 ③行动窗内追伤第 5 次（②③非阻塞不占时间轴）；**同一播放组只播 1 次**去重，不做回合级限流（C10 定案）。无主体的播报（战术变更）回退 OnGUI 文字横幅。请求入口与组去重收口 `CutInService.Request` | `VFX/CutInService.Request/PlaySolo`；回退 `VFX/BannerService.ShowTextCutIn` |
+| 满档 cut-in 语义（2026-07-22 修订） | **按轨过滤**：轨**已满（≥5）之后**该轨再次进账才切入——刚满 5 的当次不切、其他轨互不影响（服务端满 5 当次起都带 `cut_in`，客户端按落账前镜像值过滤）；**阻塞出手**：动作组内命中此条件时，Runner 在出手前 `PlaySoloBlocking` 独占时间轴，cut-in 播完才开打；**强化音效**：该次出手主音效换 `sfx_attack_empowered`（`VFXContext.EmpoweredStrike`，播完复位） | `PerformanceRunner.FindFullTrackCutIn` + `CutInService.PlaySoloBlocking` + `EventApplyService.ApplyMomentum` |
+| 连发演出 | `skill_trigger.burst_no≥2`：**与首发完全同模板整套重播**（`Classify` 按 burst_no 判为 ActiveSkill——连发 parent 指回首发触发事件，若不判会误分类成追击）；在此之上叠加节拍加速（倍率 `PerformanceProfile.BurstTempoScale`，默认 ×1.35，经 `VFXContext.TempoScale` 生效、播完复位）+ 施法者「连发 ×N」金色角标 | `EventPipeline.Classify` / `PerformanceRunner.PlayGroup` |
 | 协击标 | `normal_attack.kind=="coordinated"`：出手前施法者「协击」青色角标，其余复用 Melee 模板 | `DefaultPerformance.Play` |
 
 新增轨/改 tint 只动 `MomentumService.TrackTable` 一处（注册表驱动红线）。
@@ -72,11 +80,11 @@
 
 | 机制 | 一句话 | 代码 |
 |---|---|---|
-| BGM 分层 | 4 stem（`BGM/bgm_stem_{drums,bass,melody,other}`）按**全局势能**（=MomentumService.GlobalTotal）三档淡入淡出（0~7/8~15/16+）；**切层对齐小节边界**（登记 Bpm/BeatsPerBar，pending 到小节头生效）；单挑与 cut-in 全层 duck -8dB、0.5s 恢复；stem 缺失回退单曲 `bgm_main`（音量+低通随档），全缺则静默 no-op | `Audio/BgmLayerService.cs`（StemTable 注册表） |
+| BGM 分层 | 4 stem（`BGM/bgm_stem_{drums,bass,melody,other}`）按**全局势能**（=MomentumService.GlobalTotal）三档淡入淡出（0~7/8~15/16+）；**切层对齐小节边界**（登记 Bpm/BeatsPerBar，pending 到小节头生效）；单挑与 cut-in 全层 duck -8dB、0.5s 恢复；stem 缺失回退单曲 `bgm_main`（音量+低通随档），全缺则静默 no-op；`MomentumService` 不再直连 Audio——经 `GlobalMomentumChanged` 回调由 Runner 接线（2026-07-22 解耦） | `Audio/BgmLayerService.cs`（StemTable 注册表） |
 | 飘字手调 | 字体/字号/颜色/上浮曲线全参数收进 SO（`Resources/ClientBattle/FloatingTextTuning.asset`，缺失用代码默认）；字体放 `Resources/ClientBattle/Fonts/` 填名即换 | `Units/FloatingTextTuning.cs`；操作文档 [floating_text_tuning.md](floating_text_tuning.md) |
 | 头像标（皇卡 C1） | profile.PortraitMarkKey：受影响单位头顶短暂浮现指定武将头像——宙斯落雷 `thunder`→zeus（RemoteStrike 落雷节拍内挂）、哈迪斯吸统 `hades_command_drain`→hades | `UnitView.ShowPortraitMark` + `DefaultPerformance` |
 | 圣盾反弹（C1） | `aegis_shield` Melee：Actor=持盾者（OwnerId）；CastKey 圣盾闪光后再突进反打；`aegis_ward` 控挡闪光 | `PerformanceDatabase` + `ActorOf(StatusTick)→OwnerId` |
-| 高光回放（C2） | 终局扫描：我方每武将行动窗（action_start 分界）按单窗伤害排行，最大窗整段重播（窗前静默落账、窗内正常演出）；Tester 播放完成后出「高光回放」按钮 | `PerformanceRunner.PlayHighlight` + `BattleReportTester.OnGUI` |
+| 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlayGroupsRange`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
 
 ## 二、演出模板族（每组怎么演）
 
@@ -89,7 +97,7 @@
 | StatusTrigger | 状态触发组 | 默认按目标数走中心齐射/逐段；可特殊配置为 Melee / RemoteStrike | 同上（模板内分派） |
 | OracleAura 神谕 | 神谕/被动宣告 | 施法者前摇 → 组内状态一次性落账（同帧挂光环）+ 整盘滤镜 | `OracleAuraPerformance` |
 | None | 明确无演出（如蛇杖圣谕） | 只落账 | Runner 直接静默 |
-| 单挑 | duel_challenge/duel_result | 压暗非参战者 → 横幅 → 三次对撞 → 胜负宣告（方向无关位移） | `PerformanceRunner.PlayDuel` |
+| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗 → 号角 → 叫阵气泡 →（拒战｜应战→**全屏裂缝交错 cut-in**→胜者）。裂缝 cut-in：中央斜裂缝线分屏，两张半屏武将卡一张自上而下、一张自下而上对向滑过裂缝算一次交错，`clash_cutins`（1~3，武力越接近越多）次来回、一次比一次快，末次停在中线对峙 + VS + 白闪后弹开 | `VFX/Performances/DuelPerformance.cs` + `CutInService.DuelClashRoutine` |
 
 **斩击尺寸规则（2026-07-10 定）**：普攻斩击 = 资源基准尺寸 ×1.0；追击 ×1.5；
 再乘 profile.StrikeVfxScale（Inspector 可调）。物理组默认 key=`slash`、
@@ -117,7 +125,7 @@
 | 待机呼吸 | 存活卡牌立绘正弦浮动，相位按位置错开；阵亡停止 | `UnitView.Update` |
 | 兵力刷新 | 恒取事件 troops_after 权威值，客户端零计算 | `UnitView.SetTroops` |
 | 状态图标 | **仅控制类**卡中央大图标；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` |
-| **状态常驻光环** | status_id → 光环 key 表（雷霆闪电缠绕/圣盾/血红/阳光/神使印记…）；status_apply 挂、status_remove/阵亡/整局重置撤；一次性 flipbook 粒子强制循环+补发射密度+压半透明 | `Units/UnitAuraService.cs`（想给新状态配光环只加表里一行） |
+| **状态常驻光环** | status_id → 光环 key + 挂载偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记…）；status_apply 挂、status_remove/阵亡/整局重置撤；一次性 flipbook 粒子强制循环+补发射密度+压半透明（`aura_fire*` 另偏橙红） | `Units/UnitAuraService.cs`；配置收口 `Names/StatusPresentationRegistry.cs`（新状态只加注册表一行） |
 | 整盘滤镜 | 程序化全屏呼吸色罩（血红/海蓝/冥紫按 key 取色），不用粒子 prefab（会成棋盘中心固定点）；透明度待真棋盘底图定稿再调 | `OracleAuraPerformance.BoardFilterOverlay` |
 | 石化 | 灰色卡框覆盖层淡入淡出（tween 互斥，新 tween 先杀旧）；施加走通用状态音 `sfx_status_petrify`，解除走 `sfx_petrify_off` | `UnitView.SetPetrified` |
 | 飘字 | 伤害红/治疗绿/真伤黄/状态蓝灰/属性金紫，同单位纵向堆叠不重叠 | `Units/FloatingTextService.cs` |
@@ -133,7 +141,7 @@
 |---|---|---|
 | 取景权威 | CameraFitter 按宽高比动态调 orthoSize，保安全区（半宽 4.6/半高 5.2）任意机型完整可见，热切换每帧跟随 | `VFX/CameraFitter.cs` |
 | 背景 | 无色（纯黑）；上传 UI/board_background.png 自动 cover 铺满不变形 | `Units/BattleBoardView.BuildBackground` + BackgroundFitter |
-| OnGUI 缩放 | 横幅/调试按钮按屏幕高度缩放（800px 基准）；横幅白字+黑影双绘保证任何底色可读 | `PerformanceRunner.OnGUI` / `BattleReportTester.OnGUI` |
+| OnGUI 缩放 | 横幅/调试按钮按屏幕高度缩放（800px 基准）；横幅白字+黑影双绘保证任何底色可读 | `VFX/BannerService.OnGUI` / `Test/SettlementPanel.OnGUI` / `BattleReportTester.OnGUI` |
 | **禁止事项** | 表现层不得写死 orthoSize/像素坐标/屏幕分辨率假设 | — |
 | 性能验证 | 以**独立版 + FrameSpikeProbe** 数据为准；编辑器 Play 有环境级 1.7s 周期冻结、远程桌面有传输冻结，均非游戏问题（2026-07-10 定案：独立版 60fps 满帧零长帧） | `Test/FrameSpikeProbe.cs`（Tester 勾 ShowDiagnostics） |
 
@@ -162,7 +170,7 @@
 | 事件流契约（字段语义，只读） | `docs/schema/battle_events.md` + `battle_events_payloads.md` |
 | 具体战法演出规格（任务书，只读） | `docs/prompts/client_perform.md` |
 | 台词内容与性格触发时机 | `docs/mechanics/traits.md` + `battle/traits.py` |
-| 单挑规则（服务器侧） | `docs/mechanics/`（duel 相关）+ Runner `PlayDuel` |
+| 单挑规则（服务器侧） | `docs/mechanics/`（duel 相关）+ `VFX/Performances/DuelPerformance.cs` |
 
 ## 八、维护红线
 

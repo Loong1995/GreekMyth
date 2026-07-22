@@ -19,7 +19,10 @@ namespace ClientBattle.Events
             var result = new List<EventGroup>(groups.Count);
             foreach (var group in groups)
             {
-                if (group.Kind == GroupKind.TraitLine || !ContainsTrait(group))
+                // 单挑组内台词由 PlayDuel 按时点播，禁止抽成独立 TraitLine
+                // （否则会先于交锋/拒绝横幅播出，或打乱 challenge/result 同组）
+                if (group.Kind == GroupKind.TraitLine || group.Kind == GroupKind.Duel
+                    || !ContainsTrait(group))
                 {
                     result.Add(group);
                     continue;

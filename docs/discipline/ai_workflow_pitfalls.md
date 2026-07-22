@@ -142,3 +142,11 @@ Runner 不得自定常数；「独占单元」= 等够动画完整时长、前�
 误判为「头像没显示」。
 正确做法：先查 sorting 层级表（见 docs/client/rendering_layout.md）再查逻辑；
 新表现物先定 sortingOrder 档位并登记。
+
+## P-22 单挑台词不要 parent_seq=0 / 不要从 Duel 组抽出
+
+现象：按 P-18 把 duel_* 台词改成独立组，或 TraitLineExtract 抽走 Duel 组内
+`trait_trigger` → 播放顺序变成「整段单挑演完才说叫阵」，或 challenge/result
+与台词错位。
+正确做法：单挑台词**挂在 duel 组内**；`PlayDuel` 按时点（号角后叫阵 → 应战/
+拒战）播气泡；`TraitLineExtractProcessor` **跳过** `GroupKind.Duel`。

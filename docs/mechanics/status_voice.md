@@ -23,13 +23,18 @@
 
 ## 三、触发点总表（引擎侧）
 
-| status_id | 发送时机（engine.py 内节点） | 去重 |
+发送与去重统一走 `status_voice.py` 的三个入口（2026-07-20 重构收口，
+engine 不再手写状态元组）：`emit_voice_once`（同窗同人同状态一次）、
+`emit_forbid_voice`（按候选优先序取持有的第一条）、`pick_skip_voice_id`
+（全禁主因，`_SKIP_PRIORITY` 硬度序 petrify>ming_lock>fear>silence>disarm）。
+
+| status_id | 发送时机（engine.py 内节点） | 候选表 / 去重 |
 |---|---|---|
-| `silence` | 因缄默跳过主动判定时 | 同窗一次（`_status_voice_said`） |
-| `disarm` / `fear` | 因禁普攻跳过普攻时 | 同窗一次 |
-| `ming_lock` / `petrify` | 全禁 `skipped`（走 `pick_skip_voice_id` 硬度优先级 petrify>ming_lock>fear>silence>disarm）或分项跳过时 | 同窗一次 |
-| `hesitation` | 判定成功、写出 `skill_trigger kind=delayed` 之前（`_voice_hesitation_once`） | 同窗一次 |
-| `charm` | 魅惑改写选人池前 | 同窗一次 |
+| `silence` / `ming_lock` / `petrify` | 因禁主动跳过主动判定时 | `FORBID_ACTIVE_VOICE`；同窗一次 |
+| `disarm` / `fear` / `ming_lock` / `petrify` | 因禁普攻跳过普攻时 | `FORBID_BASIC_VOICE`；同窗一次 |
+| 全禁主因 | 行动窗整体 `skipped` 时 | `pick_skip_voice_id`；同窗一次 |
+| `hesitation` | 判定成功、写出 `skill_trigger kind=delayed` 之前 | `emit_voice_once` |
+| `charm` | 魅惑改写选人池前 | `emit_voice_once` |
 | `first_strike` | 先攻改序后，该武将 `action_start` 紧随（`_first_strike_voice` 集合，回合首重置） | 每回合一次 |
 
 ## 四、文字日志
@@ -39,6 +44,7 @@
 
 ## 五、维护清单
 
-- 新增可发声状态：`LINES` 加 3 条 + engine 在影响节点调 `emit_status_voice`
-  （`parent_seq=0`）+ 本表登记；无需改客户端与契约。
+- 新增可发声禁制：`LINES` 加 3 条 + 登记 `FORBID_*_VOICE` / `_SKIP_PRIORITY`
+  即可，**engine 零改动**；新触发场景（非禁制类）才需在 engine 影响节点调
+  `emit_voice_once`。无需改客户端与契约。
 - 台词内容改动会影响 golden（trait_trigger 带 line），重生成须说明原因。

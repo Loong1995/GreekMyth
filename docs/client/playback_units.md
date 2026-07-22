@@ -36,9 +36,10 @@ processor 链（`PerformanceRunner` 注册顺序即执行顺序）：
 
 | # | Processor | 作用 |
 |---|---|---|
+| 0 | `BorrowBladeSplitProcessor` | 借刀战法（代战/披甲，profile.BorrowBlade）按「组根直接子伤害」切段，每段自成播放单元并按首事件 seq 回插事件流原生位置——段1(借手突进)→响应→追伤→段2…；不拆会三刀连劈再补账（2026-07-22） |
 | 1 | `ReactionRegroupProcessor` | 把主组内的 `status_tick` 子链（按 parent_seq 闭包）摘成独立 StatusTrigger 组，追加在主单元之后（「响应后播」） |
 | 2 | `CollectiveTriggerMergeProcessor` | 相邻同状态同来源 StatusTrigger 组合并为一次集体齐发（白名单：`thunder`）；圣盾等保持逐次 |
-| 3 | `TraitLineExtractProcessor` | 把混在任何组里的 `trait_trigger` 抽成独立 TraitLine 组；**出击段保留原组 Root**（skill_trigger/status_tick），演出配置不丢（P-17） |
+| 3 | `TraitLineExtractProcessor` | 把混在行动/状态组里的 `trait_trigger` 抽成独立 TraitLine；**出击段保留原组 Root**；**跳过 Duel 组**（单挑台词由 `DuelPerformance` 按时点播） |
 | 4 | `NodeMergeProcessor` | 纯记账节点标 `ParallelWithNext`，静默落账不占节拍 |
 
 ### 分组三条红线
@@ -46,7 +47,7 @@ processor 链（`PerformanceRunner` 注册顺序即执行顺序）：
 1. **全量聚合**：group_id 用字典聚合非连续段；连续段合并会把群攻切碎（P-03）。
 2. **拆组保 Root**：processor 拆出的战斗段必须以原 skill_trigger/status_tick
    为 Root，否则 `VFXResolver.KeyOf` 查不到专属配置（P-17）。
-3. **子事件全落账**：任何组的全部子事件必须 ApplySilently（P-04）。
+3. **子事件全落账**：任何组的全部子事件必须经 `EventApplyService.Apply` 落账（P-04）。
 
 ## 三、时间轴阻塞规则（谁能占时间、占多久）
 
@@ -57,8 +58,9 @@ processor 链（`PerformanceRunner` 注册顺序即执行顺序）：
 | Node（回合/行动开始） | 否 | — | 行动切换时 `ActionPauseSeconds` |
 | StatusChange / Defeat / 其它 | 否（即时落账） | — | 无 |
 
-代码：`PerformanceRunner.PlayLoop`（主循环，含 nextTrait 判断）、
-`PlayGroup`（按 Kind 分派）、`Wait(seconds)`（统一乘 DurationMul/Speed）。
+代码：`PerformanceRunner.PlayLoop` → `PlayGroupsRange`（主循环，含 nextTrait
+判断与势能火相位信号；高光回放共用同一循环）、`PlayGroup`（按 Kind 分派）、
+`Wait(seconds)`（统一乘 DurationMul/Speed）。
 
 ### 台词独占三原则（2026-07-20 定，P-18/P-19）
 

@@ -394,7 +394,8 @@
         "challenger_id": { "type": "string" },
         "defender_id": { "type": "string" },
         "challenger_force": { "type": "integer" },
-        "defender_force": { "type": "integer" }
+        "defender_force": { "type": "integer" },
+        "clash_cutins": { "type": "integer", "minimum": 1, "maximum": 3 }
       }
     },
     "PayloadDuelResult": {

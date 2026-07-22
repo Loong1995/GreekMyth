@@ -27,11 +27,12 @@ from battle.statuses import (
     curse,
     fear,
     petrify,
+    underworld_burn,
 )
 
 # =============================================================================
 # 冥域君临（哈迪斯，v4）：神谕三重效果（均整局）：
-# 1. 己方全体【冥河血誓】：造成实际伤害后 10% 转自疗（raw 固定量，不吃乘区/暴击）。
+# 1. 己方全体吸血属性 +10%（lifesteal_bps，走引擎通用吸血乘区）。
 # 2. 己方全体【幽影蔽体】：行动窗口开始按已损兵比例刷新减伤（比例×70%，≤70%，
 #    内部不事件化）。
 # 3. 哈迪斯自身【冥祭献统】：行动窗口开始从每名其他存活友军汲取 10 统率，
@@ -39,27 +40,9 @@ from battle.statuses import (
 #    统率削减随哈迪斯阵亡移除（source_defeated 通例）。
 # =============================================================================
 
-STYX_HEAL_BPS = 1000
-
-
-def _styx_on_damage_dealt(engine, status, ctx):
-    if ctx["amount"] <= 0:
-        return
-    owner = engine.hero_by_id(status.owner_id)
-    amount = ctx["amount"] * STYX_HEAL_BPS // BPS
-    if amount <= 0 or not owner.is_alive():
-        return
-    missing = owner.max_troops - owner.troops
-    if owner.wounded_troop <= 0 or missing <= 0:
-        return  # 治不进则不发 tick
-    tick_seq = emit_status_trigger(engine, status, ctx["damage_seq"])
-    engine.heal(owner, owner, fixed_base=amount, parent_seq=tick_seq,
-                can_crit=False, apply_modifiers=False)
-
-
-STYX_BLOOD_OATH_STATUS = StatusDef(
-    status_id="styx_blood_oath", kind=SPECIAL, duration_rounds=PERMANENT,
-    response_priority=10, on_damage_dealt=_styx_on_damage_dealt,
+HADES_LIFESTEAL_STATUS = StatusDef(
+    status_id="hades_lifesteal", kind=SPECIAL, duration_rounds=PERMANENT,
+    modifiers={"lifesteal_bps": 1000},
 )
 
 SHADOW_VEIL_MAX_REDUCE_BPS = 7000  # v4：50% → 70%
@@ -139,7 +122,7 @@ class HadesUnderworldDominion(Skill):
 
     def execute(self, engine, actor, targets, trigger_seq):
         for target in targets:
-            engine.apply_status(actor, target, STYX_BLOOD_OATH_STATUS, parent_seq=trigger_seq)
+            engine.apply_status(actor, target, HADES_LIFESTEAL_STATUS, parent_seq=trigger_seq)
         for target in targets:
             engine.apply_status(actor, target, SHADOW_VEIL_STATUS, parent_seq=trigger_seq)
         engine.apply_status(actor, actor, HADES_COMMAND_DRAIN_STATUS, parent_seq=trigger_seq)
@@ -147,7 +130,7 @@ class HadesUnderworldDominion(Skill):
 
 # =============================================================================
 # 冥河汲魂（哈迪斯拆解，v4 调参）：主动 40%——吸取敌全体各 25 点统率和智力转为
-# 自身（2 回合可刷新），并对敌全体 180% 魔法伤害。
+# 自身（2 回合可刷新），并对敌全体 150% 魔法伤害。
 # =============================================================================
 
 SOUL_DRAIN_LOSS_STATUS = StatusDef(
@@ -205,7 +188,7 @@ class HadesSoulDrain(Skill):
                 return
             if target.is_alive():
                 engine.deal_damage(
-                    actor, target, damage_type="magic", rate_bps=18000,
+                    actor, target, damage_type="magic", rate_bps=15000,
                     parent_seq=trigger_seq,
                 )
 
@@ -557,6 +540,69 @@ CERBERUS_GUARD_STATUS = StatusDef(
 
 
 # =============================================================================
+# 三火炬（赫卡忒·自带·被动）：准备挂【岔路火种】；造成实际魔法伤害后挂/刷【冥火】2 回合，
+# 每持有者每回合最多 2 次。燔祭（拆解·主动 50%）：敌随机 2 人 160% 谋略+冥火 3 回合；
+# 已有冥火则本次额外 +15%。
+# =============================================================================
+
+HECATE_TORCH_MAX_PER_ROUND = 2
+
+
+def _hecate_torch_on_damage_dealt(engine, status, ctx):
+    if ctx["amount"] <= 0 or ctx["damage_type"] != "magic" or ctx["kind"] == "dot":
+        return
+    target = ctx["target"]
+    owner = engine.hero_by_id(status.owner_id)
+    if not target.is_alive() or target.team_id == owner.team_id:
+        return
+    if status.round_counters.get("torch", 0) >= HECATE_TORCH_MAX_PER_ROUND:
+        return
+    status.round_counters["torch"] = status.round_counters.get("torch", 0) + 1
+    source = engine.heroes.get(status.source_id, owner)
+    engine.apply_status(
+        source, target, underworld_burn(2), parent_seq=ctx["damage_seq"],
+    )
+
+
+HECATE_TORCH_STATUS = StatusDef(
+    status_id="hecate_torch", kind=SPECIAL, duration_rounds=PERMANENT,
+    response_priority=45, on_damage_dealt=_hecate_torch_on_damage_dealt,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class HecateTorch(Skill):
+    def select_targets(self, engine, actor):
+        return [actor]
+
+    def execute(self, engine, actor, targets, trigger_seq):
+        engine.apply_status(actor, actor, HECATE_TORCH_STATUS, parent_seq=trigger_seq)
+
+
+@dataclass(frozen=True, slots=True)
+class HecatePyre(Skill):
+    def select_targets(self, engine, actor):
+        from battle.skill_common import pick_distinct_enemies
+        return pick_distinct_enemies(engine, actor, 2, "hecate_pyre")
+
+    def execute(self, engine, actor, targets, trigger_seq):
+        for target in targets:
+            if not target.is_alive():
+                continue
+            extra = 1500 if engine.find_status(target.hero_id, "underworld_burn") else 0
+            engine.deal_damage(
+                actor, target, damage_type="magic", rate_bps=16000,
+                parent_seq=trigger_seq, extra_damage_up_bps=extra,
+            )
+            if target.is_alive():
+                engine.apply_status(
+                    actor, target, underworld_burn(3), parent_seq=trigger_seq,
+                )
+            if engine._game_winner is not None:
+                return
+
+
+# =============================================================================
 # 注册
 # =============================================================================
 
@@ -581,3 +627,5 @@ register(CerberusBite(skill_id="cerberus_bite", trigger_rate_bps=4000,
                       timing=TIMING_PURSUIT))
 register(LionCounter(skill_id="cerberus_guard", timing=TIMING_PREPARE,
                      status_def=CERBERUS_GUARD_STATUS))
+register(HecateTorch(skill_id="hecate_torch", timing=TIMING_PREPARE))
+register(HecatePyre(skill_id="hecate_pyre", trigger_rate_bps=5000))

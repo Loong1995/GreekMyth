@@ -1,0 +1,18 @@
+{
+    "name": "DigitalRuby.LightningBolt.Editor",
+    "rootNamespace": "DigitalRuby.LightningBolt",
+    "references": [
+        "DigitalRuby.LightningBolt"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

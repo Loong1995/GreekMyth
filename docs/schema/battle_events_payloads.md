@@ -221,13 +221,14 @@ payload：`hero_id`(pb1)、`killer_id`(pb2, 可选)、`is_main_hero`(pb3)。
 ## 16. duel_challenge
 
 单挑叫阵（组根，DUEL 相位）。**仅第 1 局**开局、所有战法执行前判定一次；
-第 2 局及以后不再单挑（决策 D-03）。
+第 2 局及以后不再单挑（决策 D-03）。配对与入池见 `docs/mechanics/duel.md`。
 
 | payload 字段 | pb# | 说明 |
 |---|---|---|
-| `challenger_id` | 1 | 高武力方 |
+| `challenger_id` | 1 | 高武力方（相等则 A 队侧） |
 | `defender_id` | 2 | 低武力方 |
 | `challenger_force` / `defender_force` | 3/4 | 双方武力（供演出对比） |
+| `clash_cutins` | 5 | 可选：交锋 cut-in 段数 1\|2\|3（武差≤10→3，≤20→2，否则 1） |
 
 ## 17. duel_result
 

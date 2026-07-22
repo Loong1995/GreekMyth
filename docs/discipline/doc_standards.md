@@ -10,6 +10,7 @@
 | `docs/mechanics/`  | 机制细则，index.md + 每机制一文件     | 常青，与代码强同步      |
 | `docs/skills/`     | 战法三段式（效果/实现/事件流），按阵营分文件    | 常青，与代码强同步      |
 | `docs/client/`     | 客户端框架/机制/资源/风格             | 常青，与代码强同步      |
+| `docs/character.md` + `docs/character/` | 角色传记／羁绊／台词本（叙事，不改结算） | 常青；总则+分册 |
 | `docs/dev/`        | 决策记录 / changelog / 分析与计划存档 | 决策与日志常青，其余历史存档 |
 | `docs/prompts/`    | 任务书原文                      | 只读存档，禁改        |
 
