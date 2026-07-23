@@ -1,0 +1,19 @@
+---
+description: ClientBattle 播放层约定——零结算、HardStop、架构分层
+globs: Assets/Scripts/ClientBattle/**/*.cs
+alwaysApply: false
+---
+
+# ClientBattle 工作约束
+
+改本目录代码前已读：`docs/client/architecture.md`、`playback_requirements.md`。
+
+- **零结算**：兵力只写事件 `troops_after`；落账唯一入口 `EventApplyService`
+- **生命周期**：公开入口只走 `PerformanceRunner`；主循环在 `PlaybackDirector`；
+  建世界在 `PlaybackWorldBuilder`；cut-in 阈值在 `CutInPolicy`
+- **HardStop（R-1.2）**：必须清协程/tween/VFX/飘字/气泡/cut-in/**横幅**/BGM；
+  重播不得叠影或残留「系列结束」文案
+- **tween**：单位/特效位移必须 `SetLink(宿主GO)`；`DOTween.KillAll` 仅 HardStop
+- **扩展**：新分组逻辑进 `Events/Processors/`；新演出进 `SkillPerformance` 派生，
+  禁止在 Runner/Director 主循环塞特例
+- 中文名与 `battle/names.py` 同步（`Names/ChineseNames.cs`）

@@ -55,9 +55,9 @@
 | PlayHighlight | 同 PlayBattleReport + [start,end) 窗口参数 |
 
 `HardStop()` 固定次序：停自身协程 → CutIn CancelAll / CameraShaker.Cancel /
-UnitAuraService.ClearAll → Vfx/Floats/Bubbles CancelAll + Sfx StopAll →
-`DOTween.KillAll(false)` 兜底（单位 tween 已 SetLink，由此杀漏网）→
-BGM StopBattle。Banner.Clear 与棋盘销毁只在 TeardownWorld。
+UnitAuraService.ClearAll → **Banner.Clear**（系列结束横幅等常驻文案）→
+Vfx/Floats/Bubbles CancelAll + Sfx StopAll → `DOTween.KillAll(false)` 兜底 →
+BGM StopBattle。棋盘销毁只在 TeardownWorld。
 
 ## 三、落账与演出的单一数据流
 

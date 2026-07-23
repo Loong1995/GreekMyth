@@ -34,3 +34,7 @@
 - 工作中发现规则空白 → 先按最保守做法执行，再在对应文件补条目。
 - AI 工作流踩了新坑（返工/误判/被人工纠正）→ 当次会话内写入
   `ai_workflow_pitfalls.md`，格式见该文件头部。
+- **Cursor 自动加载**：`.cursor/rules/00-session-start.mdc`（alwaysApply）
+  要求每会话开工第一条工具调用 Read 本文件；ClientBattle/battle/docs
+  另有 glob 规则叠加。细则见该目录，勿把整本 discipline 塞进规则正文
+  （规则宜短，权威仍在本目录）。

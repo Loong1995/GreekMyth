@@ -10,6 +10,10 @@
 doc_standards / ai_workflow_pitfalls 踩坑录）。任何工作先读该目录 index.md；
 踩新坑当次会话追记 pitfalls。
 
+**自动注入规则**：`.cursor/rules/`（`00-session-start.mdc` 始终生效；
+ClientBattle / battle / docs 按 glob 叠加）。规则要求开工第一条工具调用
+用 Read 打开权威文档——比「口头必读」更可靠。
+
 ## 当前阶段
 - Phase 3（机制大修 + 武将池 v3.1 + 性格系统）**已完成**；
   v3.2 追加（减免施加序逐实例判定、圣盾反弹）已落地。

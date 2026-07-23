@@ -1,0 +1,18 @@
+---
+description: battle/ 服务端 core——确定性、契约、战法标杆
+globs: battle/**/*.py
+alwaysApply: false
+---
+
+# battle/ 工作约束
+
+改本目录前已读：`docs/discipline/global_rules.md`、`docs/mechanics/index.md`。
+
+- **确定性**：单一 RNG、种子外注；集合遍历必须有显式排序；禁止系统时间
+- **数值**：整数/定点；概率与系数用 bps（万分比）
+- **语义权威**：`docs/skills/` 描述 + `docs/dev/decisions.md` D 系列；照描述实现，
+  禁止为过测试改标定公式或静默吞异常
+- **契约**：事件流只加法演进；字段语义以 `docs/schema/` 为准
+- **同步对**：`roster.py`↔skills 文档、`names.py`↔`ChineseNames.cs`、
+  `version.py`↔schema 文档、常量↔mechanics 数值
+- golden 变更必须显式更新并说明原因；`battlecore/`/`reference/` 只读

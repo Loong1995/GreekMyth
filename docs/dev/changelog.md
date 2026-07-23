@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-23 重播清横幅 + Cursor 开工规则
+- 修复重播后「系列结束 — 胜者 B 队」残留：根因是 `HardStop` 未清
+  `BannerService`（违反 R-1.2③）；现并入 HardStop，Teardown 去重。同步
+  `architecture.md` HardStop 次序。
+- 新增 `.cursor/rules/`：`00-session-start.mdc`（alwaysApply，强制先 Read
+  discipline/任务相关文档）+ ClientBattle / battle / docs 三份 glob 规则；
+  `.cursorrules` 指向该目录。
+
 ## 2026-07-23 按 discipline 全量文档核查完善（服务端+客户端）
 - 双路核查出 60+ 处滞后：`.cursorrules`/mechanics-index/project_overview 更新为
   Phase 4 已落地、1.4.1/0.4.1、32 将（7/10/7/8）、回合默认打到主将阵亡、势能默认开；

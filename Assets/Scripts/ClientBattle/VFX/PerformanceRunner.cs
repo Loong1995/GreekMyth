@@ -114,9 +114,8 @@ namespace ClientBattle.VFX
         /// 下次 PlayBattleReport 会重建（R-1.5）。</summary>
         public void TeardownWorld()
         {
-            HardStop();
+            HardStop(); // 已含 Banner.Clear
             SettlementPanel.Instance?.Hide();
-            BannerService.Instance?.Clear();
             MomentumService.ClearAll();
             UnitAuraService.ClearAll();
             if (_board != null)
@@ -182,7 +181,7 @@ namespace ClientBattle.VFX
 
         // ---------------------------------------------------------- 生命周期内部
 
-        /// <summary>硬停止（R-1.2 唯一实现）：停协程 → 清全部在飞表现 →
+        /// <summary>硬停止（R-1.2 唯一实现）：停协程 → 清全部在飞表现（含顶部横幅）→
         /// 杀残留 tween 兜底 → 停 BGM。任何状态下可调、幂等。</summary>
         void HardStop()
         {
@@ -191,6 +190,7 @@ namespace ClientBattle.VFX
             if (CutInService.Instance != null) CutInService.Instance.CancelAll();
             CameraShaker.Cancel();
             UnitAuraService.ClearAll();
+            BannerService.Instance?.Clear(); // 系列结束「胜者 X 队」等常驻横幅必须清（R-1.2③）
             var ctx = _session?.Ctx;
             if (ctx != null)
             {

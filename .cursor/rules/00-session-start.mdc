@@ -1,0 +1,34 @@
+---
+description: 每次会话开工协议——强制先加载 discipline 与任务相关权威文档
+alwaysApply: true
+---
+
+# 开工协议（不可跳过）
+
+在写代码、改文档、排查 bug 或给出实现方案之前，**第一条工具调用**必须是
+用 Read 打开下文对应文件（可并行多读）。禁止凭记忆编造版本号/类名/数值。
+
+## 永远先读（任何任务）
+
+1. `docs/discipline/index.md`（总纲与阅读顺序）
+2. 按任务再读同目录下相关文件（见 index 表）
+
+## 按任务加读（与改动面匹配）
+
+| 改动面 | 必读 |
+|---|---|
+| `Assets/Scripts/ClientBattle/**` | `docs/client/index.md` → `architecture.md` + `playback_requirements.md` |
+| `battle/**` | `docs/mechanics/index.md`；改战法再读 `docs/skills/` 对应分册 |
+| `docs/schema/**` 或事件契约 | `docs/schema/battle_events.md`（只加法演进） |
+| 新增战法/状态/性格/演出 | `docs/discipline/extension_points.md` |
+| 写/改任何文档 | `docs/discipline/doc_standards.md` |
+
+## 会话结束硬性义务
+
+- 追加 `docs/dev/changelog.md`（日期 + 3–5 行）
+- 踩新坑写入 `docs/discipline/ai_workflow_pitfalls.md`
+- 改机制/类名/数值 → 同步对应文档，否则视为任务未完成
+
+## 只读禁改
+
+`battlecore/`、`reference/`、`docs/prompts/` 禁止修改。
