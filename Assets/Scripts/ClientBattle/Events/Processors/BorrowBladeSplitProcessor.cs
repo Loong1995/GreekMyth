@@ -21,7 +21,7 @@ namespace ClientBattle.Events
     // 副事件按 seq 归属所在段），然后全列表按首事件 seq 稳定重排，
     // 使各段与其引出的响应/追伤组恢复事件流原生交错。
     //
-    // 判定借刀经构造注入的谓词（Runner 用 PerformanceDatabase 查
+    // 判定借刀经构造注入的谓词（PlaybackWorldBuilder 用 PerformanceDatabase 查
     // BorrowBlade 字段），本层不依赖 VFX 配置类型。
     // =========================================================================
 

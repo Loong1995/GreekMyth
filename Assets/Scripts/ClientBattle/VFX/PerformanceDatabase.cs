@@ -94,11 +94,15 @@ namespace ClientBattle.VFX
                 // 神：雷霆神谕——常驻卡面频繁落劈；触发贯穿对面用 RemoteStrike
                 new() { SkillOrStatusId = "thunder_oracle", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_thunder", SfxKey = "sfx_oracle_thunder" },
-                // 雷霆落雷：不位移；目标头顶宙斯头像 + 一道竖雷贯穿对面整卡
+                // 雷霆落雷：不位移；目标头顶宙斯头像 + DR 程序化竖雷贯穿整卡
                 new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.RemoteStrike,
-                        ProjectileKey = "lightning_strike", HitKey = "hit_lightning",
+                        HitKey = "hit_lightning",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
-                // 神：埃癸斯圣盾——挂身圣盾特效；反弹：持盾者 Cast 闪光后 Melee 突进
+                // 宙斯拆技天雷击：RemoteStrike 竖劈 + Vefects Directional（群攻 Auto 弧线几乎看不见）
+                new() { SkillOrStatusId = "zeus_bolt", Template = PerformanceTemplate.RemoteStrike,
+                        ProjectileKey = "lightning_projectile", HitKey = "hit_lightning",
+                        SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
+                // 神：埃癸斯圣盾——挂身圣盾特效；反弹 Melee+Cast；重击回血走纯治疗分支闪 icon_aegis_heal
                 new() { SkillOrStatusId = "athena_aegis", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_aegis", SfxKey = "sfx_oracle_aegis" },
                 new() { SkillOrStatusId = "aegis_shield", Template = PerformanceTemplate.Melee,
@@ -135,10 +139,10 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "patroclus_armor", Template = PerformanceTemplate.Melee,
                         BorrowBlade = true, ProjectileKey = "slash", StrikeVfxScale = 1.0f,
                         HitKey = "hit_generic", SfxKey = "sfx_active_default" },
-                // 人：阿喀琉斯之怒——追伤复用近身突进（Melee，与单体追击同观感），
-                // 敌方身上闪超大长矛裂甲图标+专属音效；禁止走 PerSegment 否则只剩飘字
+                // 人：阿喀琉斯之怒——追伤近身突进；裂甲长矛图标仅傲慢 25% 贯穿成功时播
                 new() { SkillOrStatusId = "achilles_wrath", Template = PerformanceTemplate.Melee,
                         ExtraIconKey = "icon_spear_crack", ExtraIconScale = 2.6f,
+                        ExtraIconRequiresPierceBoost = true,
                         HitKey = "hit_pierce", SfxKey = "sfx_achilles_pierce",
                         StrikeVfxScale = 1.5f },
                 // 人：十二试炼——反打走普攻逻辑

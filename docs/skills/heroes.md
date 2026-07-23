@@ -8,6 +8,7 @@
 - **效果**：自身物理暴击率 +35%（整局）；每次物理/魔法暴击后对原目标追加 80%
   兵刃（无视统帅、**可暴击**），每回合最多 **7** 次；追加可再触发本战法（链式）。
 - **实现**：性格·傲慢——无条件 25% 判定成功则追伤系数 ×1.5 + 贯穿台词。
+- **演出**：追伤近身突进；裂甲长矛 ExtraIcon **仅贯穿成功时**渐变闪（`ExtraIconRequiresPierceBoost`）。
 - **事件流**：status_tick(achilles_wrath) + 子 damage(physical, kind=fury)。
 
 ## patroclus_standin 代战（帕特洛克勒斯·自带·被动）

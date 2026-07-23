@@ -36,6 +36,8 @@ namespace ClientBattle.VFX
         public string AuraKey = "";                   // 常驻光环（神谕挂身/暴击机会等）
         public string BoardFilterKey = "";            // 整盘滤镜（海洋呼吸/血色呼吸）
         public string ExtraIconKey = "";              // 特殊图标（裂甲长矛/木马炸弹等）
+        /// <summary>true：仅当 EventGroup.PierceBoost（傲慢 25% 贯穿）才播 ExtraIcon。</summary>
+        public bool ExtraIconRequiresPierceBoost;
         public string PortraitMarkKey = "";           // 头像标（B5 皇卡：受影响单位头顶
                                                       // 短暂浮现指定武将头像，如 zeus/hades）
         public string SfxKey = "";                    // 主音效

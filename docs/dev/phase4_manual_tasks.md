@@ -1,5 +1,9 @@
 # Phase 4 人工工作清单（采购 / 操作 / 确认）——具体到名字
 
+> 【历史文档/历史快照】Phase 4 已落地；武将池现为 **32 将**（本文 "29 将"
+> 为当时口径，A4 后追加 hecate/calypso/patroclus，以 `battle/roster.py` 为准）。
+> 采购登记现行权威：`docs/client/assets_upload_guide.md` §三。
+>
 > 配套 `phase4_plan.md`（其 B 附以本文为准，本文更细）。AI 侧全部占位先行，
 > 资源到位放入指定目录即生效、零代码。授权凭证一律登记
 > `docs/client/assets_upload_guide.md` §三采购表。

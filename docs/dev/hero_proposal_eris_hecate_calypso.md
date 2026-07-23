@@ -1,5 +1,8 @@
 # 武将编制草案：厄里斯 / 赫卡忒 / 卡吕普索
 
+> 【历史文档/历史快照】编制草案与拍板记录；现行权威见下方"状态"段所列
+> skills 分册与 `battle/roster.py`。
+>
 > **落地修订（2026-07-22）**：厄里斯槽位改为 **帕特洛克勒斯**（`patroclus`，
 > 英雄阵营；战法 `patroclus_standin`/`patroclus_armor`；性格点将 `bonong`；
 > S1 羁绊 `achilles↔patroclus`）。下文「厄里斯」段落保留为草案史料，**以

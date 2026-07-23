@@ -9,7 +9,7 @@ namespace ClientBattle.Units
     // 分档：四轨最高值 <4 无 / ≥4 小 / ≥5 / ≥6 / ≥7 满分大。
     // 生命周期：
     //   - Refresh(max)：momentum_change 落账驱动（MomentumService.Apply）。
-    //   - 相位信号（Runner 只发信号，不逐单位管火）：
+    //   - 相位信号（PlaybackDirector 只发信号，不逐单位管火）：
     //       OnActionPauseBegin  行动切换停顿 → 全场火渐灭（粒子停发+缩放归零）；
     //       OnActionPauseEnd    停顿结束 → 残余火强制销毁；
     //       OnRoundBanner       回合横幅前 → 提前开渐灭（末位行动→下回合无 ActionStart）。

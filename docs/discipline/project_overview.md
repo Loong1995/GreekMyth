@@ -8,7 +8,8 @@
 ## 二、核心玩法形态
 
 - 3v3 卡牌对战（每队 1~3 人，主将必设）；系列连战最多 7 局，每局 1 准备回合 +
-  8 正常回合；仅主将阵亡判负，平局残血续战。
+  正常回合默认打到一方主将阵亡（D-06 修订；安全兜底 `ROUNDS_PER_GAME=999`，
+  `rounds_per_game` 可覆盖，演示/僵局测试用 8）；仅主将阵亡判负，平局残血续战。
 - 兵力三池：可战 troops / 伤兵 wounded / 阵亡 dead；受击 30/70 拆分，
   治疗只回伤兵，回合始伤兵 30% 自然损耗。
 - 战报 = 唯一事实源：后端 simulate 产出事件流 JSON（契约冻结），
@@ -18,7 +19,7 @@
 
 希腊神话诸神与英雄混战。四阵营（faction id 为代码定论，Phase 4 A4 定稿后不得再改名）：
 
-| faction id | 中文 | 气质 | 武将（template_id，现行 **32** 将：8/9/7/8） |
+| faction id | 中文 | 气质 | 武将（template_id，现行 **32** 将：7/10/7/8） |
 |---|---|---|---|
 | `olympus`（原 gods） | 奥林匹斯 | 神圣、雷光、鎏金 | zeus 宙斯、athena 雅典娜、ares 阿瑞斯、apollo 阿波罗、asclepius 阿斯克勒庇俄斯、artemis 阿尔忒弥斯、nike 尼刻 |
 | `heroes`（原 men） | 英雄 | 血性、青铜、战场 | achilles 阿喀琉斯、**patroclus 帕特洛克勒斯**、heracles 赫拉克勒斯、perseus 珀尔修斯、atalanta 阿塔兰忒、paris 帕里斯、ajax 埃阿斯、hector 赫克托尔、jason 伊阿宋、castor 卡斯托耳 |

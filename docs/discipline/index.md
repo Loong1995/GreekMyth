@@ -24,7 +24,7 @@
 - **客户端**：`docs/client/index.md` 起步；核心机制 `performance_mechanisms.md`。
 - **历史存档**（只读参考，不代表现状）：`docs/prompts/`（任务书）、
   `docs/dev/v0_analysis.md`、`phase3_plan.md`、`decisions_client_phase2.md`、
-  `performance.md`（旧基准）。
+  `performance.md`（旧基准，0.2.0 时采集，现 core 0.4.1，如需现值重跑）。
 - **决策记录**：`docs/dev/decisions.md`（D 系列玩法决策，现行有效）。
 - **变更日志**：`docs/dev/changelog.md`，每个工作会话结束必须追加。
 

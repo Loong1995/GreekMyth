@@ -18,7 +18,10 @@ namespace ClientBattle.Units
     {
         public HeroSnapshot Hero { get; private set; }
         public string TeamId { get; private set; }
+        /// <summary>出场固定中心（槽位锚点，整局不变）。</summary>
         public Vector3 HomePosition { get; private set; }
+        /// <summary>当前休息点：每次位移回位后重采样，落在 Home 为中心、边长=卡宽/4 的正方形内。</summary>
+        public Vector3 RestPosition { get; private set; }
         public StatusIconPanel StatusPanel { get; private set; }
         public Transform BubbleAnchor { get; private set; }
 
@@ -63,6 +66,7 @@ namespace ClientBattle.Units
             Hero = hero;
             TeamId = teamId;
             HomePosition = position;
+            RestPosition = position;
             CurrentTroops = hero.InitialTroops;
             _frameColor = factionColor;
             transform.position = position;
@@ -109,10 +113,11 @@ namespace ClientBattle.Units
             StretchSpriteToSlot(_petrifyOverlay, FrameSlotW, FrameSlotH);
             _petrifyOverlay.gameObject.SetActive(false);
 
-            // 状态图标面板
+            // 状态图标面板（卡顶外侧横排；尺寸跟卡宽）
             var panelGo = new GameObject("StatusIconPanel");
             panelGo.transform.SetParent(transform, false);
             StatusPanel = panelGo.AddComponent<StatusIconPanel>();
+            StatusPanel.Configure(FrameSlotW, FrameSlotH * 0.5f);
 
             // 台词气泡锚点（卡牌右上）
             var anchor = new GameObject("BubbleAnchor");
@@ -205,6 +210,7 @@ namespace ClientBattle.Units
             _overflowFlash.color = new Color(1f, 1f, 1f, 0.85f);
             DOTween.To(() => _overflowFlash.color, c => _overflowFlash.color = c,
                     new Color(tint.r, tint.g, tint.b, 0f), 0.45f)
+                .SetLink(gameObject)
                 .OnComplete(() => _overflowFlash.gameObject.SetActive(false));
             transform.DOPunchScale(Vector3.one * 0.08f, 0.3f, 6).SetLink(gameObject);
         }
@@ -260,6 +266,43 @@ namespace ClientBattle.Units
             _portraitMarkTween = seq;
         }
 
+        SpriteRenderer _overlayFlashIcon;
+        Tween _overlayFlashTween;
+
+        /// <summary>卡面中央短暂闪图标（普通格挡 / 圣盾反伤等）；淡入→持→淡出。
+        /// 资源 Resources/ClientBattle/VFX/&lt;key&gt;.png，无则色块占位。</summary>
+        public void FlashOverlayIcon(string iconKey, Color? tint = null, float duration = 0.7f)
+        {
+            if (string.IsNullOrEmpty(iconKey)) return;
+            if (_overlayFlashIcon == null)
+            {
+                _overlayFlashIcon = NewSprite("OverlayFlashIcon", null, 32);
+                _overlayFlashIcon.transform.localPosition = new Vector3(0f, 0.2f, -0.55f);
+            }
+            _overlayFlashTween?.Kill();
+            var color = tint ?? Color.white;
+            _overlayFlashIcon.sprite = PlaceholderFactory.GetSprite(
+                "VFX", iconKey, color, 64);
+            FitSpriteToSlot(_overlayFlashIcon, FrameSlotW * 0.55f, FrameSlotW * 0.55f);
+            _overlayFlashIcon.sortingOrder = 32;
+            _overlayFlashIcon.gameObject.SetActive(true);
+            _overlayFlashIcon.color = new Color(color.r, color.g, color.b, 0f);
+            float fadeIn = Mathf.Min(0.14f, duration * 0.22f);
+            float fadeOut = Mathf.Min(0.28f, duration * 0.4f);
+            float hold = Mathf.Max(0.08f, duration - fadeIn - fadeOut);
+            var seq = DOTween.Sequence().SetLink(gameObject);
+            seq.Append(DOTween.To(() => _overlayFlashIcon.color, c => _overlayFlashIcon.color = c,
+                new Color(color.r, color.g, color.b, 1f), fadeIn));
+            seq.AppendInterval(hold);
+            seq.Append(DOTween.To(() => _overlayFlashIcon.color, c => _overlayFlashIcon.color = c,
+                new Color(color.r, color.g, color.b, 0f), fadeOut));
+            seq.OnComplete(() =>
+            {
+                if (_overlayFlashIcon != null) _overlayFlashIcon.gameObject.SetActive(false);
+            });
+            _overlayFlashTween = seq;
+        }
+
         float BarCenterX(int order) =>
             (order - (MomentumService.TrackTable.Count - 1) / 2f) * (MomentumBarWidth + 0.05f);
 
@@ -293,12 +336,35 @@ namespace ClientBattle.Units
             _hpLabel.text = CurrentTroops.ToString();
         }
 
-        /// <summary>受击顿挫：短促位移抖动 + 红闪。</summary>
+        /// <summary>在出场固定中心附近重采样休息点（正方形边长 = 卡宽/4）。</summary>
+        public Vector3 RerollRestPosition()
+        {
+            float half = FrameSlotW / 8f; // 边长 FrameSlotW/4 → 半边 FrameSlotW/8
+            RestPosition = HomePosition + new Vector3(
+                Random.Range(-half, half),
+                Random.Range(-half, half),
+                0f);
+            return RestPosition;
+        }
+
+        /// <summary>位移回位：先重采样休息点，再 tween 过去（演出层观感抖动，不影响结算）。</summary>
+        public Tween DOMoveReturnHome(float duration, Ease ease = Ease.OutQuad)
+        {
+            return transform.DOMove(RerollRestPosition(), duration)
+                .SetEase(ease).SetLink(gameObject);
+        }
+
+        /// <summary>受击顿挫：短促位移抖动 + 红闪；结束后重采样休息点（同回位微抖区域）并贴回。</summary>
         public void HitReact(bool isCrit)
         {
             transform.DOKill(true);
             transform.DOShakePosition(isCrit ? 0.3f : 0.18f, isCrit ? 0.22f : 0.12f, 20)
-                .OnComplete(() => transform.position = Defeated ? transform.position : HomePosition);
+                .SetLink(gameObject)
+                .OnComplete(() =>
+                {
+                    if (Defeated) return;
+                    transform.position = RerollRestPosition();
+                });
             FlashPortrait(isCrit ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 0.55f, 0.55f));
         }
 
@@ -306,7 +372,9 @@ namespace ClientBattle.Units
         {
             var original = Color.white;
             _portrait.color = flash;
-            DOTween.To(() => _portrait.color, c => _portrait.color = c, original, 0.25f);
+            _portrait.DOKill(); // 连点/连击互斥：先杀上一次立绘闪
+            DOTween.To(() => _portrait.color, c => _portrait.color = c, original, 0.25f)
+                .SetTarget(_portrait).SetLink(gameObject);
         }
 
         Tween _petrifyTween;
@@ -328,7 +396,8 @@ namespace ClientBattle.Units
                 {
                     AllIn1CardFx.SetPetrifyAmount(_fxFrameMat, _fxPortraitMat, 0f);
                     _petrifyTween = DOVirtual.Float(0f, 1f, 0.4f, v =>
-                        AllIn1CardFx.SetPetrifyAmount(_fxFrameMat, _fxPortraitMat, v));
+                        AllIn1CardFx.SetPetrifyAmount(_fxFrameMat, _fxPortraitMat, v))
+                        .SetLink(gameObject);
                 }
                 else
                 {
@@ -338,6 +407,7 @@ namespace ClientBattle.Units
                     start = Mathf.Clamp01(start);
                     _petrifyTween = DOVirtual.Float(start, 0f, 0.5f, v =>
                         AllIn1CardFx.SetPetrifyAmount(_fxFrameMat, _fxPortraitMat, v))
+                        .SetLink(gameObject)
                         .OnComplete(RefreshAllIn1Keywords);
                 }
                 return;
@@ -349,12 +419,14 @@ namespace ClientBattle.Units
                 _petrifyOverlay.gameObject.SetActive(true);
                 _petrifyOverlay.color = new Color(1f, 1f, 1f, 0f);
                 _petrifyTween = DOTween.To(
-                    () => _petrifyOverlay.color, c => _petrifyOverlay.color = c, Color.white, 0.3f);
+                    () => _petrifyOverlay.color, c => _petrifyOverlay.color = c, Color.white, 0.3f)
+                    .SetLink(gameObject);
             }
             else if (_petrifyOverlay.gameObject.activeSelf)
             {
                 _petrifyTween = DOTween.To(() => _petrifyOverlay.color, c => _petrifyOverlay.color = c,
                         new Color(1f, 1f, 1f, 0f), 0.5f)
+                    .SetLink(gameObject)
                     .OnComplete(() => _petrifyOverlay.gameObject.SetActive(false));
             }
         }
@@ -443,7 +515,7 @@ namespace ClientBattle.Units
 
         void ApplyFrameRestColor()
         {
-            if (_frame != null) _frame.color = FrameRestColor();
+            if (_frame != null) _frame.color = ApplyDim(FrameRestColor());
         }
 
         System.Collections.IEnumerator AresRagePulseLoop()
@@ -462,7 +534,7 @@ namespace ClientBattle.Units
                 {
                     t += Time.deltaTime;
                     float wave = 0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2f / period);
-                    _frame.color = Color.Lerp(rest, hot, wave);
+                    _frame.color = ApplyDim(Color.Lerp(rest, hot, wave));
                     yield return null;
                 }
             }
@@ -506,16 +578,66 @@ namespace ClientBattle.Units
             }
         }
 
-        /// <summary>压暗（单挑聚焦等场合非参战单位调暗）。</summary>
-        public void SetDimmed(bool dimmed)
+        Tween _dimTween;
+        float _dimAmount; // 0=正常 1=压暗（单挑无关武将）
+        public const float DimFadeSeconds = 0.45f;
+        /// <summary>压暗目标亮度倍率（微微发灰，勿过黑）。</summary>
+        const float SoftDimMul = 0.78f;
+
+        /// <summary>压暗（单挑聚焦：全场非对阵双方微微发灰）。渐变；怒火呼吸也乘算本倍率。</summary>
+        public void SetDimmed(bool dimmed, float duration = DimFadeSeconds)
         {
-            var tint = dimmed ? new Color(0.4f, 0.4f, 0.45f) : Color.white;
-            _portrait.color = tint;
-            if (_aresRage && !dimmed) return; // 怒火呼吸自己管框色
-            if (_ornateFrame)
-                _frame.color = dimmed ? new Color(0.55f, 0.55f, 0.58f) : Color.white;
-            else
-                _frame.color = dimmed ? Color.Lerp(_frameColor, Color.black, 0.55f) : _frameColor;
+            if (Defeated) return; // 阵亡已灰化，不参与单挑压暗
+            _dimTween?.Kill();
+            float from = _dimAmount;
+            float to = dimmed ? 1f : 0f;
+
+            if (duration <= 0.001f)
+            {
+                _dimAmount = to;
+                ApplyDimVisuals();
+                return;
+            }
+
+            _dimTween = DOTween.To(() => from, v =>
+            {
+                _dimAmount = v;
+                ApplyDimVisuals();
+            }, to, duration).SetEase(Ease.InOutQuad).SetLink(gameObject);
+        }
+
+        /// <summary>当前压暗乘子（怒火脉冲等动态着色时调用）。</summary>
+        public Color ApplyDim(Color c)
+        {
+            if (_dimAmount <= 0.001f) return c;
+            float m = Mathf.Lerp(1f, SoftDimMul, _dimAmount);
+            return new Color(c.r * m, c.g * m, c.b * m, c.a);
+        }
+
+        void ApplyDimVisuals()
+        {
+            if (Defeated) return;
+            float m = Mathf.Lerp(1f, SoftDimMul, _dimAmount);
+            var tint = new Color(m, m, m, 1f);
+
+            if (_portrait != null) _portrait.color = tint;
+            // 怒火脉冲每帧写框色，此处只在无怒火时写框；有怒火由脉冲走 ApplyDim
+            if (!_aresRage && _frame != null)
+                _frame.color = ApplyDim(FrameRestColor());
+
+            if (_nameLabel != null)
+                _nameLabel.color = new Color(m, m, m, 1f);
+            if (_hpFill != null)
+                _hpFill.color = new Color(0.35f * m, 0.9f * m, 0.4f * m, 1f);
+            if (_hpLabel != null)
+                _hpLabel.color = new Color(0.8f * m, 0.8f * m, 0.82f * m, 1f);
+
+            foreach (var kv in _momentumBars)
+            {
+                if (kv.Value == null) continue;
+                if (MomentumService.TrackTable.TryGetValue(kv.Key, out var style))
+                    kv.Value.color = ApplyDim(style.Tint);
+            }
         }
 
         /// <summary>阵亡：变灰倒下（保留尸位，主将阵亡由横幅另行强调）。</summary>
@@ -523,14 +645,16 @@ namespace ClientBattle.Units
         {
             Defeated = true;
             transform.DOKill();
+            _dimTween?.Kill();
             SetAresRage(false);
             _portrait.color = new Color(0.35f, 0.35f, 0.35f);
             _frame.color = _ornateFrame
                 ? new Color(0.4f, 0.4f, 0.42f)
                 : new Color(0.3f, 0.3f, 0.3f);
             transform.DORotate(new Vector3(0f, 0f, TeamId == "A" ? -80f : 80f), 0.45f)
-                .SetEase(Ease.InQuad);
-            transform.DOMove(HomePosition + new Vector3(0f, -0.25f, 0f), 0.45f);
+                .SetEase(Ease.InQuad).SetLink(gameObject);
+            transform.DOMove(RestPosition + new Vector3(0f, -0.25f, 0f), 0.45f)
+                .SetLink(gameObject);
         }
 
         /// <summary>整局重置（下一局开始时复活重摆）。</summary>
@@ -538,10 +662,16 @@ namespace ClientBattle.Units
         {
             Defeated = false;
             transform.DOKill();
+            _dimTween?.Kill();
+            _dimAmount = 0f;
+            RestPosition = HomePosition;
             transform.position = HomePosition;
             transform.rotation = Quaternion.identity;
             _portrait.color = Color.white;
             _frame.color = _ornateFrame ? Color.white : _frameColor;
+            if (_nameLabel != null) _nameLabel.color = Color.white;
+            if (_hpFill != null) _hpFill.color = new Color(0.35f, 0.9f, 0.4f);
+            if (_hpLabel != null) _hpLabel.color = new Color(0.8f, 0.8f, 0.82f);
             SetPetrified(false);
             SetAresRage(false);
             SetTroops(initialTroops);

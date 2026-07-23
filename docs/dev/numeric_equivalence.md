@@ -1,5 +1,8 @@
 # 数值等价统计验证结论（任务书 4.3 / Step B2 验收项）
 
+> 【历史文档/历史快照】B2 时期（core battle-0.1.x）对旧核的等价验证结论；
+> 现行验收方式见 `docs/discipline/global_rules.md` §六（pytest + golden + schema 校验）。
+
 日期：2026-07-05　执行工具：`battle/tools/numeric_equivalence.py`（可直接
 `python battle/tools/numeric_equivalence.py` 复跑，结果落
 `battle/tools/out/numeric_equivalence_result.txt`）

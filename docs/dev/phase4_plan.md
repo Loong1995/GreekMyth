@@ -1,5 +1,8 @@
 # Phase 4 执行计划（可行版，依 phase4_reply 批注定稿）
 
+> 【历史文档/历史快照】本计划已执行完毕（2026-07-19~20 落地，见
+> `changelog.md`）；现行机制以 `docs/mechanics/index.md` 为准。
+>
 > 任务书：`docs/prompts/phase4_coreupgrade.md`；评审与人工批注：
 > `docs/dev/phase4_reply.md`。本计划经人工确认后按批次开工。
 > 全程对照 `docs/discipline/`（尤其 project_overview §七框架级要求、

@@ -43,12 +43,18 @@ namespace ClientBattle.VFX
             {
                 // 格挡/反弹：轻顿挫，表示打在盾/身上，而非完全无反馈
                 target.HitReact(isCrit: false);
+                // 普通格挡 / 圣盾反伤：卡面中央渐变闪图标（VFX/ 待上传，现色块占位）
+                if (damage.Mitigation == "block")
+                    target.FlashOverlayIcon("icon_block",
+                        tint: new Color(0.75f, 0.82f, 0.95f), duration: ctx.Scaled(0.65f));
+                else if (damage.Mitigation == "reflect")
+                    target.FlashOverlayIcon("icon_aegis",
+                        tint: new Color(1f, 0.88f, 0.45f), duration: ctx.Scaled(0.7f));
             }
             ctx.Sfx.Play(string.IsNullOrEmpty(profile.HitSfxKey) ? "sfx_hit_default" : profile.HitSfxKey);
             ctx.Floats.ShowDamage(target, floatSkillName, damage.Amount, damage.IsCrit,
                 damage.Mitigation, damage.DamageType);
-            if (damage.Troops != null)
-                target.SetTroops(damage.Troops.TroopsAfter);
+            EventApplyService.ApplyDamage(damage, ctx); // 镜像写入统一入口（R-7.4）
             ctx.OnDamageSettled?.Invoke(damage, floatSkillName);
         }
 
@@ -60,8 +66,7 @@ namespace ClientBattle.VFX
             ctx.Vfx.PlayAt("heal_generic", target.transform.position, ctx.Scaled(0.5f));
             ctx.Sfx.Play("sfx_heal_default");
             ctx.Floats.ShowHeal(target, floatSkillName, heal.Amount, heal.IsCrit);
-            if (heal.Troops != null)
-                target.SetTroops(heal.Troops.TroopsAfter);
+            EventApplyService.ApplyHeal(heal, ctx); // 镜像写入统一入口（R-7.4）
         }
 
         /// <summary>组内非伤害/治疗副事件的兜底表现（状态/属性/兵力/阵亡/台词）。

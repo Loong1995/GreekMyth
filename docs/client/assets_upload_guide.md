@@ -11,8 +11,8 @@
 |---|---|---|---|
 | 特效 Prefab | 25 key | **已购三包配齐 v1**（variant 已目视校准尺寸） | 光环/前摇质感一般，可后续换专属 |
 | 整盘滤镜 | 3 key | 程序化色罩（BoardFilterOverlay），**无需上传** | 真棋盘底图定稿后调透明度 |
-| 状态图标 | 6 控制类 | 哈希色块占位；**常规上方小图标已取消** | 仅控制 6 个待传（可选） |
-| 立绘 | 24 | 阵营色块+首字母占位 | 全部待上传 |
+| 状态图标 | 9 控制类 | 哈希色块占位；**卡顶外侧横排**（宽≈卡宽 1/5） | 仅控制 9 个待传（可选） |
+| 立绘 | 32 | 阵营色块+首字母占位 | 全部待上传 |
 | 音效 | ~40 key | 程序化合成哔声占位 | 全部待上传（已购 Universal Sound FX 在手） |
 | UI/卡框 | 4 张 | 程序化圆角矩形占位 | 全部待上传 |
 
@@ -25,40 +25,42 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | key | 用途 | 备注 |
 |---|---|---|
 | `slash` | 近身斩击 Burst | 普攻×1.0、追击×1.5；**不作飞行弹道** |
-| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道 | DualBolt Orange / Purple；群攻弧线+朝向+错峰齐射 |
+| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | **029-Bolt200** Orange / Purple（原 031-Arrow 偏粉无力已换下） |
+| `proj_bolt200` | （可选）粗束弹道 029；战吼已改走默认 `blade_bolt` | **029-Bolt200** Orange |
+| `lightning_projectile` | 宙斯拆技天雷击（`zeus_bolt`） | **Vefects** Directional；**RemoteStrike** 自上而下；池内 sorting≥45 |
 | `hit_generic` / `heal_generic` | 默认命中 / 治疗命中 | |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
-| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯怒火 key（仅红呼吸，不挂火粒子） | `UnitView.SetAresRage` |
+| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯自带：血战/战神之勇 | 仅卡框红呼吸 `UnitView.SetAresRage`（不挂火粒子） |
 | `momentum_fire` | 势能火（四轨最高 ≥4/5/6/7 分档） | **CFXR3 Fire (No Smoke)**；卡上缘；非状态光环 |
-| `aura_freeze` | 冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
+| `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
 | `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
-| `aura_aegis` | 圣盾 | All In 1：卡框金描边+呼吸辉光（`UnitView.SetAegisAura`） |
+| `aura_aegis` / `hit_shield_counter` | 圣盾光环 / 反制命中 | 光环 ← **CFXR Magic Aura A (Runic)**；另有 All In 1 卡框金描边呼吸（`UnitView.SetAegisAura`） |
 | 石化 `petrify` | 美杜莎 | All In 1：立绘+卡框灰阶石色渐变（`UnitView.SetPetrified`） |
-| （程序化）`FireRimFx` | 阿瑞斯卡边火舌 | 血战底边弱 / 战神之勇四边；火焰朝外抖动 |
 | `lightning_strike` / `hit_lightning` | （旧）粒子落雷，触发已改程序化 | 命中闪仍可用 hit_lightning |
-| `aura_aegis` / `hit_shield_counter` | 圣盾光环 / 反制命中 | 光环 ← **CFXR Magic Aura A (Runic)**（符文护环） |
-| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯自带：血战/战神之勇 | 仅卡框红呼吸（不再挂 CFXR 火） |
-| `aura_freeze` | 卡吕普索冰锢 | **CFXR3 Ice Shield**，卡面下方 |
 | `aura_tide` | 波塞冬潮汐挂身（poseidon_tide） | **CFXR LightGlow A (Loop, Blue)** 蓝色呼吸光 |
 | `aura_underworld` | 哈迪斯冥域挂身（吸血/幽影/献统） | **CFXR Suspicious Cloud (Black)**；挂载时强制极透（alpha×0.12） |
 | `aura_bloodlust_weak` / `aura_bloodlust_strong` | （旧）血红光环，已弃用阿瑞斯挂载 | 资源仍可留作他用 |
 | `aura_sunlight` | 呼吸阳光（德尔斐/尼刻复用） | |
 | `aura_hermes_mark` | 神使/扰心印记 | |
-| `icon_spear_crack` | 阿喀琉斯裂甲图标（超大） | ExtraIconScale=2.6 |
+| `icon_spear_crack` | 阿喀琉斯裂甲图标（超大；**仅傲慢 25% 贯穿成功时播**） | ExtraIconScale=2.6 |
+| `icon_aegis` | 雅典娜圣盾**反伤**闪烁图标（卡面中央渐变闪） | 待上传；与 icon_spear 同目录 VFX/ |
+| `icon_aegis_heal` | 雅典娜圣盾**重击回血**闪烁图标（与反伤区分） | 待上传；未传则青绿占位 |
+| `icon_block` | 普通格挡触发闪烁图标（卡面中央渐变闪，同圣盾逻辑） | 待上传；蓝灰占位 |
 | `icon_trojan_bomb` / `hit_explosion_crack` | 木马炸弹图标 / 裂开爆炸 | |
 | `proj_flying_sword` / `hit_sword` | 珀尔修斯飞剑弹道 / 命中 | |
 | `proj_wave` / `hit_wave` | 海神水浪弹道 / 命中 | |
 | `hit_pierce` / `hit_petrify` / `hit_clash` | 穿刺 / 石化反噬 / 单挑对撞 | |
 
-> ~~`proj_aegis_bounce`~~：已取消。圣盾反弹走 `aegis_shield` **Melee**（持盾者闪光后突进），
-> 不配回击弹道。  
+> ~~`proj_aegis_bounce`~~：已取消。圣盾反弹走 `aegis_shield` **Melee**（持盾者闪光后突进）；
+> 重击回血不走 Melee，闪 `icon_aegis_heal`。不配回击弹道。  
+
 > ~~`overflow_<track>`~~：甲案特效**不必采购**。势能跨 4 档已用乙案
 > （`UnitView.PlayMomentumOverflow` 白闪 + punch）；观感够用再考虑从已购
 > Vefects 里抠一发 burst 做共用 `overflow_burst`（可选精修，非阻塞）。
 
 尺寸红线：variant 根缩放按**目视校准**（禁止按包围盒归一，拖尾会把包围盒撑到
-几十单位）；现值：弹道/治疗/命中 1.0、DualBolt 弹道 variant 0.55、剑击/穿刺 0.35、
-slash 0.25、光环 0.9~1.4。演出层只允许相对缩放（`*=`）。
+几十单位）；现值：弹道/治疗/命中 1.0、Bolt200 默认弹道 0.75、
+Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。演出层只允许相对缩放（`*=`）。
 
 ### 2. 状态图标 `Resources/ClientBattle/StatusIcons/<status_id>.png`
 
@@ -76,11 +78,11 @@ slash 0.25、光环 0.9~1.4。演出层只允许相对缩放（`*=`）。
 > **尺寸**：任意分辨率即可；运行时按卡面槽位等比 contain（`UnitView.FitSpriteToSlot`），
 > 不要求统一像素。竖构图更贴卡；极端扁图会留边。
 
-24 名武将，文件名 = roster 模板 id：
-`zeus athena ares hermes apollo asclepius artemis nike`
-`achilles patroclus heracles odysseus perseus atalanta paris ajax hector jason castor`
-`poseidon amphitrite triton siren scylla`
-`hades medusa persephone charon thanatos cerberus`
+32 名武将（7/10/7/8，与 `battle/roster.py` 同步），文件名 = roster 模板 id：
+`zeus athena ares apollo asclepius artemis nike`（奥林匹斯 7）
+`achilles patroclus heracles perseus atalanta paris ajax hector jason castor`（英雄 10）
+`poseidon amphitrite triton siren scylla odysseus calypso`（海域 7）
+`hades medusa persephone charon thanatos cerberus hermes hecate`（冥界 8）
 （v4 池：喀戎/卡律布狄斯已下架；奥德修斯/赫尔墨斯 A4 改隶海域/冥界，id 不变）
 
 **头像标复用同一路径（无需另传）**：落雷/吸统等演出的 `PortraitMarkKey`
@@ -137,7 +139,7 @@ slash 0.25、光环 0.9~1.4。演出层只允许相对缩放（`*=`）。
 > 原则：一次只换一类资源，换完跑一遍验收（§二.6），改配置不改代码。
 
 ### 步骤 1：控制类状态图标（可选，约 1 小时）
-仅 6 个控制 id（§一.2）。[game-icons.net](https://game-icons.net)（CC BY 3.0）
+仅 9 个控制 id（§一.2，以 `StatusPresentationRegistry` `ControlIcon=true` 为准）。[game-icons.net](https://game-icons.net)（CC BY 3.0）
 导出 PNG 放入即可；常规状态图标**不要做**。
 
 ### 步骤 2：音效（一天体力活）
@@ -146,7 +148,7 @@ Package Manager 导入已购 Universal Sound FX → 按 §一.4 清单逐 key �
 
 ### 步骤 3：立绘（观感提升最大）
 AI 生图初稿（统一 prompt："greek mythology, 2D card game portrait, bust,
-painterly"）全量 24 张先上；后续外包精修主推 8 将（¥200~500/张）逐批同名替换。
+painterly"）全量 32 张先上；后续外包精修主推 8 将（¥200~500/张）逐批同名替换。
 **顺带验收头像标**：有 `zeus.png` / `hades.png` 后，打一场带雷霆/冥域献统的战报，
 确认目标头顶浮现对应小头像（机制见 performance_mechanisms「头像标 C1」）。
 

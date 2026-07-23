@@ -8,13 +8,17 @@ namespace ClientBattle.VFX
     // - Set(text)：常驻顶部横幅（回合号/单挑/终局等），空串清除。
     // - ShowTextCutIn(text, holdSeconds)：金字大标横幅（战术变更等无立绘主体
     //   的 cut-in 回退），到时自动淡出。
-    // - 战后结算面板（Test/SettlementPanel）可见时本服务不绘制（原 Runner 行为）。
+    // - Suppressed=true 时不绘制（战后结算面板等全屏 UI 置位让位；
+    //   依赖方向：上层 UI 写本服务开关，基础设施不反向探测 Test 层）。
     // - 渲染仍为 OnGUI（本次重构不换 Canvas）；字号按屏高缩放（800px 基准）。
     // =========================================================================
 
     public class BannerService : MonoBehaviour
     {
         public static BannerService Instance { get; private set; }
+
+        /// <summary>全屏 UI（结算面板等）独占屏幕时置 true，横幅/文字 cut-in 让位。</summary>
+        public static bool Suppressed;
 
         string _banner = "";
         string _cutInText = "";
@@ -54,7 +58,7 @@ namespace ClientBattle.VFX
 
         void OnGUI()
         {
-            if (Test.SettlementPanel.Visible) return; // 结算面板独占屏幕
+            if (Suppressed) return; // 全屏 UI（结算面板）独占屏幕
             float k = Mathf.Max(1f, Screen.height / 800f);
             DrawCutIn(k);
             if (string.IsNullOrEmpty(_banner)) return;

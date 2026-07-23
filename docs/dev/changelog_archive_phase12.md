@@ -1,6 +1,7 @@
 # Changelog 历史存档（Phase 1 / Phase 2，≤2026-07-06）
 
-> 从 `changelog.md` 拆分（2026-07-15）。只读存档。
+> 【历史文档/历史快照】从 `changelog.md` 拆分（2026-07-15）。只读存档；
+> 现行日志见 `changelog.md`。
 
 ## 2026-07-06 单挑 T6 修复（折叠粒度整段播放）
 - 根因：折叠模式下 `duel_challenge`/`duel_result` 同 group，旧逻辑只播宣战、

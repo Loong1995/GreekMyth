@@ -8,7 +8,7 @@ namespace ClientBattle.Events
     // =========================================================================
     // 【第1层 事件模型】战报事件类 + BattleEventParser
     //
-    // 设计约定（与后端契约 docs/schema/battle_events.md 对齐，schema 1.3.0）：
+    // 设计约定（与后端契约 docs/schema/battle_events.md 对齐，schema 1.4.1）：
     // - 信封字段（seq/t/type/parent_seq/group_id）强类型；payload 逐类型解析成派生类字段。
     // - 未知事件类型 → UnknownEvent（RawPayload 保留），向前兼容义务：跳过但不中断播放。
     // - 派生类只做"读取"不做任何结算——客户端红线：一切数值以事件为准。

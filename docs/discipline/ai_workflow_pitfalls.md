@@ -148,5 +148,13 @@ Runner 不得自定常数；「独占单元」= 等够动画完整时长、前�
 现象：按 P-18 把 duel_* 台词改成独立组，或 TraitLineExtract 抽走 Duel 组内
 `trait_trigger` → 播放顺序变成「整段单挑演完才说叫阵」，或 challenge/result
 与台词错位。
-正确做法：单挑台词**挂在 duel 组内**；`PlayDuel` 按时点（号角后叫阵 → 应战/
-拒战）播气泡；`TraitLineExtractProcessor` **跳过** `GroupKind.Duel`。
+正确做法：单挑台词**挂在 duel 组内**；`DuelPerformance` 按时点（号角后叫阵 →
+应战/拒战）播气泡；`TraitLineExtractProcessor` **跳过** `GroupKind.Duel`。
+
+## P-23 PowerShell 文本替换会毁掉 UTF-8 中文文件
+
+现象：用 `Get-Content | -replace | Set-Content` 批量改含中文注释的 .cs 文件，
+输出被按本地代码页重编码，中文全部变乱码（2026-07-23 PerformanceRunner 中招，
+被迫整文件重写恢复）。
+正确做法：改文件一律用编辑器级工具（StrReplace/Write）；确需脚本批处理时用
+Python `io.open(..., encoding="utf-8")` 读写，禁止 PowerShell 管道改中文文件。

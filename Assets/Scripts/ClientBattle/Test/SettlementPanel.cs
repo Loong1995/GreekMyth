@@ -48,9 +48,14 @@ namespace ClientBattle.Test
             _settlement = snapshot;
             _tab = Mathf.Clamp(_tab, 0, snapshot.Games.Count - 1);
             _show = true;
+            VFX.BannerService.Suppressed = true; // 横幅让位（依赖方向：UI→基础设施）
         }
 
-        public void Hide() => _show = false;
+        public void Hide()
+        {
+            _show = false;
+            VFX.BannerService.Suppressed = false;
+        }
 
         void OnGUI()
         {
@@ -127,7 +132,7 @@ namespace ClientBattle.Test
             float bw = 140 * k, bh = 36 * k;
             if (GUI.Button(new Rect(mid - bw * 0.5f, Screen.height - 48 * k, bw, bh),
                     "关闭结算", _btnStyle))
-                _show = false;
+                Hide();
         }
 
         float EstimateHeight(GameSettlementSnapshot snap, float k)

@@ -8,9 +8,9 @@ namespace ClientBattle.VFX
     // =========================================================================
     // 【第4层 演出执行】DuelPerformance：单挑播放单元（阻塞时间轴）。
     //
-    // 流程：压暗非参战单位 → 号角横幅 → 叫阵台词 →（拒战：拒战台词；应战：
+    // 流程：压暗非参战单位（渐变）→ 号角横幅 → 叫阵台词 →（拒战：拒战台词；应战：
     // 应战台词 → 全屏裂缝交错 cut-in ×clash_cutins → 胜者横幅 → 败者四维
-    // 惩罚落账）→ 解除压暗。原嵌在 PerformanceRunner.PlayDuel，2026-07-22 拆出。
+    // 惩罚落账）→ 解除压暗（渐变）。原嵌在 PerformanceRunner.PlayDuel，2026-07-22 拆出。
     // =========================================================================
 
     public class DuelPerformance : SkillPerformance
@@ -21,16 +21,20 @@ namespace ClientBattle.VFX
             var result = group.First<DuelResultEvent>();
             if (challenge == null) yield break;
 
-            // 非参战单位压暗，聚焦单挑双方
+            // 全场非对阵双方微微发灰（渐变）；对阵双方强制恢复正常亮度
+            string duelA = challenge.ChallengerId, duelB = challenge.DefenderId;
             foreach (var unit in ctx.Board.AllUnits)
-                unit.SetDimmed(unit.Hero.HeroId != challenge.ChallengerId &&
-                               unit.Hero.HeroId != challenge.DefenderId);
+            {
+                bool duelists = unit.Hero.HeroId == duelA || unit.Hero.HeroId == duelB;
+                unit.SetDimmed(!duelists, Units.UnitView.DimFadeSeconds);
+            }
             ctx.OnBanner?.Invoke(
                 $"⚔ 单挑！{challenge.ChallengerId}（武{challenge.ChallengerForce}） vs " +
                 $"{challenge.DefenderId}（武{challenge.DefenderForce}）");
             ctx.Sfx.Play("sfx_duel_horn");
-            Audio.BgmLayerService.Instance?.Duck(); // 单挑全层 duck（B3）
-            yield return WaitScaled(ctx, 1.0f);
+            ctx.OnBgmDuck?.Invoke(); // 单挑全层 duck（B3）；经 ctx 注入，不抓单例
+            yield return WaitScaled(ctx, Units.UnitView.DimFadeSeconds);
+            yield return WaitScaled(ctx, 0.55f);
 
             // 叫阵台词（effect=duel_challenge，挂在 challenge 下）
             yield return PlayDuelLines(group, ctx, "duel_challenge");
@@ -49,8 +53,8 @@ namespace ClientBattle.VFX
                 var a = ctx.Unit(challenge.ChallengerId);
                 var b = ctx.Unit(challenge.DefenderId);
                 int clashes = Math.Clamp(challenge.ClashCutins, 1, 3);
-                if (a != null && b != null)
-                    yield return CutInService.Ensure().DuelClashRoutine(
+                if (a != null && b != null && ctx.CutIns != null)
+                    yield return ctx.CutIns.DuelClashRoutine(
                         ctx, a, b, clashes,
                         onClash: () =>
                         {
@@ -65,7 +69,9 @@ namespace ClientBattle.VFX
                     if (ev is AttrChangeEvent) EventApplyService.Apply(ev, ctx, animated: true);
                 yield return WaitScaled(ctx, 0.5f);
             }
-            foreach (var unit in ctx.Board.AllUnits) unit.SetDimmed(false);
+            foreach (var unit in ctx.Board.AllUnits)
+                unit.SetDimmed(false, Units.UnitView.DimFadeSeconds);
+            yield return WaitScaled(ctx, Units.UnitView.DimFadeSeconds);
             ctx.OnBanner?.Invoke("");
         }
 

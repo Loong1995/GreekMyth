@@ -10,10 +10,9 @@
 |---|---|---|---|---|
 | 1 | 事件解析 | 战报 JSON → 强类型事件对象，未知类型降级 UnknownEvent 跳过不崩 | `Events/BattleEvents.cs` | [framework §第1层](client_battle_framework.md) |
 | 2 | 分组 | 按 group_id 聚成 EventGroup（root+副事件），再按 root 类型分类 GroupKind | `Events/EventPipeline.cs` | [framework §第2层](client_battle_framework.md) |
-| 3 | 反应后置 | 响应类 status_tick 拆到主组之后；序=事件流=引擎先守后攻，同持有者他人施加先于自身 | `Events/Processors/ReactionRegroupProcessor.cs` | 同上 |
-| 4 | 节点合并 | 纯记账节点（自然损耗等）标记 ParallelWithNext 静默落账不停顿；大节点（回合/单挑/终局）独立演出 | `Events/Processors/NodeMergeProcessor.cs` | 同上 |
+| 3 | 分组管线 | 6 processor 依次改写（借刀拆段→反应后置→集体齐发→台词抽取→贯穿打标→节点合并），注册于 `PlaybackWorldBuilder.Build`，全表见 [playback_units §二](playback_units.md) | `Events/Processors/*.cs` | [playback_units.md](playback_units.md) |
 | 5 | 三级演出配置 | 特殊配置(每战法一条) → 组默认(主动/普攻/追击/状态/神谕) → 全默认兜底；未配置 LogWarning | `VFX/VFXResolver.cs` + `VFX/PerformanceDatabase.cs` | [framework §第3层](client_battle_framework.md) |
-| 6 | 播放主循环 | 逐组协程播放；Speed 调速、SkipToEnd 静默落账快进；纯编排（落账/横幅/cut-in/单挑/结算表均已拆出） | `VFX/PerformanceRunner.cs` | [framework §第4层](client_battle_framework.md) |
+| 6 | 播放主循环 | 逐组协程播放；Speed 调速、SkipToEnd 静默落账快进；主循环在 `PlaybackDirector`，`PerformanceRunner` 作生命周期门面（状态机+HardStop），建世界在 `PlaybackWorldBuilder` | `VFX/PlaybackDirector.cs` + `VFX/PerformanceRunner.cs` | [architecture.md](architecture.md) |
 | 7 | 统一落账 | 全客户端唯一事件落账入口 `Apply(ev, ctx, animated)`：兵力/状态/光环/石化/势能/属性/阵亡；animated=true 追加飘字/音效；cut-in 请求统一由此发出（2026-07-22 重构，消除动画版/静默版 4 处平行实现） | `VFX/EventApplyService.cs` | — |
 
 **队列阻塞规则（2026-07-20 改定）**：行动类播放单元（主动/普攻/追击/
@@ -70,8 +69,8 @@
 | 闪光档（4） | 某轨首次 `value≥Flash(4)`：白闪爆发帧 + punch 缩放（**乙案已定稿**；不采购专属 overflow 包） | `MomentumService.Apply` → `PlayMomentumOverflow` |
 | 满档（5） | `value≥Full(5)`：常驻 rim 流光（多轨叠混色+呼吸）；服务端同档起每次 `cut_in=true` | `UnitView.RefreshGlow` / `add_momentum` |
 | cut-in 通道 | **全屏单人 cut-in**（2026-07-21 升级）：暗幕 + 阵营色斜带甩入 + 巨幅立绘反向滑入 + 大字标题，约 0.8s 甩出；触发源①满档轨（见下行语义）②高伤 >3000 ③行动窗内追伤第 5 次（②③非阻塞不占时间轴）；**同一播放组只播 1 次**去重，不做回合级限流（C10 定案）。无主体的播报（战术变更）回退 OnGUI 文字横幅。请求入口与组去重收口 `CutInService.Request` | `VFX/CutInService.Request/PlaySolo`；回退 `VFX/BannerService.ShowTextCutIn` |
-| 满档 cut-in 语义（2026-07-22 修订） | **按轨过滤**：轨**已满（≥5）之后**该轨再次进账才切入——刚满 5 的当次不切、其他轨互不影响（服务端满 5 当次起都带 `cut_in`，客户端按落账前镜像值过滤）；**阻塞出手**：动作组内命中此条件时，Runner 在出手前 `PlaySoloBlocking` 独占时间轴，cut-in 播完才开打；**强化音效**：该次出手主音效换 `sfx_attack_empowered`（`VFXContext.EmpoweredStrike`，播完复位） | `PerformanceRunner.FindFullTrackCutIn` + `CutInService.PlaySoloBlocking` + `EventApplyService.ApplyMomentum` |
-| 连发演出 | `skill_trigger.burst_no≥2`：**与首发完全同模板整套重播**（`Classify` 按 burst_no 判为 ActiveSkill——连发 parent 指回首发触发事件，若不判会误分类成追击）；在此之上叠加节拍加速（倍率 `PerformanceProfile.BurstTempoScale`，默认 ×1.35，经 `VFXContext.TempoScale` 生效、播完复位）+ 施法者「连发 ×N」金色角标 | `EventPipeline.Classify` / `PerformanceRunner.PlayGroup` |
+| 满档 cut-in 语义 | **按轨**：某轨已满（≥5）后，**同轨再次进账**的伤害出手前触发；刚满 5 当次不切。**阻塞**：`PlaySoloBlocking` 切完才开打。**标题＝即将造成伤害的技能名**（战法/普攻/协击/状态归因战法）。强化音效 `sfx_attack_empowered`。落账路径不再弹「势能全开·轨名」 | `CutInPolicy.FindFullTrackCutIn` + `CutInPolicy.SkillNameOf`（`PlaybackDirector.PlayGroup` 调用）+ `CutInService.PlaySoloBlocking` |
+| 连发演出 | `skill_trigger.burst_no≥2`：**与首发完全同模板整套重播**（`Classify` 按 burst_no 判为 ActiveSkill——连发 parent 指回首发触发事件，若不判会误分类成追击）；在此之上叠加节拍加速（倍率 `PerformanceProfile.BurstTempoScale`，默认 ×1.35，经 `VFXContext.TempoScale` 生效、播完复位）+ 施法者「连发 ×N」金色角标 | `EventPipeline.Classify` / `PlaybackDirector.PlayGroup` |
 | 协击标 | `normal_attack.kind=="coordinated"`：出手前施法者「协击」青色角标，其余复用 Melee 模板 | `DefaultPerformance.Play` |
 
 新增轨/改 tint 只动 `MomentumService.TrackTable` 一处（注册表驱动红线）。
@@ -80,24 +79,25 @@
 
 | 机制 | 一句话 | 代码 |
 |---|---|---|
-| BGM 分层 | 4 stem（`BGM/bgm_stem_{drums,bass,melody,other}`）按**全局势能**（=MomentumService.GlobalTotal）三档淡入淡出（0~7/8~15/16+）；**切层对齐小节边界**（登记 Bpm/BeatsPerBar，pending 到小节头生效）；单挑与 cut-in 全层 duck -8dB、0.5s 恢复；stem 缺失回退单曲 `bgm_main`（音量+低通随档），全缺则静默 no-op；`MomentumService` 不再直连 Audio——经 `GlobalMomentumChanged` 回调由 Runner 接线（2026-07-22 解耦） | `Audio/BgmLayerService.cs`（StemTable 注册表） |
+| BGM 分层 | 4 stem（`BGM/bgm_stem_{drums,bass,melody,other}`）按**全局势能**（=MomentumService.GlobalTotal）三档淡入淡出（0~7/8~15/16+）；**切层对齐小节边界**（登记 Bpm/BeatsPerBar，pending 到小节头生效）；单挑与 cut-in 全层 duck -8dB、0.5s 恢复；stem 缺失回退单曲 `bgm_main`（音量+低通随档），全缺则静默 no-op；`MomentumService` 不再直连 Audio——经 `GlobalMomentumChanged` 回调由 `PlaybackWorldBuilder.Build` 接线（2026-07-22 解耦） | `Audio/BgmLayerService.cs`（StemTable 注册表） |
 | 飘字手调 | 字体/字号/颜色/上浮曲线全参数收进 SO（`Resources/ClientBattle/FloatingTextTuning.asset`，缺失用代码默认）；字体放 `Resources/ClientBattle/Fonts/` 填名即换 | `Units/FloatingTextTuning.cs`；操作文档 [floating_text_tuning.md](floating_text_tuning.md) |
 | 头像标（皇卡 C1） | profile.PortraitMarkKey：受影响单位头顶短暂浮现指定武将头像——宙斯落雷 `thunder`→zeus（RemoteStrike 落雷节拍内挂）、哈迪斯吸统 `hades_command_drain`→hades | `UnitView.ShowPortraitMark` + `DefaultPerformance` |
-| 圣盾反弹（C1） | `aegis_shield` Melee：Actor=持盾者（OwnerId）；CastKey 圣盾闪光后再突进反打；`aegis_ward` 控挡闪光 | `PerformanceDatabase` + `ActorOf(StatusTick)→OwnerId` |
-| 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlayGroupsRange`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
+| 圣盾反弹/回血（C1） | 反伤 `mitigation=reflect` → `icon_aegis`；普通格挡 → `icon_block`；`aegis_shield` 反弹 Melee（Cast 后再突进）；**重击回血**纯治疗组不走 Melee，闪 `icon_aegis_heal` + `SettleHeal` 绿字；`aegis_ward` 控挡闪光 | `UnitView.FlashOverlayIcon` + `DefaultPerformance` 纯治疗分支 |
+| 回位微抖 | 每次位移回位或**受击顿挫结束**重采样 `RestPosition`：落在出场 `HomePosition` 为中心、边长=卡宽/4 的正方形内；突进/落雷瞄当前休息点 | `UnitView.DOMoveReturnHome` / `HitReact` |
+| 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlaybackDirector.PlayGroupsRange`；入口 `PerformanceRunner.PlayHighlight`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
 
 ## 二、演出模板族（每组怎么演）
 
 | 模板 | 触发条件 | 演出 | 代码 |
 |---|---|---|---|
-| Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击** → 回位 | `DefaultPerformance.PlayMelee` |
-| AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 | `DefaultPerformance.PlayAoeCenter` |
+| Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击** → 回位（休息点重采样） | `DefaultPerformance.PlayMelee` |
+| AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样） | `DefaultPerformance.PlayAoeCenter` |
 | PerSegment 逐段 | 单体主动/多段 | 每段一个节拍：弹道 → 命中掉血 | `DefaultPerformance.PlayPerSegment` |
-| RemoteStrike 远程落击 | 雷霆等特殊配置 | **施法者不位移**；目标头顶头像标 + 自上而下命中特效齐发 → 掉血 | `DefaultPerformance.PlayRemoteStrike` |
+| RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`=DR 程序化竖雷；`zeus_bolt`=`lightning_projectile` Vefects Directional 自上而下 + 宙斯头像标 | `DefaultPerformance.PlayRemoteStrike` |
 | StatusTrigger | 状态触发组 | 默认按目标数走中心齐射/逐段；可特殊配置为 Melee / RemoteStrike | 同上（模板内分派） |
 | OracleAura 神谕 | 神谕/被动宣告 | 施法者前摇 → 组内状态一次性落账（同帧挂光环）+ 整盘滤镜 | `OracleAuraPerformance` |
-| None | 明确无演出（如蛇杖圣谕） | 只落账 | Runner 直接静默 |
-| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗 → 号角 → 叫阵气泡 →（拒战｜应战→**全屏裂缝交错 cut-in**→胜者）。裂缝 cut-in：中央斜裂缝线分屏，两张半屏武将卡一张自上而下、一张自下而上对向滑过裂缝算一次交错，`clash_cutins`（1~3，武力越接近越多）次来回、一次比一次快，末次停在中线对峙 + VS + 白闪后弹开 | `VFX/Performances/DuelPerformance.cs` + `CutInService.DuelClashRoutine` |
+| None | 明确无演出（如蛇杖圣谕） | 只落账 | `PlaybackDirector.ApplyGroupSilently`（`EventApplyService.Apply(animated:false)`） |
+| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗渐变 → 号角 → 叫阵气泡 →（拒战｜应战→**全屏裂缝交错 cut-in**→胜者）→ 恢复渐变。裂缝 cut-in：中央斜裂缝线分屏，两张半屏武将卡一张自上而下、一张自下而上对向滑过裂缝算一次交错，`clash_cutins`（1~3，武力越接近越多）次来回、一次比一次快，末次停在中线对峙 + VS + 白闪后弹开 | `VFX/Performances/DuelPerformance.cs` + `CutInService.DuelClashRoutine` |
 
 **斩击尺寸规则（2026-07-10 定）**：普攻斩击 = 资源基准尺寸 ×1.0；追击 ×1.5；
 再乘 profile.StrikeVfxScale（Inspector 可调）。物理组默认 key=`slash`、
@@ -110,8 +110,8 @@
 | 占位三级回退 | Resources/ClientBattle/ 同名真资源 → 程序化色块/合成音，永不缺资源 | `Placeholder/PlaceholderFactory.cs`；清单见 [assets_upload_guide](assets_upload_guide.md) |
 | 特效尺寸校准 | variant 根缩放按**目视校准**（勿按包围盒归一——拖尾/发射域会把包围盒撑到几十单位，按其缩放核心画面会消失，2026-07-10 教训）；现值：弹道/治疗/命中 1.0、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4；演出层只做相对缩放（`*=`），**禁止覆盖 localScale** | variant 在 `Assets/Resources/ClientBattle/VFX/`；来源映射见 [assets_upload_guide §一.1](assets_upload_guide.md) |
 | 池化与缩放复位 | 特效对象池复用；出生缩放由 VfxOriginalScale 记录，回池自动还原 | `VFX/VFXManager.cs` |
-| 特效预热（渲染级） | 开战前全部 VFX prefab 在**离屏 RT 相机前实渲 3 帧**再入池（仅实例化不渲染 warm 不到 shader/贴图）；PlayLoop 等 `PrewarmComplete` 再开播 | `VFXManager.Prewarm`（BuildWorld 调用） |
-| 报告驱动预热 | 开战前扫一遍战报：台词/名字字形、状态图标纹理、合成音效、气泡对象全部前置生成，战斗热路径只剩查缓存 | `PerformanceRunner.PrewarmFromReport` |
+| 特效预热（渲染级） | 开战前全部 VFX prefab 在**离屏 RT 相机前实渲 3 帧**再入池（仅实例化不渲染 warm 不到 shader/贴图）；`PerformanceRunner.PlayLoop` 等 `PrewarmComplete` 再开播 | `VFXManager.Prewarm`（`PlaybackWorldBuilder.Build` 调用） |
+| 报告驱动预热 | 开战前扫一遍战报：台词/名字字形、状态图标纹理、合成音效、气泡对象全部前置生成，战斗热路径只剩查缓存 | `PlaybackWorldBuilder.PrewarmFromReport` |
 | 飘字零分配动画与预热 | 开战前预建 24 个 TextMesh/动画记录并一次请求全部中文名、数字字形；运行时由服务统一 Update 上浮淡出，不再为每条飘字创建 DOTween Sequence/Tween/闭包，避免动态字体首次扩图与 GC 主线程尖峰 | `FloatingTextService.Prewarm/Update` + `ChineseNames.FloatingTextCharacters` |
 | 贴图导入红线 | 特效包贴图 maxSize≤1024 + 压缩 + 关 mipmap（2026-07-10 全量重导，内存 723→258MB）；新导入资源包必须照此设置 | 三包目录 importer 设置 |
 | 强度参数 | 滤镜/光环浓度 Intensity(0~3)、特殊图标 ExtraIconScale、斩击 StrikeVfxScale——全在 PerformanceDatabase 改，无需动代码 | `VFX/PerformanceProfile.cs` |
@@ -124,7 +124,7 @@
 | 受击表现 | 抖动+红闪（暴击更强）+相机震动（profile 可关）；震动为 trauma 噪声模型，连抖叠加封顶不瞬移 | `UnitView.HitReact` + `VFX/CameraShaker.cs` |
 | 待机呼吸 | 存活卡牌立绘正弦浮动，相位按位置错开；阵亡停止 | `UnitView.Update` |
 | 兵力刷新 | 恒取事件 troops_after 权威值，客户端零计算 | `UnitView.SetTroops` |
-| 状态图标 | **仅控制类**卡中央大图标；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` |
+| 状态图标 | **仅控制类**卡顶外侧横排（宽≈卡宽 1/5）+ 随机抖动；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` |
 | **状态常驻光环** | status_id → 光环 key + 挂载偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记…）；status_apply 挂、status_remove/阵亡/整局重置撤；一次性 flipbook 粒子强制循环+补发射密度+压半透明（`aura_fire*` 另偏橙红） | `Units/UnitAuraService.cs`；配置收口 `Names/StatusPresentationRegistry.cs`（新状态只加注册表一行） |
 | 整盘滤镜 | 程序化全屏呼吸色罩（血红/海蓝/冥紫按 key 取色），不用粒子 prefab（会成棋盘中心固定点）；透明度待真棋盘底图定稿再调 | `OracleAuraPerformance.BoardFilterOverlay` |
 | 石化 | 灰色卡框覆盖层淡入淡出（tween 互斥，新 tween 先杀旧）；施加走通用状态音 `sfx_status_petrify`，解除走 `sfx_petrify_off` | `UnitView.SetPetrified` |

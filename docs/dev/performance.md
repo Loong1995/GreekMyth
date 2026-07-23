@@ -3,8 +3,8 @@
 > 由 `python battle/benchmarks/bench_simulate.py --report <path>` 生成。
 > 目标（任务书 4.2）：单进程纯模拟 ≥100 局/秒。
 
-> 【历史快照】以下数据在 core battle-0.2.0 时采集；当前 core 为 battle-0.3.1
-> （Phase 3 机制大幅增加），数值仅供参考，如需现值请重跑基准更新本文件。
+> 【历史快照】以下数据在 core battle-0.2.0 时采集；当前 core 为 battle-0.4.1
+> （Phase 3/4 机制大幅增加），数值仅供参考，如需现值请重跑基准更新本文件。
 
 基准环境: Python 3.14.6 / Windows AMD64 / battle-0.2.0 / 2026-07-05
 

@@ -40,7 +40,7 @@ namespace ClientBattle.VFX
                 BoardFilterOverlay.Attach(ctx.Board.BoardFxRoot, profile.BoardFilterKey,
                     profile.Intensity);
 
-            // 神谕/被动宣告只触发表现，不占用主播放队列；特效自行播放。
+            // 神谕/被动宣告协程内不额外 yield（仍占行动单元槽位，几乎瞬过）；特效自行播放。
             yield break;
         }
 

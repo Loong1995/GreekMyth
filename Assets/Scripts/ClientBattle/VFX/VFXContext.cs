@@ -17,14 +17,16 @@ namespace ClientBattle.VFX
         public FloatingTextService Floats;
         public SfxManager Sfx;
         public ChatBubbleService Bubbles;
+        /// <summary>cut-in 服务（阻塞满档切入/决斗裂缝用；Request 走 OnCutInRequested）。</summary>
+        public CutInService CutIns;
         /// <summary>播放速度倍率（1=常速）；演出内所有等待时长除以它。</summary>
         public float SpeedScale = 1f;
-        /// <summary>组内节拍倍率（B1 连发加速用；Runner 每组播放前设置、播完复位）。</summary>
+        /// <summary>组内节拍倍率（B1 连发加速用；PlaybackDirector 每组播放前设置、播完复位）。</summary>
         public float TempoScale = 1f;
-        /// <summary>全局时长倍率（&gt;1 放慢）：动画节拍与 Runner 停顿共用，便于看清战报。</summary>
+        /// <summary>全局时长倍率（&gt;1 放慢）：动画节拍与编排层停顿共用，便于看清战报。</summary>
         public float DurationMul = 2f;
 
-        // ---- 编排层回调（由 Runner 注入；演出执行层不得反向引用 Runner 单例）----
+        // ---- 编排层回调（由 PlaybackWorldBuilder 注入；演出执行层不得反向引用控制器单例）----
         /// <summary>伤害结算回调（高伤 cut-in 门槛判定在编排层）。</summary>
         public System.Action<Events.DamageEvent, string> OnDamageSettled;
         /// <summary>cut-in 请求 (heroId, text, groupId)：heroId 非空走全屏单人
@@ -32,8 +34,10 @@ namespace ClientBattle.VFX
         public System.Action<string, string, int> OnCutInRequested;
         /// <summary>顶部横幅（BannerService.Set 的注入；单挑等演出内更新横幅用）。</summary>
         public System.Action<string> OnBanner;
+        /// <summary>BGM duck（单挑/cut-in 压低音乐；演出层不得直接抓 BgmLayerService 单例）。</summary>
+        public System.Action OnBgmDuck;
         /// <summary>本组出手前刚播完满档 cut-in（势能全开）：攻击主音效改用
-        /// 强化版 sfx_attack_empowered。Runner 每组播放前设置、播完复位。</summary>
+        /// 强化版 sfx_attack_empowered。PlaybackDirector 每组播放前设置、播完复位。</summary>
         public bool EmpoweredStrike;
 
         public UnitView Unit(string heroId) => Board.Unit(heroId);

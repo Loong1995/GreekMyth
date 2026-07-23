@@ -59,7 +59,12 @@
 | `perseus_mirror` | `perseus_relics` |
 | `achilles_thrust_crit` | `achilles_thrust` |
 
-新增「status_id ≠ 带技能 id」时：改 `StatusToSkill` 字典，并同步本表。
+以上为常见例；完整映射以 `Names/StatusPresentationRegistry.cs` 的
+`StatsSkillId` 字段为准（`nike_wings`、`patroclus_standin`、
+`underworld_burn`/`hecate_torch` 等亦已登记），未登记的 status 归因到
+status_id 自身。新增「status_id ≠ 带技能 id」时：在 StatusPresentationRegistry
+对应条目填 `StatsSkillId`（`BattleSkillStatsAggregator.MapStatusToSkill`
+委托 `StatsSkillOf()` 查此表），并同步本表。
 
 ## 4. 显示名
 

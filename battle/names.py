@@ -4,6 +4,13 @@ from __future__ import annotations
 
 只影响人类可读日志（textlog/sample/测试输出），不进入战报 JSON（契约字段仍是 id）。
 新增战法/状态时在此登记中文名；未登记的 id 原样显示（不报错）。
+
+与客户端 `ChineseNames.cs` 的同步约定（doc_standards §二-3）：
+- 正式战法/状态 id 双侧必须同步；
+- 本文件独有的 `cal_*`（标定池）/`test_*`（测试）为服务端专用，客户端不登记
+  （未知 id 原样显示即回退）；
+- 客户端独有的四维标签（force/…）、`coordinated`、`unknown`、tactic_id
+  中文名为播放/UI 专用，tactic_id 名以 `battle/tactics.py` 注册表为语义权威。
 """
 
 SKILL_NAMES: dict[str, str] = {
@@ -181,7 +188,6 @@ STATUS_NAMES: dict[str, str] = {
     "triton_surge_flood": "浪涌·抑统",
     "scylla_bite_speed": "撕咬·疾游",
     # ---- 冥界阵营状态 ----
-    "styx_blood_oath": "冥河血誓",
     "hades_lifesteal": "冥域吸血",
     "shadow_veil": "幽影蔽体",
     "hades_command_drain": "冥祭献统",

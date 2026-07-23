@@ -13,11 +13,13 @@ doc_standards / ai_workflow_pitfalls 踩坑录）。任何工作先读该目录 
 ## 当前阶段
 - Phase 3（机制大修 + 武将池 v3.1 + 性格系统）**已完成**；
   v3.2 追加（减免施加序逐实例判定、圣盾反弹）已落地。
-  schema **1.3.1** / core **battle-0.3.1**（`battle/version.py`）。
-- 客户端已重构为 **ClientBattle** 5 层框架（2026-07-09，占位可跑，
-  成品化只差资源替换），主文档 `docs/client/index.md`。
-- Phase 4（`docs/prompts/phase4_coreupgrade.md`）**尚未执行**，
-  回复计划 `docs/dev/phase4_reply.md` 待人工确认。
+  schema **1.4.1** / core **battle-0.4.1**（`battle/version.py`）。
+- Phase 4（势能/连发协击/BGM 分层/经理人战术等，`docs/prompts/phase4_coreupgrade.md`）
+  **已执行完毕**（2026-07-19~20 落地，见 changelog），武将池 32 将。
+- 客户端 **ClientBattle** 框架（2026-07-09 建立，占位可跑）已于 2026-07-23
+  完成播放核心架构重构（控制器/建造器/导演/策略拆分），主文档
+  `docs/client/index.md`；行为规格 `playback_requirements.md`、
+  架构权威 `architecture.md`。
 
 ## 契约文件（唯一前后端共同依赖）
 - `docs/schema/battle_events.md`（总纲）+ `battle_events_payloads.md`（明细）

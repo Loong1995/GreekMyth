@@ -36,7 +36,7 @@
 | 类别 | trait_id | 时点（引擎侧） |
 |---|---|---|
 | 性格台词 | 各性格 id | [traits.md](../mechanics/traits.md)；错开时点特例见 [hero_specials.md §1](../mechanics/hero_specials.md) |
-| 单挑台词 | 武将 `trait_id`（或 `voice`） | `effect=duel_challenge/accept/reject`；挂 duel 组，由 `PlayDuel` 播，见 [duel.md](../mechanics/duel.md) |
+| 单挑台词 | 武将 `trait_id`（或 `voice`） | `effect=duel_challenge/accept/reject`；挂 duel 组，由 `DuelPerformance.Play`（内部 `PlayDuelLines`）播，见 [duel.md](../mechanics/duel.md) |
 | 状态台词 | `"status"` | 控制/犹豫/先攻**临产生影响的执行节点**，见 [status_voice.md](../mechanics/status_voice.md) |
 
 播放机制（2026-07-20 定稿）：
@@ -65,8 +65,8 @@ defeat 同组）；客户端无特判——`TraitLineExtract` 抽成独占 Trait
   ≥5 后该轨再次进账才切，且**阻塞出手**——出手前 `PlaySoloBlocking` 独占时间轴，
   切完才开打、出手音效换 `sfx_attack_empowered`）/ 单笔伤害 >3000 /
   行动窗内第 5 次追伤（后两者不阻塞）；同播放组去重；新请求顶替旧的。
-  **文案（2026-07-22）**：满档 cut-in 标题＝该次即将出手的技能名
-  （战法中文名/「普攻」/状态名，Runner `SkillNameOf`）；
+  **文案**：满档 cut-in 标题＝即将造成伤害的技能名（战法中文名 /
+  「普攻」/「协击」/状态归因战法，`SkillNameOf`）；不再用「势能全开·轨名」。
   高伤 cut-in 文本末尾带伤害额度（`…重创 X！-金额`）。
   无主体播报（战术变更）回退旧 OnGUI 金字横幅。
   代码：入口 `CutInService.Request`（组去重）→ `PlaySolo`；阻塞入口

@@ -1,12 +1,12 @@
 # 机制主文档（index）
 
 > 只读本文件即可建立全局图景；处理局部问题时只加载对应机制文件。
-> 每机制 2-4 句精要 + 链接。当前进度：Phase 3（公式重做 + 格挡闪避 + 性格系统 +
-> 武将池 v3.1）完成；v3.2 减免定序 + 圣盾反弹。schema **1.3.1**（1.3.0 快照补
-> 重放字段；1.3.1 mitigation 增 reflect），core **battle-0.3.1**。
-> Phase 4 A1 底座（连发/协击/四轨势能/站位 1~6）与 A2 原语（恐惧/诅咒/必胜/
-> 清醒/格挡上限、约战注册表、新性格钩子）已落地，契约 1.4.0 草案进行中
-> （A 批收口时冻结并升版），势能默认门控关闭、旧 golden 不变。
+> 每机制 2-4 句精要 + 链接。当前进度：Phase 3 完成；**Phase 4 已全量落地**
+> （连发/协击/四轨势能/站位 1~6、恐惧/诅咒/必胜/清醒/格挡上限、约战注册表、
+> 新性格钩子、经理人战术、武将池 v4 共 32 将）。契约 **1.4.1 现行**
+> （1.4.0 势能/连发/协击；1.4.1 tactic_applied/exhausted），
+> core **battle-0.4.1**（`battle/version.py`）。势能**默认开启**
+> （`engine.py` `enable_momentum=True`）。
 > 工具：`battle/tools/`（batch_sim 批量统计 / replay_dump 战报转文本 / gen_golden /
 > gen_reference 人工审核参考物 / manual_battle 手动配阵入口 /
 > replay_report 玩家战报重放排查——战报 JSON→还原 setup→重跑→逐字节校验→all 日志）、
@@ -26,7 +26,7 @@ simulate(battle_setup, seed)                          battle/api.py
      │   ├─ DUEL 相位：单挑（仅第 1 局；武力>智力参赛 + 配对入池；D-03）→ duel.md
      │   ├─ 准备回合 r=0：timing=prepare 战法按行动顺序施放（神谕/被动入场）；
      │   │   主将神谕后两副将自带主动按各自触发率连携立即释放（Phase 3）→ assist.md
-     │   ├─ 正常回合 r=1..8：
+     │   ├─ 正常回合 r=1..（默认打到主将阵亡，兜底 999；rounds_per_game 可覆盖）：
      │   │   ├─ round_start → 回合计数器清零（落雷/追加伤害等每回合上限）
      │   │   │                → 伤兵自然损耗（伤兵池 30% 转阵亡）
      │   │   │                → DoT/HoT 周期 tick（status_tick + 子 damage/heal，可致死）
@@ -78,7 +78,7 @@ simulate(battle_setup, seed)                          battle/api.py
 | 犹豫 | 特殊，刷新不叠层；一窗一 roll 整体延后 1 回合（N→N+1）；计次统一前移至 action_start；已寄存延迟不受影响 | Phase 3 修订 | [hesitation.md](hesitation.md) |
 | 准备型战法 | prepare→release 两段协议；forbid_active 施加即打断（interrupted 事件） | B3 落地 | [effects.md](effects.md) §3 |
 | 控制状态交互矩阵 | 缄默×准备、石化×暴击、犹豫×冥锁等逐格结算，逐格配测试 | B3 落地 | [status_interactions.md](status_interactions.md) |
-| 武将池 v3.1 | 四阵营 24 将（神/人 8+8、海/冥 6+6），每人性格+自带+拆解战法；四维=基础+成长×(等级-1) | Phase 3 落地 | `battle/roster.py`、战法 `battle/skills_{gods,men,sea,underworld}.py` |
+| 武将池 v4 | 四阵营 **32** 将（奥林匹斯 7/英雄 10/海域 7/冥界 8），每人性格+自带+拆解战法；四维=基础+成长×(等级-1) | Phase 4 A4 落地 | `battle/roster.py`、战法 `battle/skills_{gods,men,sea,underworld}.py` |
 | 连发 + 协击 + 站位 1~6 | 主动战法可配连发率（伪随机、同窗硬上限 7、burst_no 事件化）；on_ally_basic_attack 钩子 + 协击原语（普攻口径、不连击、可追击、不连锁）；position 1~6（4~6 后排） | Phase 4 A1 落地 | [burst_coordination.md](burst_coordination.md) |
 | 四轨势能 | 每武将四轨按类型跨技能累计；满 5 当次起同轨 cut_in、4 分客户端闪光；自身行动窗清零；metadata 门控（默认开） | Phase 4 A1 落地 | [momentum.md](momentum.md) |
 | 经理人战术 | 注册表驱动（集火/保护/攻守倾向）；回合头逐队结算、变更最早第 2 回合、每方 2 次上限；tactic_applied 事件（1.4.1）；变更重算=同 seed 从头重模拟（前缀逐字节等价） | Phase 4 P4-C 落地 | [manager_tactics.md](manager_tactics.md) |

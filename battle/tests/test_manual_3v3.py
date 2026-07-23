@@ -39,7 +39,7 @@ SEED = 20260722
 
 TEAM_A = [
     # 宙斯：谋略主C——天雷击 + 神使戏言
-    #{"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest",)},
+    {"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest",)},
     # 雅典娜：防御核心——神盾格挡 + 灵蛇之吻
     {"template": "athena", "extra_skills": ("athena_guard", "asclepius_kiss",)},
     # 阿斯克勒庇俄斯：纯奶位
@@ -50,7 +50,7 @@ TEAM_A = [
     #{"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
     {"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
     # {"template": "medusa", "extra_skills": ("medusa_glance", "siren_charm",)},
-    {"template": "patroclus", "extra_skills": ("patroclus_armor","siren_charm")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
+    #{"template": "patroclus", "extra_skills": ("patroclus_armor","siren_charm")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
 ]
 
 TEAM_B = [

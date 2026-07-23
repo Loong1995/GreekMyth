@@ -1,6 +1,7 @@
-# 战斗事件流契约草案（battle_events）
+# 战斗事件流契约（battle_events）
 
-> Step A 产出 2/4（总纲）。事件类型逐一明细见 `battle_events_payloads.md`，
+> **现行版本：schema 1.4.1 / core battle-0.4.1**（`battle/version.py`；演进史见 §7）。
+> 总纲。事件类型逐一明细见 `battle_events_payloads.md`，
 > 机器可校验定义见 `battle_events.schema.json`。
 > 本契约一经人工确认即**冻结**，此后仅允许加法式演进（新增事件类型 / 新增可选字段），
 > 禁止修改或删除已有字段语义。
@@ -123,7 +124,7 @@ SeriesResult：`winner_team_id`（null=系列平局）、`total_games`、逐局�
 - 派生事件（`hero_defeated`、受击率无需事件化、`troops_change`）挂到引发它的
   结算事件之下。
 
-## 4. 事件类型清单（core 级，共 23 个）
+## 4. 事件类型清单（core 级，共 24 个）
 
 字段表 / 触发语义 / JSON 实例逐一见 `battle_events_payloads.md`。
 

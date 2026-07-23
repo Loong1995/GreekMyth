@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using ClientBattle.Placeholder;
+using DG.Tweening;
 using UnityEngine;
 
 namespace ClientBattle.VFX
@@ -154,12 +155,20 @@ namespace ClientBattle.VFX
             queue.Enqueue(instance);
         }
 
-        /// <summary>清空场上全部飞行中特效（跳过/快进时调用）。</summary>
+        /// <summary>清空场上全部飞行中特效（跳过/快进/重播时调用）。</summary>
         public void CancelAll()
         {
             StopAllCoroutines();
+            // 仅 SetActive(false) 停不了 DOTween；弹道 Sequence 会继续改 transform → 重播叠影
             foreach (Transform child in transform)
+            {
+                if (child == null) continue;
+                DOTween.Kill(child, complete: false);
+                DOTween.Kill(child.gameObject, complete: false);
+                foreach (var ps in child.GetComponentsInChildren<ParticleSystem>(true))
+                    ps.Clear(true);
                 child.gameObject.SetActive(false);
+            }
         }
 
         // ---------------------------------------------------------- 内部
@@ -174,11 +183,35 @@ namespace ClientBattle.VFX
                 if (stamp != null) pooled.transform.localScale = stamp.Value;
                 pooled.transform.localRotation = Quaternion.identity;
                 pooled.SetActive(true);
+                RestartParticles(pooled); // DualBolt 等 playOnAwake=0，不手动 Play 则无粒子
+                EnsureVfxSorting(pooled);
                 return pooled;
             }
             var built = Build(key, tint);
             built.AddComponent<VfxOriginalScale>().Value = built.transform.localScale;
+            RestartParticles(built);
+            EnsureVfxSorting(built);
             return built;
+        }
+
+        /// <summary>出池/新建后强制重播粒子（Assets/VFX DualBolt 等 playOnAwake=false）。</summary>
+        static void RestartParticles(GameObject instance)
+        {
+            if (instance == null) return;
+            foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                ps.Clear(true);
+                ps.Play(true);
+            }
+        }
+
+        /// <summary>Vefects 等源 Prefab sortingOrder=0，会被卡面盖住；抬到池默认档。</summary>
+        static void EnsureVfxSorting(GameObject instance)
+        {
+            if (instance == null) return;
+            const int minOrder = 45;
+            foreach (var r in instance.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                if (r.sortingOrder < minOrder) r.sortingOrder = minOrder;
         }
 
         GameObject Build(string key, Color? tint)

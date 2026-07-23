@@ -187,7 +187,7 @@ payload：`status`(pb1, StatusRef)、`source_id`(pb2)。
 `expired`（到期）/ `dispelled`（被驱散，parent 指向驱散动作）/
 `source_defeated`（来源阵亡清理，parent 指向 hero_defeated）/
 `game_end`（局末清空——整批清理不逐条发事件，由 game_end 语义覆盖，此值仅备驱散类演出需要）/
-`exhausted`（schema 1.4.0：充能耗尽即摘除，如必胜/格挡类载体 `remove_when_exhausted`）。
+`exhausted`（schema 1.4.1：充能耗尽即摘除，如必胜/格挡类载体 `remove_when_exhausted`）。
 
 ## 13. attr_change
 

@@ -33,6 +33,7 @@ namespace ClientBattle.VFX
         public override IEnumerator Play(EventGroup group, PerformanceProfile profile, VFXContext ctx)
         {
             var damages = group.All<DamageEvent>();
+            var heals = group.All<HealEvent>();
             string actorId = ActorOf(group);
             var actor = ctx.Unit(actorId);
             string floatName = FloatNameOf(group);
@@ -42,6 +43,25 @@ namespace ClientBattle.VFX
             // 协击标（B1）：队友普攻后的追加协击，出手前挂「协击」角标
             if (group.Root is NormalAttackEvent { Kind: "coordinated" } && actor != null)
                 ctx.Floats.Show(actor, "协击", new Color(0.5f, 0.85f, 1f), 1.1f);
+
+            // 纯治疗组（无伤害）：禁止走 Melee/CastKey（圣盾反弹闪光），否则无治疗飘字且误闪反击盾
+            // 圣盾重击回血：另闪 icon_aegis_heal（与反伤 icon_aegis 区分）
+            if (damages.Count == 0 && heals.Count > 0)
+            {
+                bool aegisHeal = IsAegisShieldTick(group, profile);
+                foreach (var heal in heals)
+                {
+                    if (aegisHeal)
+                        ctx.Unit(heal.TargetId)?.FlashOverlayIcon("icon_aegis_heal",
+                            tint: new Color(0.45f, 0.92f, 0.65f), duration: ctx.Scaled(0.75f));
+                    SettleHeal(heal, ctx, floatName);
+                    yield return new WaitForSeconds(ctx.Scaled(0.3f));
+                }
+                foreach (var ev in group.Events)
+                    if (ev is not HealEvent && ev is not TraitTriggerEvent)
+                        SettleSideEvent(ev, ctx);
+                yield break;
+            }
 
             var template = profile.Template;
             if (template == PerformanceTemplate.Auto || template == PerformanceTemplate.StatusTrigger)
@@ -80,9 +100,16 @@ namespace ClientBattle.VFX
                     break;
             }
 
-            // 剩余副事件（状态/属性/兵力/阵亡等）统一收尾表现
+            // 伤害模板内未处理的治疗：统一 SettleHeal（飘字+特效+兵力）
+            foreach (var heal in heals)
+            {
+                SettleHeal(heal, ctx, floatName);
+                yield return new WaitForSeconds(ctx.Scaled(0.3f));
+            }
+
+            // 剩余副事件（状态/属性/兵力/阵亡等）统一收尾表现；治疗已结算
             foreach (var ev in group.Events)
-                if (ev is not DamageEvent && ev is not TraitTriggerEvent)
+                if (ev is not DamageEvent && ev is not HealEvent && ev is not TraitTriggerEvent)
                     SettleSideEvent(ev, ctx);
 
             // 头像标（B5 皇卡 C1）：受影响单位（伤害目标/属性变化承受者，除施法者外）
@@ -101,18 +128,35 @@ namespace ClientBattle.VFX
                     ctx.Unit(id)?.ShowPortraitMark(profile.PortraitMarkKey);
             }
 
-            // 特殊图标（如阿喀琉斯裂甲长矛：在目标身上闪一个超大图标）
-            // 异步播完即收，不占节拍——下一组开始时它仍在闪。
-            if (!string.IsNullOrEmpty(profile.ExtraIconKey) && damages.Count > 0)
+            // 特殊图标（阿喀琉斯裂甲：仅傲慢贯穿 25% 成功；渐变闪入闪出）
+            if (!string.IsNullOrEmpty(profile.ExtraIconKey) && damages.Count > 0
+                && (!profile.ExtraIconRequiresPierceBoost || group.PierceBoost))
             {
                 var lastTarget = ctx.Unit(damages[damages.Count - 1].TargetId);
                 if (lastTarget != null)
-                {
-                    var icon = ctx.Vfx.PlayOn(profile.ExtraIconKey, lastTarget.transform,
-                        ctx.Scaled(0.6f), new Vector3(0f, 0.3f, -0.5f));
-                    icon.transform.localScale *= profile.ExtraIconScale;
-                }
+                    PlayFadingExtraIcon(ctx, profile, lastTarget.transform);
             }
+        }
+
+        /// <summary>ExtraIcon 渐变闪：淡入 → 短持 → 淡出（不占节拍）。</summary>
+        static void PlayFadingExtraIcon(VFXContext ctx, PerformanceProfile profile, Transform host)
+        {
+            float life = ctx.Scaled(0.85f);
+            var icon = ctx.Vfx.PlayOn(profile.ExtraIconKey, host, life,
+                new Vector3(0f, 0.3f, -0.5f));
+            icon.transform.localScale *= profile.ExtraIconScale;
+            var sr = icon.GetComponent<SpriteRenderer>()
+                     ?? icon.GetComponentInChildren<SpriteRenderer>();
+            if (sr == null) return;
+            Color c = sr.color;
+            c.a = 0f;
+            sr.color = c;
+            var seq = DOTween.Sequence().SetLink(icon);
+            seq.Append(DOTween.To(() => sr.color, x => sr.color = x,
+                new Color(c.r, c.g, c.b, 1f), ctx.Scaled(0.12f)));
+            seq.AppendInterval(ctx.Scaled(0.4f));
+            seq.Append(DOTween.To(() => sr.color, x => sr.color = x,
+                new Color(c.r, c.g, c.b, 0f), ctx.Scaled(0.28f)));
         }
 
         // ---------------------------------------------------------- 普攻/近身
@@ -133,20 +177,21 @@ namespace ClientBattle.VFX
                 var target = ctx.Unit(damage.TargetId);
                 if (striker != null && target != null && !striker.Defeated)
                 {
-                    Vector3 strikePos = Vector3.Lerp(target.HomePosition, striker.HomePosition, 0.28f);
-                    var dash = striker.transform.DOMove(strikePos, ctx.Scaled(0.22f)).SetEase(Ease.InQuad);
+                    Vector3 strikePos = Vector3.Lerp(target.RestPosition, striker.RestPosition, 0.28f);
+                    var dash = striker.transform.DOMove(strikePos, ctx.Scaled(0.22f))
+                        .SetEase(Ease.InQuad).SetLink(striker.gameObject);
                     yield return dash.WaitForCompletion();
                 }
                 if (target != null)
                 {
                     var strike = ctx.Vfx.PlayAt(strikeKey,
-                        target.HomePosition + new Vector3(0f, 0.2f, -0.5f), ctx.Scaled(0.45f));
+                        target.RestPosition + new Vector3(0f, 0.2f, -0.5f), ctx.Scaled(0.45f));
                     strike.transform.localScale *= strikeScale;
                 }
                 SettleDamage(damage, profile, ctx, floatName);
                 if (striker != null && !striker.Defeated)
                 {
-                    var back = striker.transform.DOMove(striker.HomePosition, ctx.Scaled(0.24f)).SetEase(Ease.OutQuad);
+                    var back = striker.DOMoveReturnHome(ctx.Scaled(0.24f));
                     yield return back.WaitForCompletion();
                 }
             }
@@ -160,7 +205,8 @@ namespace ClientBattle.VFX
             // 施法者移动至卡盘中心
             if (actor != null && !actor.Defeated)
             {
-                var move = actor.transform.DOMove(ctx.BoardCenter, ctx.Scaled(0.3f)).SetEase(Ease.OutQuad);
+                var move = actor.transform.DOMove(ctx.BoardCenter, ctx.Scaled(0.3f))
+                    .SetEase(Ease.OutQuad).SetLink(actor.gameObject);
                 yield return move.WaitForCompletion();
             }
 
@@ -183,7 +229,7 @@ namespace ClientBattle.VFX
             // 命中特效/受击闪烁与回身位移同播，命中后不垫定格
             if (actor != null && !actor.Defeated)
             {
-                var back = actor.transform.DOMove(actor.HomePosition, ctx.Scaled(0.3f)).SetEase(Ease.OutQuad);
+                var back = actor.DOMoveReturnHome(ctx.Scaled(0.3f));
                 yield return back.WaitForCompletion();
             }
         }
@@ -193,7 +239,8 @@ namespace ClientBattle.VFX
         IEnumerator PlayRemoteStrike(EventGroup group, PerformanceProfile profile, VFXContext ctx,
                                      List<DamageEvent> damages, string floatName)
         {
-            // 触发：Digital Ruby 闪电贯穿对面整张卡（上→下，透明度 0.2）
+            // 宙斯雷霆等：目标头顶头像标 + 自上而下贯穿（无 ProjectileKey → DR 程序化雷；
+            // 有 key 时走 VFX 弹道，供其它 RemoteStrike 复用）
             float strikeTime = ctx.Scaled(0.35f);
             foreach (var damage in damages)
             {
@@ -203,18 +250,24 @@ namespace ClientBattle.VFX
                     target.ShowPortraitMark(profile.PortraitMarkKey, duration: ctx.Scaled(1.6f));
             }
             yield return new WaitForSeconds(ctx.Scaled(0.06f));
+            bool useVfxBolt = !string.IsNullOrEmpty(profile.ProjectileKey);
             foreach (var damage in damages)
             {
                 var target = ctx.Unit(damage.TargetId);
                 if (target == null) continue;
-                var center = target.HomePosition;
+                var center = target.RestPosition;
                 // FrameSlotH≈2.3：从卡顶上方劈穿到卡底下方
                 var from = center + new Vector3(Random.Range(-0.08f, 0.08f), 1.35f, -0.55f);
                 var to = center + new Vector3(Random.Range(-0.12f, 0.12f), -1.35f, -0.55f);
-                var bolt = DrLightningUtil.Spawn(ctx.Vfx.transform, "StrikeBolt");
-                DrLightningUtil.Fire(bolt, from, to, duration: strikeTime, chaos: 0.22f,
-                                     generations: 6, alpha: 0.2f, widthMul: 0.7f, sortingOrder: 50);
-                Object.Destroy(bolt.gameObject, strikeTime + 0.05f);
+                if (useVfxBolt)
+                    LaunchProjectile(ctx, profile.ProjectileKey, from, to, strikeTime);
+                else
+                {
+                    var bolt = DrLightningUtil.Spawn(ctx.Vfx.transform, "StrikeBolt");
+                    DrLightningUtil.Fire(bolt, from, to, duration: strikeTime, chaos: 0.22f,
+                                         generations: 6, alpha: 0.2f, widthMul: 0.7f, sortingOrder: 50);
+                    Object.Destroy(bolt.gameObject, strikeTime + 0.05f);
+                }
                 if (!string.IsNullOrEmpty(profile.HitKey))
                     ctx.Vfx.PlayAt(profile.HitKey, to + new Vector3(0f, 0.1f, 0.1f), ctx.Scaled(0.35f));
             }
@@ -243,12 +296,7 @@ namespace ClientBattle.VFX
                 SettleDamage(damage, profile, ctx, floatName);
                 // 段间不垫定格：下一段弹道立刻起飞，受击闪烁/飘字与其同播
             }
-            // 纯治疗/纯状态组（无伤害段）：等待覆盖治疗特效可见窗口
-            foreach (var heal in group.All<HealEvent>())
-            {
-                SettleHeal(heal, ctx, floatName);
-                yield return new WaitForSeconds(ctx.Scaled(0.3f)); // heal_generic 播放中
-            }
+            // 治疗统一在 Play 收尾 SettleHeal（避免与 Melee 等模板漏结算）
         }
 
         // ---------------------------------------------------------- 工具
@@ -331,6 +379,13 @@ namespace ClientBattle.VFX
             var ids = new HashSet<string>();
             foreach (var damage in damages) ids.Add(damage.TargetId);
             return ids.Count;
+        }
+
+        /// <summary>埃癸斯圣盾 status_tick（反弹或重击回血）。</summary>
+        static bool IsAegisShieldTick(EventGroup group, PerformanceProfile profile)
+        {
+            if (profile != null && profile.SkillOrStatusId == "aegis_shield") return true;
+            return group.Root is StatusTickEvent tick && tick.Status?.StatusId == "aegis_shield";
         }
 
         static string ActorOf(EventGroup group)

@@ -35,6 +35,8 @@ namespace ClientBattle.Events
         public List<BattleEvent> Events = new();  // 含 Root，按 seq 序
         /// <summary>true = 可与下一组并行播放（如同帧状态图标增删）；默认串行。</summary>
         public bool ParallelWithNext;
+        /// <summary>阿喀琉斯傲慢贯穿（25%）已成功：StatusTrigger 组播裂甲 ExtraIcon。</summary>
+        public bool PierceBoost;
 
         public int RootSeq => Root?.Seq ?? (Events.Count > 0 ? Events[0].Seq : 0);
 

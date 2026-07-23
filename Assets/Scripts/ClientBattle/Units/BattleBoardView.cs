@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using ClientBattle.Events;
+using DG.Tweening;
 using UnityEngine;
 
 namespace ClientBattle.Units
@@ -117,7 +118,11 @@ namespace ClientBattle.Units
         public void Clear()
         {
             foreach (var unit in _units.Values)
-                if (unit != null) Destroy(unit.gameObject);
+            {
+                if (unit == null) continue;
+                unit.transform.DOKill(true);
+                Destroy(unit.gameObject);
+            }
             _units.Clear();
             if (BoardFxRoot != null) Destroy(BoardFxRoot.gameObject);
             var bg = transform.Find("BoardBackground");

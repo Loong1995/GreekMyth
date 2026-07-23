@@ -15,7 +15,7 @@ namespace ClientBattle.VFX
     //    clash_cutins 次数越多（武力越接近）交错越多、一次比一次快，
     //    最后一次停在中线两侧对峙 → 裂缝闪白 →弹开。
     //
-    // 渲染：世界坐标 Sprite 挂相机中心，sorting 80~91（登记于
+    // 渲染：世界坐标 Sprite 挂相机中心，sorting 80~90（登记于
     // docs/client/rendering_layout.md §四）；占位三级回退与全局一致。
     // =========================================================================
 
@@ -93,7 +93,7 @@ namespace ClientBattle.VFX
         }
 
         /// <summary>阻塞式满档 cut-in（2026-07-22 语义修订）：cut-in 独占时间轴，
-        /// Runner 在攻击演出前 yield——切完才出手。同组去重与非阻塞路径共用。</summary>
+        /// PlaybackDirector.PlayGroup 在攻击演出前 yield——切完才出手。同组去重与非阻塞路径共用。</summary>
         public IEnumerator PlaySoloBlocking(VFXContext ctx, Units.UnitView unit,
                                             string text, int groupId)
         {

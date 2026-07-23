@@ -26,9 +26,9 @@
 
 | 元素 | 模式 | 槽位（世界单位） |
 |---|---|---|
-| 立绘 Portrait | **contain 等比**（不裁不拉伸，扁图留边） | 1.45 × 1.7 |
-| 头像标 PortraitMark | contain 等比 | 0.72 × 0.72 |
-| 卡框 Frame / 石化层 / 白闪 | **stretch 铺满**（占位方块要拉成卡面比例） | 1.7 × 2.3 |
+| 立绘 Portrait | **contain 等比**（不裁不拉伸，扁图留边） | 0.96 × 1.47（`UnitView.PortraitSlotW/H`，Antique 内窗） |
+| 头像标 PortraitMark | contain 等比 | 0.72 × 0.72（`PortraitMarkSlot`） |
+| 卡框 Frame / 石化层 / 白闪 | **stretch 铺满**（占位方块要拉成卡面比例） | 1.55 × 2.54（`FrameSlotW/H`，Antique doc view 1024×1680 外框） |
 | 满档流光 Glow | stretch，略大于卡框 | ×1.09 / ×1.07 |
 
 代码：`UnitView.FitSpriteToSlot`（contain，`Mathf.Min(slotW/w, slotH/h)`）与
@@ -49,7 +49,7 @@
 | 2~4 | 血条/势能条（文字类 +10 → 12/14） | `UnitView` |
 | 5 / 6 | 石化覆盖层 / 溢出白闪 | `UnitView` |
 | 15 | 状态常驻光环 | `UnitAuraService` |
-| 30 | 中央状态大图标 | `StatusIconPanel` |
+| 30 | 卡顶外侧状态图标 | `StatusIconPanel` |
 | 40 | **VFX 池默认**（弹道/斩击/落雷/占位块） | `VFXManager` |
 | 55 | 头像标（必须盖过落雷） | `UnitView.ShowPortraitMark` |
 | 60 | 飘字 | `FloatingTextService` |
@@ -60,7 +60,7 @@
 
 - 上下布局：A 队下、B 队上；队内按站位（1~6，4~6 为后排语义）从左到右横排居中。
 - 卡牌 GameObject 树：Frame（阵营色染色）→ Portrait（槽位 contain）→
-  NameLabel → HpBar+HpLabel → 四轨势能迷你条 → StatusIconPanel（中央大图标）→
+  NameLabel → HpBar+HpLabel → 四轨势能迷你条 → StatusIconPanel（卡顶外侧横排）→
   PetrifyOverlay → BubbleAnchor（右上，气泡锚点）。
 - 阵营配色唯一源：`BattleBoardView.FactionColors`（神金/人红/海蓝/冥紫），
   规范见 [faction_style.md](faction_style.md)。
