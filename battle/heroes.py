@@ -58,6 +58,13 @@ class HeroState:
 
 
 def build_hero_state(hero: HeroSetup, team: TeamSetup) -> HeroState:
+    from battle.formations import get_formation
+
+    formation = get_formation(team.formation)
+    initial_hit_points = DEFAULT_HIT_POINTS_BPS
+    if formation is not None:
+        initial_hit_points = formation.hit_points_bps.get(
+            hero.position, DEFAULT_HIT_POINTS_BPS)
     return HeroState(
         hero_id=hero.hero_id,
         team_id=team.team_id,
@@ -76,6 +83,7 @@ def build_hero_state(hero: HeroSetup, team: TeamSetup) -> HeroState:
         trait_id=hero.trait_id,
         gender=hero.gender,
         level=hero.level,
+        initial_hit_points_bps=initial_hit_points,
     )
 
 

@@ -5,13 +5,9 @@ using UnityEngine;
 namespace ClientBattle.Test
 {
     // =========================================================================
-    // 手动配阵测试页：6 个武将空位横排（左 3 = A 队，右 3 = B 队），中间
-    // 「对战 1 次 / 对战 100 次」。空位点击弹武将池（也可拖已上阵武将换位），
-    // 战法空格显示 +，点开战法池选中后「装配」。点武将/战法看详情并可更换。
-    // 对战 1 次走正常战报播放 + 结算；100 次显示标定风格统计表。
-    // 结算依赖 Python（ManualBattleBridge 子进程调 client_battle_bridge.py）。
-    //
-    // 用法：空场景（相机 + 灯）挂本脚本即可，无需 BattleReportTester。
+    // 手动配阵测试页：每队 6 站位（1~3 前排、4~6 后排），B 上 A 下镜面布局，
+    // 中间「对战 1 次 / 对战 100 次」。每队最多上阵 3 人。空位点击弹武将池
+    // （也可拖已上阵武将换位），战法空格显示 +。对战走战报播放 + 结算。
     // =========================================================================
 
     public class ManualSetupPanel : MonoBehaviour
@@ -22,37 +18,45 @@ namespace ClientBattle.Test
         [Tooltip("战斗服务地址（battle_server.py）；不可达时编辑器/桌面自动回退本机 python 子进程")]
         public string ServerUrl = "http://127.0.0.1:8017";
 
-        string _serverUrlEdit;                    // 页内地址编辑框
-        string _transport = "";                   // 最近一次结算通道 http/process
+        string _serverUrlEdit;
+        string _transport = "";
 
         ManualCatalog _catalog;
-        readonly ManualSlot[] _slots = new ManualSlot[6]; // 0~2 = A，3~5 = B
+        // 0~5 = A 站位 1~6；6~11 = B 站位 1~6
+        readonly ManualSlot[] _slots = new ManualSlot[12];
 
-        // 模态状态（同一时刻至多一个）
-        int _heroPickerSlot = -1;                 // 打开武将池的位序
-        int _skillPickerSlot = -1, _skillPickerCell = -1; // 战法池：位序 + 战法格(0/1)
-        string _skillPickerChoice;                // 战法池当前选中
-        int _heroDetailSlot = -1;                 // 武将详情
-        int _skillDetailSlot = -1, _skillDetailCell = -2; // 战法详情：-1=自带 0/1=可配格
+        int _heroPickerSlot = -1;
+        int _skillPickerSlot = -1, _skillPickerCell = -1;
+        string _skillPickerChoice;
+        int _heroDetailSlot = -1;
+        int _skillDetailSlot = -1, _skillDetailCell = -2;
 
-        ManualBattleBridge _job;                  // 正在跑的 python 任务
-        string _jobKind;                          // catalog / once / stats
+        ManualBattleBridge _job;
+        string _jobKind;
         string _error;
-        bool _playing;                            // 单次战斗会话中（配阵页隐藏，直到点「返回配阵」）
-        string _lastReportJson;                   // 供重播 / 高光
-        ManualStats _stats;                       // 百场统计结果（非空即显示）
+        bool _playing;
+        string _lastReportJson;
+        ManualStats _stats;
         Vector2 _statsScroll, _pickerScroll;
 
-        int _dragFrom = -1;                       // 拖拽换位：源位序
-        Vector2 _dragMouse;                       // 拖拽幽灵跟随鼠标
+        int _dragFrom = -1;
+        Vector2 _dragMouse;
         Vector2 _dragStart;
-        bool _dragMoved;                          // 位移超过阈值才算拖（否则当点击）
+        bool _dragMoved;
         const float DragThresholdPx = 8f;
+        const int MaxHeroesPerTeam = 3;
 
         PerformanceRunner _runner;
         GUIStyle _label, _bold, _btn, _cell;
 
-        static readonly string[] SlotTitles = { "A1", "A2", "A3", "B1", "B2", "B3" };
+        static int StanceOf(int slotIdx) => slotIdx % 6 + 1;
+        static bool IsTeamA(int slotIdx) => slotIdx < 6;
+        static string SlotTitle(int slotIdx)
+        {
+            int st = StanceOf(slotIdx);
+            string row = st <= 3 ? "前" : "后";
+            return $"{(IsTeamA(slotIdx) ? "A" : "B")}{st}·{row}";
+        }
 
         /// <summary>播放中、或结算表还开着：都压住配阵页，避免叠层。</summary>
         bool BattleChromeVisible =>
@@ -142,8 +146,8 @@ namespace ClientBattle.Test
 
         IEnumerable<int> TeamIndices(int slotIdx)
         {
-            int start = slotIdx < 3 ? 0 : 3;
-            for (int i = start; i < start + 3; i++) yield return i;
+            int start = IsTeamA(slotIdx) ? 0 : 6;
+            for (int i = start; i < start + 6; i++) yield return i;
         }
 
         bool TemplateUsedInTeam(int slotIdx, string templateId)
@@ -161,17 +165,40 @@ namespace ClientBattle.Test
             return false;
         }
 
-        bool TeamReady(int start)
+        int FilledCount(int teamStart)
         {
-            for (int i = start; i < start + 3; i++)
-                if (!_slots[i].IsEmpty) return true;
-            return false;
+            int n = 0;
+            for (int i = teamStart; i < teamStart + 6; i++)
+                if (!_slots[i].IsEmpty) n++;
+            return n;
+        }
+
+        bool TeamReady(int teamStart) => FilledCount(teamStart) >= 1;
+
+        bool TeamsValid(out string err)
+        {
+            err = null;
+            int a = FilledCount(0), b = FilledCount(6);
+            if (a < 1 || b < 1) { err = "两队至少各上阵 1 人"; return false; }
+            if (a > MaxHeroesPerTeam || b > MaxHeroesPerTeam)
+            {
+                err = $"每队最多 {MaxHeroesPerTeam} 人（站位 1~6 任选）";
+                return false;
+            }
+            return true;
         }
 
         void MoveOrSwap(int from, int to)
         {
             if (from == to || _slots[from].IsEmpty) return;
-            // 换位后不得造成同队同模板重复
+            // 跨队拖入空位时目标队不得超 3 人
+            if (_slots[to].IsEmpty)
+            {
+                int toStart = IsTeamA(to) ? 0 : 6;
+                int fromStart = IsTeamA(from) ? 0 : 6;
+                if (toStart != fromStart && FilledCount(toStart) >= MaxHeroesPerTeam)
+                    return;
+            }
             var a = _slots[from];
             var b = _slots[to];
             _slots[to] = a;
@@ -179,25 +206,31 @@ namespace ClientBattle.Test
             if ((!a.IsEmpty && TemplateUsedInTeam(to, a.TemplateId)) ||
                 (!b.IsEmpty && TemplateUsedInTeam(from, b.TemplateId)))
             {
-                _slots[from] = a; // 回滚
+                _slots[from] = a;
                 _slots[to] = b;
             }
         }
 
         void LaunchOnce()
         {
-            string cfg = ManualBattleBridge.BuildConfigJson(SubSlots(0), SubSlots(3));
+            if (!TeamsValid(out var err)) { _error = err; return; }
+            string cfg = ManualBattleBridge.BuildConfigJson(TeamSlots(0), TeamSlots(6));
             StartJob(ManualBattleBridge.RunOnce(cfg, Seed), "once");
         }
 
         void LaunchStats()
         {
-            string cfg = ManualBattleBridge.BuildConfigJson(SubSlots(0), SubSlots(3));
+            if (!TeamsValid(out var err)) { _error = err; return; }
+            string cfg = ManualBattleBridge.BuildConfigJson(TeamSlots(0), TeamSlots(6));
             StartJob(ManualBattleBridge.RunStats(cfg, StatsBattles, Seed), "stats");
         }
 
-        ManualSlot[] SubSlots(int start)
-            => new[] { _slots[start], _slots[start + 1], _slots[start + 2] };
+        ManualSlot[] TeamSlots(int start)
+        {
+            var arr = new ManualSlot[6];
+            for (int i = 0; i < 6; i++) arr[i] = _slots[start + i];
+            return arr;
+        }
 
         // ------------------------------------------------------------ OnGUI
 
@@ -278,19 +311,95 @@ namespace ClientBattle.Test
 
         int HitSlotIndex(Vector2 mouse)
         {
-            float k = Mathf.Max(1f, Screen.height / 800f);
-            float slotW = Mathf.Min(150 * k, Screen.width / 7.6f);
-            float slotH = 240 * k;
-            float midGap = slotW * 1.1f;
-            float total = slotW * 6 + 16 * k * 4 + midGap;
-            float x0 = (Screen.width - total) * 0.5f;
-            float y = 70 * k;
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 12; i++)
             {
-                float x = x0 + i * (slotW + 16 * k) + (i >= 3 ? midGap - 16 * k : 0);
-                if (new Rect(x, y, slotW, slotH).Contains(mouse)) return i;
+                if (SlotRect(i, Mathf.Max(1f, Screen.height / 800f)).Contains(mouse))
+                    return i;
             }
             return -1;
+        }
+
+        /// <summary>站位格屏幕矩形：B 后/前在上半，A 前/后在下半，中间留对战按钮带。</summary>
+        Rect SlotRect(int idx, float k)
+        {
+            float slotW = Mathf.Min(120 * k, Screen.width / 8f);
+            float slotH = 168 * k;
+            float gap = 8 * k;
+            float rowW = slotW * 3 + gap * 2;
+            float x0 = (Screen.width - rowW) * 0.5f;
+            int stance = StanceOf(idx); // 1~6
+            int col = (stance - 1) % 3;
+            bool back = stance >= 4;
+            bool teamA = IsTeamA(idx);
+            // 纵向：B后 → B前 → (中缝) → A前 → A后
+            float y;
+            if (!teamA && back) y = 48 * k;           // B 后排
+            else if (!teamA && !back) y = 48 * k + slotH + gap; // B 前排
+            else if (teamA && !back) y = 48 * k + (slotH + gap) * 2 + 70 * k; // A 前 + 中缝按钮带
+            else y = 48 * k + (slotH + gap) * 3 + 70 * k; // A 后排
+            float x = x0 + col * (slotW + gap);
+            return new Rect(x, y, slotW, slotH);
+        }
+
+        void DrawSlotsRow(float k)
+        {
+            for (int i = 0; i < 12; i++)
+                DrawSlot(i, SlotRect(i, k), k);
+        }
+
+        void DrawSlot(int idx, Rect rect, float k)
+        {
+            var slot = _slots[idx];
+
+            GUI.color = IsTeamA(idx) ? new Color(0.35f, 0.55f, 0.95f, 0.25f)
+                                     : new Color(0.95f, 0.4f, 0.35f, 0.25f);
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            _bold.fontSize = Mathf.RoundToInt(12 * k);
+            GUI.Label(new Rect(rect.x, rect.y + 2 * k, rect.width, 16 * k),
+                SlotTitle(idx), _bold);
+
+            if (slot.IsEmpty)
+            {
+                GUI.enabled = _dragFrom < 0;
+                if (GUI.Button(new Rect(rect.x + 4 * k, rect.y + 20 * k,
+                        rect.width - 8 * k, rect.height - 26 * k), "＋", _btn))
+                    _heroPickerSlot = idx;
+                GUI.enabled = true;
+                return;
+            }
+
+            var hero = _catalog.HeroOf(slot.TemplateId);
+            float y = rect.y + 18 * k;
+
+            var cardRect = new Rect(rect.x + 4 * k, y, rect.width - 8 * k, 64 * k);
+            string card = $"{hero.Name}\n武{hero.Force} 智{hero.Intelligence}\n" +
+                          $"统{hero.Command} 速{hero.Speed}";
+            GUI.Box(cardRect, card, _cell);
+            var e = Event.current;
+            if (e.type == EventType.MouseDown && e.button == 0 && cardRect.Contains(e.mousePosition)
+                && _dragFrom < 0 && _heroPickerSlot < 0 && _skillPickerSlot < 0
+                && _stats == null)
+            {
+                _dragFrom = idx;
+                _dragStart = e.mousePosition;
+                _dragMouse = e.mousePosition;
+                _dragMoved = false;
+                e.Use();
+            }
+            if (_dragFrom == idx && _dragMoved)
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.35f);
+                GUI.Box(cardRect, card, _cell);
+                GUI.color = Color.white;
+            }
+            y = cardRect.yMax + 2 * k;
+            bool skillsEnabled = _dragFrom < 0;
+            GUI.enabled = skillsEnabled;
+            y = DrawSkillCell(idx, -1, hero.InnateSkill, rect, y, k, innate: true);
+            for (int c = 0; c < slot.ExtraSkills.Length; c++)
+                y = DrawSkillCell(idx, c, slot.ExtraSkills[c], rect, y, k, innate: false);
+            GUI.enabled = true;
         }
 
         void DrawDragGhost(float k)
@@ -315,92 +424,12 @@ namespace ClientBattle.Test
             _cell ??= new GUIStyle(GUI.skin.box)
             { alignment = TextAnchor.UpperCenter, wordWrap = true };
             _btn.fontSize = Mathf.RoundToInt(14 * k);
-            _cell.fontSize = Mathf.RoundToInt(13 * k);
-        }
-
-        // ------------------------------------------------------------ 六武将位
-
-        void DrawSlotsRow(float k)
-        {
-            float slotW = Mathf.Min(150 * k, Screen.width / 7.6f);
-            float slotH = 240 * k;
-            float midGap = slotW * 1.1f;
-            float total = slotW * 6 + 16 * k * 4 + midGap;
-            float x0 = (Screen.width - total) * 0.5f;
-            float y = 70 * k;
-
-            for (int i = 0; i < 6; i++)
-            {
-                float x = x0 + i * (slotW + 16 * k) + (i >= 3 ? midGap - 16 * k : 0);
-                DrawSlot(i, new Rect(x, y, slotW, slotH), k);
-            }
-        }
-
-        void DrawSlot(int idx, Rect rect, float k)
-        {
-            var slot = _slots[idx];
-
-            GUI.color = idx < 3 ? new Color(0.35f, 0.55f, 0.95f, 0.25f)
-                                : new Color(0.95f, 0.4f, 0.35f, 0.25f);
-            GUI.DrawTexture(rect, Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            _bold.fontSize = Mathf.RoundToInt(14 * k);
-            GUI.Label(new Rect(rect.x, rect.y + 2 * k, rect.width, 18 * k),
-                $"{SlotTitles[idx]}（{(idx < 3 ? "A 队" : "B 队")}）", _bold);
-
-            if (slot.IsEmpty)
-            {
-                // 拖拽中禁点空位加号，避免误触
-                GUI.enabled = _dragFrom < 0;
-                if (GUI.Button(new Rect(rect.x + 6 * k, rect.y + 24 * k,
-                        rect.width - 12 * k, rect.height - 30 * k), "＋", _btn))
-                    _heroPickerSlot = idx;
-                GUI.enabled = true;
-                return;
-            }
-
-            var hero = _catalog.HeroOf(slot.TemplateId);
-            float y = rect.y + 22 * k;
-
-            // 武将卡：按下开始拖；未拖动松手才开详情（见 HandleDragEvents）
-            var cardRect = new Rect(rect.x + 6 * k, y, rect.width - 12 * k, 84 * k);
-            string card = $"{hero.Name}\n{hero.FactionName}\n" +
-                          $"武{hero.Force} 智{hero.Intelligence}\n统{hero.Command} 速{hero.Speed}";
-            // 拖拽源不用 Button（会吃 HotControl 留下战法伪影），用 Box + 自管点击
-            GUI.Box(cardRect, card, _cell);
-            var e = Event.current;
-            if (e.type == EventType.MouseDown && e.button == 0 && cardRect.Contains(e.mousePosition)
-                && _dragFrom < 0 && _heroPickerSlot < 0 && _skillPickerSlot < 0
-                && _stats == null)
-            {
-                _dragFrom = idx;
-                _dragStart = e.mousePosition;
-                _dragMouse = e.mousePosition;
-                _dragMoved = false;
-                if (GUIUtility.hotControl != 0) GUIUtility.hotControl = 0;
-                e.Use();
-            }
-            // 拖出源位时淡化原卡
-            if (_dragFrom == idx && _dragMoved)
-            {
-                GUI.color = new Color(1f, 1f, 1f, 0.35f);
-                GUI.Box(cardRect, card, _cell);
-                GUI.color = Color.white;
-            }
-            y += 90 * k;
-
-            // 战法三格：拖拽中禁用，防止 Button 抢事件留伪影
-            bool skillsEnabled = _dragFrom < 0;
-            GUI.enabled = skillsEnabled;
-            y = DrawSkillCell(idx, -1, hero.InnateSkill, rect, y, k, innate: true);
-            for (int c = 0; c < 2; c++)
-                y = DrawSkillCell(idx, c, slot.ExtraSkills[c], rect, y, k, innate: false);
-            GUI.enabled = true;
+            _cell.fontSize = Mathf.RoundToInt(11 * k);
         }
 
         float DrawSkillCell(int slotIdx, int cell, string skillId, Rect rect, float y, float k, bool innate)
         {
-            var r = new Rect(rect.x + 6 * k, y, rect.width - 12 * k, 34 * k);
+            var r = new Rect(rect.x + 4 * k, y, rect.width - 8 * k, 22 * k);
             if (string.IsNullOrEmpty(skillId))
             {
                 if (GUI.Button(r, "＋", _btn))
@@ -421,17 +450,20 @@ namespace ClientBattle.Test
                     _skillDetailCell = innate ? -1 : cell;
                 }
             }
-            return y + 38 * k;
+            return y + 24 * k;
         }
 
         // ------------------------------------------------------------ 中间与页脚
 
         void DrawCenterControls(float k)
         {
-            float w = 130 * k, h = 44 * k;
+            float w = 130 * k, h = 36 * k;
             float x = Screen.width * 0.5f - w * 0.5f;
-            float y = 110 * k;
-            bool ready = TeamReady(0) && TeamReady(3) && _job == null;
+            // 落在 B 前排与 A 前排之间的中缝
+            float slotH = 168 * k;
+            float gap = 8 * k;
+            float y = 48 * k + (slotH + gap) * 2 + 12 * k;
+            bool ready = TeamReady(0) && TeamReady(6) && _job == null;
 
             GUI.enabled = ready;
             if (GUI.Button(new Rect(x, y, w, h), "⚔ 对战 1 次", _btn)) LaunchOnce();
@@ -454,7 +486,7 @@ namespace ClientBattle.Test
                 : _transport == "process" ? "本机 python（回退）" : "未连接";
             GUI.Label(new Rect(0, Screen.height - 30 * k, Screen.width, 22 * k),
                 _error != null ? $"出错：{_error}"
-                : $"点空位选武将 · 拖已上阵武将可换位 · 点武将/战法看详情与更换 · 结算通道：{mode}",
+                : $"站位 1~3 前排 / 4~6 后排 · 每队最多 3 人 · 拖拽换位 · 结算通道：{mode}",
                 _label);
 
             // 左下：战斗服务地址编辑（连不同机器时改这里）
@@ -513,12 +545,15 @@ namespace ClientBattle.Test
             GUI.Box(box, GUIContent.none);
             _bold.fontSize = Mathf.RoundToInt(20 * k);
             GUI.Label(new Rect(x, y + 6 * k, w, 26 * k),
-                $"选择武将 → {SlotTitles[_heroPickerSlot]}", _bold);
+                $"选择武将 → {SlotTitle(_heroPickerSlot)}", _bold);
 
             int cols = 4;
             float cw = (w - 24 * k) / cols - 8 * k;
             float ch = 64 * k;
             int rows = Mathf.CeilToInt(_catalog.Heroes.Count / (float)cols);
+            int teamStart = IsTeamA(_heroPickerSlot) ? 0 : 6;
+            bool teamFull = FilledCount(teamStart) >= MaxHeroesPerTeam
+                && _slots[_heroPickerSlot].IsEmpty;
             _pickerScroll = GUI.BeginScrollView(
                 new Rect(x + 12 * k, y + 40 * k, w - 24 * k, h - 92 * k), _pickerScroll,
                 new Rect(0, 0, w - 44 * k, rows * (ch + 8 * k)));
@@ -527,8 +562,9 @@ namespace ClientBattle.Test
                 var hero = _catalog.Heroes[i];
                 var r = new Rect(i % cols * (cw + 8 * k), i / cols * (ch + 8 * k), cw, ch);
                 bool used = TemplateUsedInTeam(_heroPickerSlot, hero.TemplateId);
-                GUI.enabled = !used;
-                string label = $"{hero.Name}\n{hero.FactionName}" + (used ? "（已上阵）" : "");
+                GUI.enabled = !used && !teamFull;
+                string label = $"{hero.Name}\n{hero.FactionName}"
+                    + (used ? "（已上阵）" : teamFull ? "（已满3人）" : "");
                 if (GUI.Button(r, label, _cell))
                 {
                     var slot = _slots[_heroPickerSlot];

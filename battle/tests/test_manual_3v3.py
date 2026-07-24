@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""手动 3v3 测试入口：直接改下方 TEAM_A / TEAM_B / SEED 即可换阵容跑仗。
+"""手动 3v3 测试入口：直接改下方 TEAM_A / TEAM_B / SEED / POSITIONS 即可换阵容跑仗。
 
 每个英雄条目二选一写法：
   1. 池内武将（用 roster 模板 + 等级 + 额外战法）：
@@ -9,7 +9,18 @@ from __future__ import annotations
        {"hero_id": "自定义甲", "force": 95, "intelligence": 70, "command": 90,
         "speed": 88, "skills": ("test_blast", "test_mend"), "initial_troops": 8000}
 
-可选公共键：max_troops（默认 10000）、initial_troops、hero_id（模板武将也可改名）。
+可选公共键：max_troops（默认 10000）、initial_troops、hero_id（模板武将也可改名）、
+position（单人站位 1~6；若该队已设 POSITIONS 数组则数组优先）。
+
+站位：TEAM_A_POSITIONS / TEAM_B_POSITIONS 与英雄列表等长，取值 1~6。
+客户端交错阵：方圆{1,5,6} / 却月{1,2,6} / 鹤翼{2,4,6}（禁止同列前后排同时占位）。
+为 None 时每位用条目 position，再缺省按序 1..n。
+
+阵型：TEAM_A_FORMATION / TEAM_B_FORMATION = 注册表 id（见 battle/formations.py）。
+空字符串 = 无阵型（默认）。当前仅 ``"yanxing"``（雁行阵，合法站位必须是
+{1,2,6} 的子集）：1/2 号位初始受击 10800 + 减伤 5%，6 号位 5400 + 增伤 8%。
+站位不在阵型槽位内会 SetupError。
+
 列表首位 = 主将（主将阵亡判负）。每队最多 3 人——换新将时注释掉原有一名。
 同名英雄可以两队各上一个（B 队自动改名「XX（敌）」保证事件流主键唯一），
 但同队内不可重名。
@@ -53,6 +64,11 @@ TEAM_A = [
     #{"template": "patroclus", "extra_skills": ("patroclus_armor","siren_charm")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
 ]
 
+# 与 TEAM_A 等长；交错阵例：方圆[1,5,6] / 却月[1,2,6] / 鹤翼[2,4,6]。两队可不同。
+TEAM_A_POSITIONS: list[int] | None = [1, 2, 6]
+# 阵型 id（battle/formations.py）；"" = 无阵型。雁行阵须站位 ⊆ {1,2,6}。
+TEAM_A_FORMATION: str = "yanxing"
+
 TEAM_B = [
     # 哈迪斯：谋略吸取——冥河汲魂 + 死亡凝望
     #{"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
@@ -71,6 +87,10 @@ TEAM_B = [
     # {"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
     # {"hero_id": "木桩", "force": 70, "command": 300, "speed": 60, "skills": ()},
 ]
+
+TEAM_B_POSITIONS: list[int] | None = [1, 2, 6]
+# B 队 [2,4,6] 不是雁行槽位，保持无阵型；若改成 [1,2,6] 可写 "yanxing"。
+TEAM_B_FORMATION: str = "yanxing"
 
 # 可选：性格判定概率覆盖（测试高概率版），如 {"haozhan.extra_action": 10000}
 TRAIT_RATE_OVERRIDES: dict[str, int] = {}
@@ -109,21 +129,44 @@ def _default_name(entry: dict) -> str:
     return ROSTER[entry["template"]].name
 
 
+def _resolve_positions(team_id: str, entries: list[dict],
+                       positions: list[int] | None) -> list[int]:
+    """站位解析：队级数组 > 条目 position > 按序 1..n。须与英雄数等长、不重复。"""
+    n = len(entries)
+    if positions is not None:
+        if len(positions) != n:
+            raise ValueError(
+                f"TEAM_{team_id}_POSITIONS 长度须与 TEAM_{team_id} 一致"
+                f"（{len(positions)} vs {n}）"
+            )
+        return [int(p) for p in positions]
+    return [
+        int(e["position"]) if "position" in e else (i + 1)
+        for i, e in enumerate(entries)
+    ]
+
+
 def build_setup() -> BattleSetup:
     # hero_id 是全局事件流主键必须唯一；同名英雄跨队出现时自动改名区分
     # （同队重名仍是配置错误，直接报 SetupError）。B 队撞名者加「（敌）」后缀。
     a_names = {_default_name(e) for e in TEAM_A}
     teams = []
-    for team_id, entries in (("A", TEAM_A), ("B", TEAM_B)):
+    for team_id, entries, pos_arr, formation in (
+        ("A", TEAM_A, TEAM_A_POSITIONS, TEAM_A_FORMATION),
+        ("B", TEAM_B, TEAM_B_POSITIONS, TEAM_B_FORMATION),
+    ):
+        stance = _resolve_positions(team_id, entries, pos_arr)
         heroes = []
         for i, entry in enumerate(entries):
             hero_id = _default_name(entry)
             if team_id == "B" and hero_id in a_names:
                 hero_id += "（敌）"
-            heroes.append(_build_hero(entry, i, hero_id))
+            heroes.append(_build_hero(entry, stance[i], hero_id))
         heroes = tuple(heroes)
-        teams.append(TeamSetup(team_id=team_id, main_hero_id=heroes[0].hero_id,
-                               heroes=heroes))
+        teams.append(TeamSetup(
+            team_id=team_id, main_hero_id=heroes[0].hero_id,
+            heroes=heroes, formation=formation,
+        ))
     metadata = (
         {"trait_rate_overrides": TRAIT_RATE_OVERRIDES} if TRAIT_RATE_OVERRIDES else {}
     )
@@ -134,7 +177,14 @@ def build_setup() -> BattleSetup:
 
 def test_manual_3v3_smoke():
     """当前配置能完整跑出战报（改完阵容跑一下确认没配错战法/模板名）。"""
-    report = simulate(build_setup(), seed=SEED)
+    setup = build_setup()
+    assert [h.position for h in setup.teams[0].heroes] == _resolve_positions(
+        "A", TEAM_A, TEAM_A_POSITIONS)
+    assert [h.position for h in setup.teams[1].heroes] == _resolve_positions(
+        "B", TEAM_B, TEAM_B_POSITIONS)
+    assert setup.teams[0].formation == TEAM_A_FORMATION
+    assert setup.teams[1].formation == TEAM_B_FORMATION
+    report = simulate(setup, seed=SEED)
     assert report["games"], "战报为空"
     assert report["result"]["total_games"] >= 1
 

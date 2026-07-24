@@ -1,5 +1,87 @@
 # Changelog
 
+## 2026-07-23 势能光环改回 LightGlow A 并去星点
+- `momentum_glow` ← LightGlow A；变体与运行时均剥掉 Star/Spark 子物体。
+- 保留 Rays 柔光 + 关 Point Light；分档 1.18~1.65。
+
+## 2026-07-23 势能光环试 Magic Aura Runic
+- `momentum_glow` ← **CFXR Magic Aura A (Runic)**（与圣盾同源族，符文层次）。
+- 仍卡后 sorting−1、关点光、轻柔化；分档 1.05~1.48。
+
+## 2026-07-23 势能光环去廉价感：香槟柔光
+- `momentum_glow` 改挂 **LightGlow A**（暖色底），去掉红底硬染金。
+- 关 Point Light、降饱和/发射率；分档缩小为 1.18~1.65，只留边缘余晖。
+
+## 2026-07-23 满档金光环随分档 + 与火同渐灭
+- 卡后光环改金染色、略放大增强；挂载并入 `MomentumFireController`。
+- 与势能火同分档（≥4/5/6/7）同 Fade/Extinguish/Clear。
+
+## 2026-07-23 满档改卡后外溢光环（撤 All In 1 红描边）
+- All In 1 红描边观感不可见，已撤销。
+- 满档恢复 `momentum_glow`：挂卡后 sorting−1、放大≈1.5，红光从边缘外侧透出。
+
+## 2026-07-23 满档改 All In 1 卡框红描边
+- （已撤销）曾去掉中心 LightGlow 改红描边，观感不足。
+
+## 2026-07-23 先攻/犹豫不展示状态图标
+- `hesitation` 去掉 `ControlIcon`；`first_strike` 本来就不展示。
+- 卡顶图标仅：缄默/缴械/石化/冰锢/冥锁/魅惑/恐惧/冥火（8）。文档同步。
+
+## 2026-07-23 无伤默认主动补飘技能名
+- `hermes_jest`/`jason_command` 等无伤害默认演出原先只飘状态字。
+- `DefaultPerformance`：无伤无疗的 `skill_trigger` 在施法者头顶 `ShowSkillName`。
+
+## 2026-07-23 VFX 试换：满档红光晕 + DualBolt 群攻弹道 + Hit_05 命中
+- `momentum_glow`←CFXR LightGlow B (Loop, Red)，替 UnitView 满档纯色块。
+- `blade_bolt`/`magic_bolt`←030-DualBolt100 Orange/Purple；`hit_generic`←Vefects Hit_05 Once。
+
+## 2026-07-23 台词气泡与时间轴 DurationMul 对齐
+- 根因：`Wait(ExclusiveSeconds)` 乘 DurationMul=2，气泡 DOTween 仍用裸 1.14s →
+  泡收起后空等约一倍时长（阿喀琉斯贯穿观感）。
+- `SayExclusive` 同步缩放动画并返回已缩放秒数；Director/Duel 原样 `WaitForSeconds`，
+  泡/满档 cut-in 结束后立刻接行动（仍无 GroupPause）。
+
+## 2026-07-23 异阵对打：逐队识别阵型
+- 原两队站位并集推断，方圆 vs 鹤翼等会落到 Grid2x3 失效。
+- 改为 `FormationA`/`FormationB` 各自 Detect；落点按本队；卡尺任一方交错则用交错带。
+
+## 2026-07-23 交错阵扩展：却月{1,2,6}、鹤翼{2,4,6}
+- 与方圆共用齐边几何：后排卡贴队区上界↔前排区下 1/3 线；前排卡底缘贴中缝。
+- `StanceFormation.QueYue` / `HeYi`；`DetectFormation` 按集合匹配。
+
+## 2026-07-23 方圆阵落点修正（穿中缝 + 宽屏列距）
+- 根因：① 卡高按 5/6 齐边带极大化后，1 号仍落 1 区几何中心 → 下缘穿入中缝；
+  ② `RecalcFromCamera` 误用相机全视野半宽，宽屏三列被撑到 ±ortho×aspect。
+- 修正：1 号底缘贴队区内缘；布局锁定设计安全区 4.6×5.2；非方圆/前列回退 Grid2x3；
+  重生 manual 战报 positions=[1,5,6]。
+
+## 2026-07-23 站位改为阵型组合：方圆阵 1+5+6
+- 不再强制前后排同列叠放（竖向四倍卡高不自然）。首发**方圆阵**{1,5,6}：
+  上侧 5/6 上缘贴队区上界、下缘贴 1 区下 1/3 线；1 在 1 区中心；A 侧镜像。
+  `StanceFormation` + `DetectFormation`；manual_3v3 默认 positions=[1,5,6]。
+
+## 2026-07-23 站位卡牌按相机视野极大化（机型自适应）
+- `StanceLayout.RecalcFromCamera`：用当前正交可见半宽/半高（≥设计安全区）
+  极大化卡面；台词带/中缝按比例；抖动吃剩余空间。建棋盘前 Fit 相机。
+  修复「固定 5.2 硬塞导致极小」；发布机型与编辑器同一套自适应。
+
+## 2026-07-23 站位卡牌按区域缩放防重叠 + 台词边距
+- `StanceLayout`：上下 `LineReserve` 台词带、中缝 `MidClear`；按格反算
+  `CardWidth/Height`，使框+chrome+2×抖动仍落在本格内。`UnitView` 按
+  `LayoutScale` 缩放卡面与 UI。修复前后排卡面重叠。
+
+## 2026-07-23 test_manual_3v3 接入站位数组
+- `TEAM_A_POSITIONS` / `TEAM_B_POSITIONS` 与英雄列表等长（1~6）；优先于条目
+  `position`；缺省按序 1..n。冒烟断言校验站位写入。
+
+## 2026-07-23 站位系统（1~6 区域布局 + 初始化传位）
+- 客户端 `StanceLayout`：两侧 2×3 区域、前排对前排同列镜面对齐；卡牌落区域
+  中心；休息点抖动改为区域宽/5（不再用卡宽/4）。`BattleBoardView`/`UnitView` 接入。
+- 配阵 config：英雄 `position` 或队级 `positions[]`；缺省按序 1..n
+  （`manual_battle` / `client_battle_bridge`）。ManualSetup 改为每队 6 槽镜面 UI。
+- 文档：rendering_layout §五、burst_coordination §三、manual_setup_panel、
+  performance_mechanisms 回位微抖。
+
 ## 2026-07-23 重播清横幅 + Cursor 开工规则
 - 修复重播后「系列结束 — 胜者 B 队」残留：根因是 `HardStop` 未清
   `BannerService`（违反 R-1.2③）；现并入 HardStop，Teardown 去重。同步
@@ -422,6 +504,27 @@
 - 选窗改为观感分 = 伤害 + cut_in×3000（manual 阿喀琉斯伤最高窗常无满势能）；
   静默落账路径仍会播满档 cut-in 横幅；高光开播重置 cut-in 去重。
 
+## 2026-07-23 魅惑改写选敌初步备选池
+- `alive_enemies`：持 `charm_targeting` 时返回除自身外全体；技能互斥/指名等
+  仍在池上执行；受击率选人改为池内等概率。撤销不完备的 `select_enemy_side`。
+- 文档 statuses/targeting/status_voice 同步；`test_charm_aoe` 覆盖池/全体/指名/互斥。
+
+## 2026-07-23 埃癸斯圣盾调参：反弹 12%→15%、重击回血门槛 10%→8%
+- `AEGIS_COUNTER_RATE_BPS` 1200→1500；`AEGIS_HEAL_THRESHOLD_BPS` 1000→800；
+  olympus.md 同步；men_gods golden 重生成。
+
+## 2026-07-23 踵之弱 7.5%→20%
+- 阿喀琉斯性格 `aoman.heel` 默认 750→2000 bps；traits.md / hero_specials.md 同步。
+- 含阿喀琉斯的 golden 因暴击分支变化重生成（standard×2、men_gods）。
+
+## 2026-07-23 阵型系统落地（雁行阵 1/2/6）
+- 新增 `battle/formations.py` 注册表：`TeamSetup.formation`（默认空=行为不变）；
+  配将按站位覆盖初始受击点数，每局 game_start 后确定序重挂整场被动（PERMANENT）。
+- 雁行阵：点数 10800/10800/5400（满兵受击率 40/40/20，6 号残兵→10%、
+  1/2 号残兵→32.5%）；1/2 号减伤 5%、6 号增伤 8%。
+- 状态名 names.py / ChineseNames.cs 同步；新文档 `docs/mechanics/formations.md`；
+  单测 `test_formations.py`（5 例），全量 249 过、golden 无扰动。
+- `test_manual_3v3` 接上 `TEAM_A_FORMATION` / `TEAM_B_FORMATION`（A 默认 `yanxing`）。
 
 ## 更早条目
 

@@ -14,6 +14,7 @@
 | 战法 | `skills.REGISTRY` | 新类 + `register()`（`skills_<阵营>.py`；标定用 `skills_cal.py`） |
 | 性格 | `traits.REGISTRY` | 子类 + `register()`；钩子见 traits.py 基类 |
 | 经理人战术 | `tactics.TACTIC_REGISTRY` | `TacticDef` |
+| 阵型 | `formations.FORMATION_REGISTRY` | `FormationDef`（合法站位+逐槽位受击点数+整场被动）；状态中文名同步 names.py / ChineseNames.cs |
 | 持续/响应状态 | `StatusDef` 钩子字段（on_damage_* / on_action_start / on_round_* / on_hero_defeated / on_control_taken / on_ally_basic_attack / on_status_inflicted / on_pre_damage_dealt / mitigation_gate） | 新 StatusDef + handler |
 | 状态施加免疫 | `StatusDef.immune_when_forbid`（目标持有该 forbid 键则静默拒绝） | 建 status 时声明（例：石化↔`petrify_immune`） |
 | 施加成功回调 | `StatusDef.on_applied_to_other`（对他人施加/刷新后；对自己不回调防递归） | 建 status 时声明（例：美杜莎孤怨照影） |

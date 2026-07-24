@@ -64,10 +64,25 @@ def parse_cli_hero(spec: str, position: int) -> dict:
     }
 
 
-def build_team(team_id: str, heroes: list[dict]) -> TeamSetup:
+def build_team(team_id: str, heroes: list[dict],
+               positions: list[int] | None = None,
+               formation: str = "") -> TeamSetup:
+    """heroes 为 config 条目；可选 positions 与 heroes 等长（1~6）；
+    可选 formation（阵型 id，battle/formations.py 注册表）。
+    缺省每位用 h['position']，再缺省按序 1..n（前排起）。"""
+    if positions is not None and len(positions) != len(heroes):
+        raise ValueError(
+            f"team {team_id}: positions 长度须与 heroes 一致"
+        )
     setups = []
-    for pos, h in enumerate(heroes):
+    for idx, h in enumerate(heroes):
         template = ROSTER[h["template"]]
+        if positions is not None:
+            pos = int(positions[idx])
+        elif "position" in h:
+            pos = int(h["position"])
+        else:
+            pos = idx + 1
         setups.append(hero_setup(
             h["template"],
             hero_id=h.get("hero_id", template.name),
@@ -78,12 +93,17 @@ def build_team(team_id: str, heroes: list[dict]) -> TeamSetup:
             initial_troops=h.get("initial_troops"),
         ))
     return TeamSetup(team_id=team_id, main_hero_id=setups[0].hero_id,
-                     heroes=tuple(setups))
+                     heroes=tuple(setups), formation=formation)
 
 
 def build_setup(config: dict) -> BattleSetup:
     teams = tuple(
-        build_team(t.get("team_id", "AB"[i]), t["heroes"])
+        build_team(
+            t.get("team_id", "AB"[i]),
+            t["heroes"],
+            positions=t.get("positions"),
+            formation=t.get("formation", ""),
+        )
         for i, t in enumerate(config["teams"])
     )
     metadata = {}

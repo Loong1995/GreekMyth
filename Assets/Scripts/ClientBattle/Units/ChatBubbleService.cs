@@ -6,8 +6,9 @@ using UnityEngine;
 namespace ClientBattle.Units
 {
     // =========================================================================
-    // 台词气泡：TraitLine 播放单元独占时间轴时走 SayExclusive（即时弹出、
-    // 返回应阻塞的秒数）；与气泡动画时长一致，播完立刻接下单元、禁止重叠。
+    // 台词气泡：TraitLine 独占时间轴时走 SayExclusive。
+    // 动画时长与返回的阻塞秒数必须同一套缩放（×DurationMul/Speed），
+    // 否则气泡收起后时间轴仍在空等（P-19：DurationMul=2 时多等 ~1s）。
     // =========================================================================
 
     public class ChatBubbleService : MonoBehaviour
@@ -16,7 +17,7 @@ namespace ClientBattle.Units
 
         readonly Queue<GameObject> _pool = new();
 
-        /// <summary>独占台词单元的可见时长（弹出+停留+收起），与时间轴 Wait 对齐。</summary>
+        /// <summary>独占台词单元的基准可见时长（弹出+停留+收起）；实际 = ×DurationMul/Speed。</summary>
         public const float AppearSeconds = 0.12f;
         public const float HoldSeconds = 0.9f;
         public const float DisappearSeconds = 0.12f;
@@ -49,18 +50,20 @@ namespace ClientBattle.Units
             }
         }
 
-        /// <summary>独占播放单元用：立刻弹气泡，返回时间轴应阻塞的秒数（未乘 DurationMul）。
-        /// 同卡若已有气泡先杀掉，保证不叠字、不排队延迟。</summary>
-        public float SayExclusive(UnitView unit, string line)
+        /// <summary>独占播放：立刻弹气泡；返回应 WaitForSeconds 的秒数
+        /// （已含 durationMul/speed，调用方勿再乘 DurationMul）。</summary>
+        public float SayExclusive(UnitView unit, string line,
+            float durationMul = 1f, float speedScale = 1f)
         {
             if (unit == null || string.IsNullOrEmpty(line)) return 0f;
             CancelBubblesOn(unit);
+            float scale = Mathf.Max(0.1f, durationMul) / Mathf.Max(0.1f, speedScale);
             var bubble = Rent();
-            Pop(bubble, unit, line);
-            return ExclusiveSeconds;
+            Pop(bubble, unit, line, scale);
+            return ExclusiveSeconds * scale;
         }
 
-        /// <summary>非时间轴调用（遗留）；等价 SayExclusive，调用方若不等待会与后续演出重叠。</summary>
+        /// <summary>非时间轴调用（遗留）；不等待时会与后续演出重叠。</summary>
         public void Say(UnitView unit, string line) => SayExclusive(unit, line);
 
         public void CancelAll()
@@ -79,7 +82,6 @@ namespace ClientBattle.Units
             foreach (Transform child in transform)
             {
                 if (!child.gameObject.activeSelf) continue;
-                // 近似：正在该卡附近的气泡清掉（独占重弹）
                 if (anchor != null &&
                     (child.position - anchor.position).sqrMagnitude < 2.5f)
                 {
@@ -89,7 +91,7 @@ namespace ClientBattle.Units
             }
         }
 
-        void Pop(GameObject bubble, UnitView unit, string line)
+        void Pop(GameObject bubble, UnitView unit, string line, float timeScale)
         {
             if (unit == null) { Recycle(bubble); return; }
             bubble.SetActive(true);
@@ -104,10 +106,13 @@ namespace ClientBattle.Units
             int width = Mathf.Min(line.Length, 9);
             back.transform.localScale = new Vector3(0.28f * width + 0.5f, 0.42f * lines + 0.25f, 1f);
 
+            float appear = AppearSeconds * timeScale;
+            float hold = HoldSeconds * timeScale;
+            float disappear = DisappearSeconds * timeScale;
             DOTween.Sequence()
-                .Append(bubble.transform.DOScale(1f, AppearSeconds).SetEase(Ease.OutBack))
-                .AppendInterval(HoldSeconds)
-                .Append(bubble.transform.DOScale(0f, DisappearSeconds).SetEase(Ease.InBack))
+                .Append(bubble.transform.DOScale(1f, appear).SetEase(Ease.OutBack))
+                .AppendInterval(hold)
+                .Append(bubble.transform.DOScale(0f, disappear).SetEase(Ease.InBack))
                 .OnComplete(() => Recycle(bubble))
                 .SetLink(bubble);
         }

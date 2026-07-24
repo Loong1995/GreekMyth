@@ -18,8 +18,8 @@
 **队列阻塞规则（2026-07-20 改定）**：行动类播放单元（主动/普攻/追击/
 状态触发/单挑）占用时间轴，结束后加 `GroupPauseSeconds`；**台词（TraitLine）
 是独占播放单元**：`TraitLineExtractProcessor` 从任意组抽出 `trait_trigger`，
-按气泡完整时长（`ChatBubbleService.ExclusiveSeconds`≈1.14s，再乘 DurationMul）
-阻塞时间轴，**与邻组无缝衔接**（前后不加单元停顿、禁止与伤害/位移重叠）。
+按气泡完整时长阻塞（`SayExclusive` 动画与等待同一套 ×DurationMul/Speed），
+**泡收起后立刻下一组**（前后不加单元停顿、禁止与伤害/位移重叠）。
 回合节点/状态变化/阵亡/神谕宣告仍即时落账。飘字可异步，不阻塞下一组。
 细则（叙述+代码机制+红线）：[playback_units.md](playback_units.md)。
 
@@ -67,7 +67,7 @@
 | 势能条 | 每卡 HP 下四条迷你轨条（按**轨类型**跨技能累计，非单技能独立条；注册表 `TrackTable`：主动暖金/被动铜绿/神谕雷紫/普攻追击赤红；0~3 半亮、≥4 全亮） | `UnitView.SetMomentum` |
 | 势能火 | 四轨最高 ≥4 小 / ≥5 / ≥6 / ≥7 满分大；`momentum_fire`←CFXR3 Fire；**ActionPauseSeconds 渐灭**（条仍待自身下次 action_start 清）。生命周期收拢进控制器，Runner 只发相位信号（OnActionPauseBegin/End/OnRoundBanner）；hold-off 语义=**抑制同值重挂**——任何值变化的 momentum_change 即解除抑制按新档点火（2026-07-22 修 g1r5 响应涨势能无火 bug） | `Units/MomentumFireController.cs` |
 | 闪光档（4） | 某轨首次 `value≥Flash(4)`：白闪爆发帧 + punch 缩放（**乙案已定稿**；不采购专属 overflow 包） | `MomentumService.Apply` → `PlayMomentumOverflow` |
-| 满档（5） | `value≥Full(5)`：常驻 rim 流光（多轨叠混色+呼吸）；服务端同档起每次 `cut_in=true` | `UnitView.RefreshGlow` / `add_momentum` |
+| 满档（5）/闪光（4）+ | 四轨最高 ≥4 起挂：**卡上缘火** + **卡后 LightGlow A（无星点）**；同分档轻抬、行动切换同渐灭；≥5 起服务端 `cut_in` | `MomentumFireController` / `MountMomentumGlow` |
 | cut-in 通道 | **全屏单人 cut-in**（2026-07-21 升级）：暗幕 + 阵营色斜带甩入 + 巨幅立绘反向滑入 + 大字标题，约 0.8s 甩出；触发源①满档轨（见下行语义）②高伤 >3000 ③行动窗内追伤第 5 次（②③非阻塞不占时间轴）；**同一播放组只播 1 次**去重，不做回合级限流（C10 定案）。无主体的播报（战术变更）回退 OnGUI 文字横幅。请求入口与组去重收口 `CutInService.Request` | `VFX/CutInService.Request/PlaySolo`；回退 `VFX/BannerService.ShowTextCutIn` |
 | 满档 cut-in 语义 | **按轨**：某轨已满（≥5）后，**同轨再次进账**的伤害出手前触发；刚满 5 当次不切。**阻塞**：`PlaySoloBlocking` 切完才开打。**标题＝即将造成伤害的技能名**（战法/普攻/协击/状态归因战法）。强化音效 `sfx_attack_empowered`。落账路径不再弹「势能全开·轨名」 | `CutInPolicy.FindFullTrackCutIn` + `CutInPolicy.SkillNameOf`（`PlaybackDirector.PlayGroup` 调用）+ `CutInService.PlaySoloBlocking` |
 | 连发演出 | `skill_trigger.burst_no≥2`：**与首发完全同模板整套重播**（`Classify` 按 burst_no 判为 ActiveSkill——连发 parent 指回首发触发事件，若不判会误分类成追击）；在此之上叠加节拍加速（倍率 `PerformanceProfile.BurstTempoScale`，默认 ×1.35，经 `VFXContext.TempoScale` 生效、播完复位）+ 施法者「连发 ×N」金色角标 | `EventPipeline.Classify` / `PlaybackDirector.PlayGroup` |
@@ -83,7 +83,7 @@
 | 飘字手调 | 字体/字号/颜色/上浮曲线全参数收进 SO（`Resources/ClientBattle/FloatingTextTuning.asset`，缺失用代码默认）；字体放 `Resources/ClientBattle/Fonts/` 填名即换 | `Units/FloatingTextTuning.cs`；操作文档 [floating_text_tuning.md](floating_text_tuning.md) |
 | 头像标（皇卡 C1） | profile.PortraitMarkKey：受影响单位头顶短暂浮现指定武将头像——宙斯落雷 `thunder`→zeus（RemoteStrike 落雷节拍内挂）、哈迪斯吸统 `hades_command_drain`→hades | `UnitView.ShowPortraitMark` + `DefaultPerformance` |
 | 圣盾反弹/回血（C1） | 反伤 `mitigation=reflect` → `icon_aegis`；普通格挡 → `icon_block`；`aegis_shield` 反弹 Melee（Cast 后再突进）；**重击回血**纯治疗组不走 Melee，闪 `icon_aegis_heal` + `SettleHeal` 绿字；`aegis_ward` 控挡闪光 | `UnitView.FlashOverlayIcon` + `DefaultPerformance` 纯治疗分支 |
-| 回位微抖 | 每次位移回位或**受击顿挫结束**重采样 `RestPosition`：落在出场 `HomePosition` 为中心、边长=卡宽/4 的正方形内；突进/落雷瞄当前休息点 | `UnitView.DOMoveReturnHome` / `HitReact` |
+| 回位微抖 | 每次位移回位或受击顿挫结束重采样 `RestPosition`：边长=区域宽/5，半边由 `StanceLayout.RestJitterHalf` 约束（与卡面尺寸一并反算，保证邻格不叠）；突进/落雷瞄当前休息点 | `UnitView.DOMoveReturnHome` / `HitReact`；`StanceLayout` |
 | 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlaybackDirector.PlayGroupsRange`；入口 `PerformanceRunner.PlayHighlight`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
 
 ## 二、演出模板族（每组怎么演）
@@ -124,7 +124,7 @@
 | 受击表现 | 抖动+红闪（暴击更强）+相机震动（profile 可关）；震动为 trauma 噪声模型，连抖叠加封顶不瞬移 | `UnitView.HitReact` + `VFX/CameraShaker.cs` |
 | 待机呼吸 | 存活卡牌立绘正弦浮动，相位按位置错开；阵亡停止 | `UnitView.Update` |
 | 兵力刷新 | 恒取事件 troops_after 权威值，客户端零计算 | `UnitView.SetTroops` |
-| 状态图标 | **仅控制类**卡顶外侧横排（宽≈卡宽 1/5）+ 随机抖动；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` |
+| 状态图标 | 硬控/冥火卡顶外侧横排（宽≈卡宽 1/5）+ 抖动；**先攻/犹豫不展示图标**；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` + `StatusPresentationRegistry` |
 | **状态常驻光环** | status_id → 光环 key + 挂载偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记…）；status_apply 挂、status_remove/阵亡/整局重置撤；一次性 flipbook 粒子强制循环+补发射密度+压半透明（`aura_fire*` 另偏橙红） | `Units/UnitAuraService.cs`；配置收口 `Names/StatusPresentationRegistry.cs`（新状态只加注册表一行） |
 | 整盘滤镜 | 程序化全屏呼吸色罩（血红/海蓝/冥紫按 key 取色），不用粒子 prefab（会成棋盘中心固定点）；透明度待真棋盘底图定稿再调 | `OracleAuraPerformance.BoardFilterOverlay` |
 | 石化 | 灰色卡框覆盖层淡入淡出（tween 互斥，新 tween 先杀旧）；施加走通用状态音 `sfx_status_petrify`，解除走 `sfx_petrify_off` | `UnitView.SetPetrified` |
@@ -147,7 +147,7 @@
 
 ## 六、布局与配色
 
-- 棋盘：上下布局，A 队下、B 队上，队内按站位从左到右横排自动居中。
+- 棋盘：上下布局，A 队下、B 队上；交错阵方圆/却月/鹤翼（见 `rendering_layout.md` §五）。
 - 阵营配色：神金/人红/海蓝/冥紫，唯一源 `Units/BattleBoardView.cs` 内 `FactionColors` 常量（private），
   规范文档 [faction_style.md](faction_style.md)。
 - 中文名：`Names/ChineseNames.cs` 与后端 `battle/names.py` 同步（红线）。

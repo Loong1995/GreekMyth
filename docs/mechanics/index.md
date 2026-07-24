@@ -62,7 +62,8 @@ simulate(battle_setup, seed)                          battle/api.py
 | 性格系统 | 每武将一条性格强制修正机制；trait_trigger 事件带台词（确定性轮换）；概率可测试覆盖 | Phase 3 落地 | [traits.md](traits.md) |
 | 治疗公式 | max_troops×5%×系数×智力修正(0.6~1.5)×增减疗×随机×暴击；只回伤兵 | B2 落地 | `battle/formulas.py` |
 | 兵力三池 | troops/伤兵/阵亡；受击 30/70 拆分；回合始伤兵 30% 损耗；治疗只回伤兵 | B2 全量落地 | `battle/formulas.py` |
-| 受击率选人 | 受击点数 5000 起、按损兵比例扣减（每次重算）；敌方随机目标按点数加权；选人过程事件化（target_select，schema 1.1.0） | B1 落地，B4 事件化 | [targeting.md](targeting.md) |
+| 受击率选人 | 受击点数 5000 起（阵型可按站位覆盖）、按损兵比例扣减（每次重算）；敌方随机目标按点数加权；选人过程事件化（target_select，schema 1.1.0） | B1 落地，B4 事件化 | [targeting.md](targeting.md) |
+| 阵型系统 | 队伍级配置：合法站位 + 逐槽位初始受击点数 + 整场被动（每局重挂）；雁行阵 1/2/6：点数 10800/10800/5400、1/2 减伤 5%、6 增伤 8% | 2026-07-23 落地 | [formations.md](formations.md) |
 | 效果原语 | 伤害/治疗/施加/移除状态/属性修改 五入口 + 暴击乘区 + 吸血/固定伤害/无视防御扩展 | B2 落地，B3 扩展 | [effects.md](effects.md) |
 | 状态系统 | 一等公民：来源/层数/持续/互斥默认规则/DoT/禁制/修正聚合 + 响应钩子/动态修正 | B2 落地，B3 扩展 | [statuses.md](statuses.md) |
 | 死亡清理 | 阵亡即退出：不再行动/不可为目标/施加状态事件化全清/延迟与准备作废/不复活 | B2 落地，B3 补边界 | [statuses.md](statuses.md) §6 |

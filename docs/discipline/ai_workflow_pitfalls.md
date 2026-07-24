@@ -126,8 +126,10 @@ response_priority 排序，可能让自身低 priority 插在他人神谕之前�
 ## P-19 时间轴等待时长 ≠ 表现实际时长 → 重叠
 
 现象：气泡动画 1.6s+，Runner 只等 0.5s，台词与下一单元的斩击/位移重叠。
-正确做法：阻塞时长由表现服务给出（`ChatBubbleService.ExclusiveSeconds`），
+正确做法：阻塞时长由表现服务给出（`ChatBubbleService.SayExclusive` 返回值），
 Runner 不得自定常数；「独占单元」= 等够动画完整时长、前后不加额外停顿。
+动画 DOTween 与返回秒数必须同一套 `DurationMul/Speed` 缩放——只乘 Wait、
+不乘气泡会在泡收起后空等一截（2026-07-23 阿喀琉斯贯穿台词观感）。
 
 ## P-20 Resources 路径/导入类型错 → 上传资源不生效
 
@@ -158,3 +160,13 @@ Runner 不得自定常数；「独占单元」= 等够动画完整时长、前�
 被迫整文件重写恢复）。
 正确做法：改文件一律用编辑器级工具（StrReplace/Write）；确需脚本批处理时用
 Python `io.open(..., encoding="utf-8")` 读写，禁止 PowerShell 管道改中文文件。
+
+## P-24 棋盘布局半宽 ≠ 相机可见半宽
+
+现象：宽屏 Game 视图里三列卡牌横向间距夸张、分布「完全不对」
+（2026-07-23 方圆阵）。
+根因：`StanceLayout.RecalcFromCamera` 用 `orthoSize × aspect` 当布局半宽，
+与 `CameraFitter`「安全区固定、宽屏两侧只铺背景」冲突。
+正确做法：落点/卡尺锁定设计安全区（半宽 4.6 / 半高 5.2）；相机只负责取景。
+改阵型几何后必须重生/重载对应战报（旧 `positions` 会触发错误阵型或同列叠放）。
+异阵对打必须**逐队** Detect，禁止两队站位并集推断（并集会落入 Grid2x3）。

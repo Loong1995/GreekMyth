@@ -106,6 +106,13 @@ namespace ClientBattle.Units
                 Tuning.Heal, isCrit ? Tuning.HealCritScale : 1.0f);
         }
 
+        /// <summary>无伤害/治疗的主动释放：施法者头顶单飘技能名（神使戏言等）。</summary>
+        public void ShowSkillName(UnitView unit, string skillName)
+        {
+            if (unit == null || string.IsNullOrEmpty(skillName)) return;
+            Show(unit, skillName, Tuning.AttrUp, 1.05f);
+        }
+
         public void ShowStatus(UnitView unit, string statusName, bool gained)
         {
             if (unit == null) return;

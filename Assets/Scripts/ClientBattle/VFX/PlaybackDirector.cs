@@ -116,11 +116,13 @@ namespace ClientBattle.VFX
                     yield return PlayNode(s, group);
                     break;
                 case GroupKind.TraitLine:
-                    // 独占播放单元：气泡时长内阻塞时间轴；播完无缝接下组（无额外停顿）
+                    // 独占：等气泡完整收起后立刻下一组（无 GroupPause）。
+                    // SayExclusive 已按 DurationMul/Speed 缩放动画与返回值，勿再 Wait() 二次相乘。
                     foreach (var ev in group.All<TraitTriggerEvent>())
                     {
-                        float hold = ctx.Bubbles.SayExclusive(ctx.Unit(ev.HeroId), ev.Line);
-                        if (hold > 0f) yield return Wait(hold);
+                        float hold = ctx.Bubbles.SayExclusive(
+                            ctx.Unit(ev.HeroId), ev.Line, ctx.DurationMul, ctx.SpeedScale);
+                        if (hold > 0f) yield return new WaitForSeconds(hold);
                     }
                     break;
                 case GroupKind.Duel:

@@ -16,7 +16,9 @@
 ## 二、飘字（FloatingTextService）
 
 - **触发**：伤害（技能名+数值+暴击/减免文案）、治疗（绿）、状态得失（蓝灰）、
-  属性升降（金紫）、「协击」「连发 ×N」「延迟」「无法行动」等角标。
+  属性升降（金紫）、「协击」「连发 ×N」「延迟」「无法行动」等角标；
+  **无伤害/治疗的默认主动**（神使戏言等）在施法者头顶单飘技能名
+  （`FloatingTextService.ShowSkillName`，色=AttrUp）。
 - **排版**：同单位纵向堆叠 `StackSpacing` 错位；上浮 OutCubic + 淡出 InQuad。
 - **性能**：零分配——开战前预建 24 个 TextMesh + 一次性请求全部字形
   （`ChineseNames.FloatingTextCharacters`），运行时服务统一 Update，
@@ -43,10 +45,10 @@
 
 1. `TraitLineExtractProcessor` 把台词抽成独立 TraitLine 播放单元
    （出击段保留原 Root，见 [playback_units.md §二](playback_units.md)）。
-2. Runner 调 `ChatBubbleService.SayExclusive(unit, line)`：同卡旧气泡先杀，
-   立即弹出；返回独占秒数 `ExclusiveSeconds`（弹出 0.12 + 停留 0.9 +
-   收起 0.12 ≈ 1.14s），Runner 原样 Wait（×DurationMul）——**时长由服务
-   给出，禁止 Runner 自定常数**（P-19）。
+2. Runner 调 `ChatBubbleService.SayExclusive(unit, line, DurationMul, Speed)`：
+   同卡旧气泡先杀，立即弹出；动画与返回秒数同一套缩放（基准 ≈1.14s ×
+   DurationMul/Speed）。Runner **`WaitForSeconds(返回值)`，禁止再乘 DurationMul**——
+   泡收起后立刻下一单元（无 GroupPause）（P-19）。
 3. 排版：9 字折行、底板按行数/字宽拉伸；底板资源
    `Resources/ClientBattle/UI/chat_bubble.png`（缺省白色占位）。
 4. sortingOrder 70/71（全场最顶）。

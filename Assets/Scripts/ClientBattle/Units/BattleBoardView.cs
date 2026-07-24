@@ -1,14 +1,14 @@
 using System.Collections.Generic;
 using ClientBattle.Events;
+using ClientBattle.VFX;
 using DG.Tweening;
 using UnityEngine;
 
 namespace ClientBattle.Units
 {
     // =========================================================================
-    // 战场棋盘：按战报 teams 快照生成双方 UnitView（A 队下、B 队上，按站位横排），
-    // 提供 unitId → UnitView / Transform 查询、棋盘中心点、整盘滤镜特效挂点。
-    // 阵营配色与 docs/client 视觉规范一致（olympus 金 / heroes 红 / sea 蓝 / underworld 紫）。
+    // 战场棋盘：按战报 teams 快照生成双方 UnitView。
+    // 站位：两队各自推断阵型（异阵对打互不影响），再极大化卡牌。
     // =========================================================================
 
     public class BattleBoardView : MonoBehaviour
@@ -59,6 +59,13 @@ namespace ClientBattle.Units
             _report = report;
             Clear();
 
+            // 先 Fit 相机；两队各自推断阵型（异阵对打互不影响）
+            var cam = Camera.main;
+            if (cam != null) CameraFitter.EnsureOn(cam);
+            var formA = DetectTeamFormation(report, 0);
+            var formB = DetectTeamFormation(report, 1);
+            StanceLayout.RecalcFromCamera(cam, formA, formB);
+
             var fxRoot = new GameObject("BoardFxRoot");
             fxRoot.transform.SetParent(transform, false);
             BoardFxRoot = fxRoot.transform;
@@ -68,18 +75,28 @@ namespace ClientBattle.Units
             for (int teamIdx = 0; teamIdx < report.Teams.Count; teamIdx++)
             {
                 var team = report.Teams[teamIdx];
-                // 上下布局：A 队在下方、B 队在上方，队内按站位从左到右横排
-                float y = teamIdx == 0 ? -2.6f : 2.6f;
                 foreach (var hero in team.Heroes)
                 {
-                    float x = (hero.Position - (team.Heroes.Count - 1) * 0.5f) * 3.0f;
+                    Vector3 local = StanceLayout.SlotCenter(teamIdx, hero.Position);
                     string faction = FactionOf.TryGetValue(hero.TemplateId, out var f) ? f : "heroes";
                     var unit = UnitView.Create(hero, team.TeamId,
-                        FactionColors[faction], transform.position + new Vector3(x, y, 0f));
+                        FactionColors[faction], transform.position + local,
+                        StanceLayout.RestJitterHalf);
                     unit.transform.SetParent(transform, true);
                     _units[hero.HeroId] = unit;
                 }
             }
+        }
+
+        /// <summary>单队站位推断阵型。</summary>
+        static StanceFormation DetectTeamFormation(BattleReport report, int teamIdx)
+        {
+            if (report?.Teams == null || teamIdx < 0 || teamIdx >= report.Teams.Count)
+                return StanceFormation.FangYuan;
+            var list = new List<int>();
+            foreach (var h in report.Teams[teamIdx].Heroes)
+                list.Add(h.Position);
+            return StanceLayout.DetectFormation(list);
         }
 
         /// <summary>棋盘背景：无色（相机透明底，独立运行时显示为黑）。

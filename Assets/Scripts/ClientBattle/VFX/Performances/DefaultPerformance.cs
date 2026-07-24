@@ -44,6 +44,12 @@ namespace ClientBattle.VFX
             if (group.Root is NormalAttackEvent { Kind: "coordinated" } && actor != null)
                 ctx.Floats.Show(actor, "协击", new Color(0.5f, 0.85f, 1f), 1.1f);
 
+            // 无伤害/治疗的默认主动（神使戏言/金羊号令/坚壁等）：伤害飘字不会带技能名，
+            // 施法者头顶补飘战法中文名，避免只剩 +先攻/+犹豫 看不出放了啥
+            if (damages.Count == 0 && heals.Count == 0
+                && group.Root is SkillTriggerEvent && actor != null)
+                ctx.Floats.ShowSkillName(actor, floatName);
+
             // 纯治疗组（无伤害）：禁止走 Melee/CastKey（圣盾反弹闪光），否则无治疗飘字且误闪反击盾
             // 圣盾重击回血：另闪 icon_aegis_heal（与反伤 icon_aegis 区分）
             if (damages.Count == 0 && heals.Count > 0)

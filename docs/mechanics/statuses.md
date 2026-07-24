@@ -90,7 +90,7 @@
 | `freeze(n)` 冰锢 | forbid_active + forbid_basic | — | 卡吕普索；全禁、无石化易伤、无 DoT；打断准备 |
 | `hesitation(rate, n)` 犹豫 | —（特殊） | 刷新不叠层、固定延后 1 回合、计次统一前移（Phase 3） | 细则见 hesitation.md |
 | `block(n)` 格挡 | —（Phase 3） | `counters["block_charges"]` 次数型 0 结算 | 消耗 1 次伤害置 0；damage.md §五 |
-| `charm(n)` 魅惑 | —（Phase 3） | 选敌敌我不分（charm_targeting） | 塞壬魅惑术 |
+| `charm(n)` 魅惑 | —（Phase 3） | 选敌**初步备选池**改为除自身外全体；互斥/指名/受击率等规则仍在池上执行；随机选人等概率 | 塞壬 |
 | `fear(n)` 恐惧 | forbid_basic + forbid_pursuit | 造成伤害 -15%（damage_up 负值） | Phase 4 刻耳柏洛斯；**口径临时定案**（phase4_manual_tasks §一拍板项） |
 | `curse(n)` 诅咒 | —（debuff） | 智力 -20、受伤 +10%；**可刷新**（负面例外） | Phase 4 卡戎摆渡；全局单实例、任意来源刷新（简化口径，A3 校准） |
 | `certain_crit()` 必胜 | —（buff） | `counters["forced_crit_charges"]` 下次伤害/治疗必暴击，耗尽即摘除 | Phase 4 尼刻族；`grant_certain_crit` 原语叠计数 |

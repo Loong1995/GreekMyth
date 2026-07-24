@@ -55,7 +55,7 @@ processor 链（`PlaybackWorldBuilder.Build` 注册顺序即执行顺序）：
 | GroupKind | 占用时间轴 | 时长来源 | 单元后停顿 |
 |---|---|---|---|
 | ActiveSkill / NormalAttack / Pursuit / StatusTrigger / Duel | 是 | 演出协程内可见动画时长 | `GroupPauseSeconds`（0.35s×DurationMul） |
-| **TraitLine（台词）** | 是（独占） | `ChatBubbleService.ExclusiveSeconds`（弹出 0.12+停留 0.9+收起 0.12 ≈1.14s，×DurationMul） | **无**；且前一行动单元若紧跟台词也**跳过**它的单元停顿 |
+| **TraitLine（台词）** | 是（独占） | `SayExclusive` 返回值（动画与等待同一套 ×DurationMul/Speed；基准≈1.14s） | **无**；且前一行动单元若紧跟台词也**跳过**它的单元停顿；泡收起后立刻下一组 |
 | Node（回合/行动开始） | 否 | — | 行动切换时 `ActionPauseSeconds` |
 | StatusChange / Defeat / 其它 | 否（即时落账） | — | 无 |
 
@@ -67,9 +67,10 @@ processor 链（`PlaybackWorldBuilder.Build` 注册顺序即执行顺序）：
 
 1. **必须自成组**：引擎发台词一律 `parent_seq=0`（性格台词与状态台词同）；
    挂在 action_start 下会被 Node 静默吞掉。
-2. **阻塞时长由表现服务给出**：Runner 等 `SayExclusive` 的返回值，
-   不得自定常数——常数与气泡动画失配即重叠。
+2. **阻塞时长由表现服务给出**：Runner 等 `SayExclusive` 的返回值（已含
+   DurationMul/Speed），用 `WaitForSeconds` 原样等，**禁止再经 `Wait()` 二次相乘**。
 3. **无缝**：台词组前后不加 GroupPause；`TraitLinePauseSeconds` 字段已废弃。
+   满档 cut-in（`PlaySoloBlocking`）同理：协程播完立刻出手，无额外垫秒。
 
 ## 四、演出模板族（行动单元内部怎么演）
 

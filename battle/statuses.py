@@ -29,7 +29,7 @@ from __future__ import annotations
   burst_rate_up_bps                                                 连发率加成（Phase 4，作用于持有者全部主动战法）
   hit_weight_up_bps                                                 受击权重偏置（Phase 4 集火战术：受击点数×(1+bias)，仍加权随机非锁定）
   forbid_basic / forbid_active / forbid_pursuit（bool，不乘层数）  控制禁制
-  charm_targeting（bool）                                           魅惑：普攻/主动选目标敌我不分
+  charm_targeting（bool）                                           魅惑：选敌初步备选池改为除自身外全体；技能内部规则仍在池上执行
   control_immune（bool）                                            清醒：免疫硬控（CONTROL 施加静默拒绝）
   注：数值修正键允许负值（如恐惧 damage_up_bps=-1500 表示造成伤害 -15%）
 
@@ -258,7 +258,8 @@ def block(duration_rounds: int = PERMANENT) -> StatusDef:
 
 
 def charm(duration_rounds: int = 1) -> StatusDef:
-    """魅惑（Phase 3 塞壬拆解）：普攻和主动战法选目标敌我不分（引擎选人联动）。"""
+    """魅惑（Phase 3 塞壬）：选敌初步备选池改为除自身外全体存活（敌我不分）；
+    互斥/指名/受击率等技能规则仍在该池上执行。随机选人在池内等概率。"""
     return StatusDef(
         status_id="charm", kind=CONTROL, duration_rounds=duration_rounds,
         modifiers={"charm_targeting": True},

@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 特效 Prefab | 25 key | **已购三包配齐 v1**（variant 已目视校准尺寸） | 光环/前摇质感一般，可后续换专属 |
 | 整盘滤镜 | 3 key | 程序化色罩（BoardFilterOverlay），**无需上传** | 真棋盘底图定稿后调透明度 |
-| 状态图标 | 9 控制类 | 哈希色块占位；**卡顶外侧横排**（宽≈卡宽 1/5） | 仅控制 9 个待传（可选） |
+| 状态图标 | 8 个 | 哈希色块占位；**卡顶外侧横排**（宽≈卡宽 1/5） | 仅下表 8 个待传（可选） |
 | 立绘 | 32 | 阵营色块+首字母占位 | 全部待上传 |
 | 音效 | ~40 key | 程序化合成哔声占位 | 全部待上传（已购 Universal Sound FX 在手） |
 | UI/卡框 | 4 张 | 程序化圆角矩形占位 | 全部待上传 |
@@ -25,13 +25,14 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | key | 用途 | 备注 |
 |---|---|---|
 | `slash` | 近身斩击 Burst | 普攻×1.0、追击×1.5；**不作飞行弹道** |
-| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | **029-Bolt200** Orange / Purple（原 031-Arrow 偏粉无力已换下） |
+| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | **030-DualBolt100** Orange / Purple |
 | `proj_bolt200` | （可选）粗束弹道 029；战吼已改走默认 `blade_bolt` | **029-Bolt200** Orange |
 | `lightning_projectile` | 宙斯拆技天雷击（`zeus_bolt`） | **Vefects** Directional；**RemoteStrike** 自上而下；池内 sorting≥45 |
-| `hit_generic` / `heal_generic` | 默认命中 / 治疗命中 | |
+| `hit_generic` / `heal_generic` | 默认命中 / 治疗命中 | hit ← **Vefects Hit_05 Once** |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
 | `aura_fire_foot` / `aura_fire_head` | 阿瑞斯自带：血战/战神之勇 | 仅卡框红呼吸 `UnitView.SetAresRage`（不挂火粒子） |
 | `momentum_fire` | 势能火（四轨最高 ≥4/5/6/7 分档） | **CFXR3 Fire (No Smoke)**；卡上缘；非状态光环 |
+| `momentum_glow` | 势能卡后柔光（≥4 起） | **CFXR LightGlow A**（**已去 Small Stars**）；关点光；sorting −1；与火同灭 |
 | `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
 | `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
 | `aura_aegis` / `hit_shield_counter` | 圣盾光环 / 反制命中 | 光环 ← **CFXR Magic Aura A (Runic)**；另有 All In 1 卡框金描边呼吸（`UnitView.SetAegisAura`） |
@@ -64,9 +65,10 @@ Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。�
 
 ### 2. 状态图标 `Resources/ClientBattle/StatusIcons/<status_id>.png`
 
-- **仅中央大图标**（`ControlIcon=true`）：`silence disarm hesitation petrify freeze ming_lock charm fear underworld_burn`
+- **卡顶外侧横排**（`ControlIcon=true`）：`silence disarm petrify freeze ming_lock charm fear underworld_burn`
+- **不展示图标**：`first_strike`（先攻）、`hesitation`（犹豫）——仅飘字 + 状态台词。
 - ~~常规状态卡牌上方小图标~~：**已取消**（2026-07-20）。增益/神谕/印记等靠光环
-  （`UnitAuraService`）与飘字；冥火走中央图标、**不**挂 CFXR 火（火留给势能）。
+  （`UnitAuraService`）与飘字；冥火走卡顶图标、**不**挂 CFXR 火（火留给势能）。
 
 ### 3. 立绘 `Resources/ClientBattle/Portraits/<template_id>.png`
 
@@ -139,8 +141,8 @@ Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。�
 > 原则：一次只换一类资源，换完跑一遍验收（§二.6），改配置不改代码。
 
 ### 步骤 1：控制类状态图标（可选，约 1 小时）
-仅 9 个控制 id（§一.2，以 `StatusPresentationRegistry` `ControlIcon=true` 为准）。[game-icons.net](https://game-icons.net)（CC BY 3.0）
-导出 PNG 放入即可；常规状态图标**不要做**。
+仅 8 个 id（§一.2，以 `StatusPresentationRegistry` `ControlIcon=true` 为准；不含先攻/犹豫）。[game-icons.net](https://game-icons.net)（CC BY 3.0）
+导出 PNG 放入即可；先攻/犹豫与常规增益图标**不要做**。
 
 ### 步骤 2：音效（一天体力活）
 Package Manager 导入已购 Universal Sound FX → 按 §一.4 清单逐 key 挑选、

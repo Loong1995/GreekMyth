@@ -100,6 +100,77 @@ namespace ClientBattle.Units
             return root;
         }
 
+        /// <summary>势能卡后柔光：LightGlow A（已去星点）挂卡后 sorting −1；
+        /// 关点光、轻柔化，边缘余晖随分档轻抬。</summary>
+        public static GameObject MountMomentumGlow(Transform host, float scale)
+        {
+            var root = NewRoot("momentum_glow", host, new Vector3(0f, 0.04f, 0.5f));
+            var cell = SpawnCell("momentum_glow", root.transform, Vector3.zero, scale);
+            if (cell == null)
+            {
+                FallbackPlaceholder("momentum_glow", root.transform);
+                SoftenMomentumAura(root);
+            }
+            else
+                SoftenMomentumAura(cell);
+            return root;
+        }
+
+        // 香槟金：偏暖白；轻拉不盖成荧光
+        static readonly Color Champagne = new(1f, 0.94f, 0.78f, 1f);
+
+        /// <summary>精致化：关 Point Light、剔星点、卡后层、轻柔粒子。</summary>
+        static void SoftenMomentumAura(GameObject fx)
+        {
+            // 兜底：源 prefab 若又带 Star/Spark，运行时再剥掉
+            var strip = new System.Collections.Generic.List<GameObject>();
+            foreach (var t in fx.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null || t.gameObject == fx) continue;
+                string n = t.name;
+                if (n.IndexOf("Star", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || n.IndexOf("Spark", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    strip.Add(t.gameObject);
+            }
+            foreach (var go in strip) Object.Destroy(go);
+
+            foreach (var light in fx.GetComponentsInChildren<Light>(true))
+                light.enabled = false;
+
+            foreach (var r in fx.GetComponentsInChildren<Renderer>(true))
+                r.sortingOrder = -1;
+
+            foreach (var ps in fx.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = ps.main;
+                main.startSizeMultiplier *= 0.95f;
+                var emission = ps.emission;
+                if (emission.enabled)
+                    emission.rateOverTimeMultiplier *= 0.85f;
+
+                var start = main.startColor;
+                if (start.mode == ParticleSystemGradientMode.Color)
+                {
+                    var c = start.color;
+                    main.startColor = new ParticleSystem.MinMaxGradient(new Color(
+                        Mathf.Lerp(c.r, Champagne.r, 0.35f),
+                        Mathf.Lerp(c.g, Champagne.g, 0.35f),
+                        Mathf.Lerp(c.b, Champagne.b, 0.35f),
+                        Mathf.Clamp01(c.a * 0.9f)));
+                }
+                else if (start.mode == ParticleSystemGradientMode.TwoColors)
+                {
+                    Color Soft(Color c) => new(
+                        Mathf.Lerp(c.r, Champagne.r, 0.3f),
+                        Mathf.Lerp(c.g, Champagne.g, 0.3f),
+                        Mathf.Lerp(c.b, Champagne.b, 0.3f),
+                        Mathf.Clamp01(c.a * 0.9f));
+                    main.startColor = new ParticleSystem.MinMaxGradient(
+                        Soft(start.colorMin), Soft(start.colorMax));
+                }
+            }
+        }
+
         /// <summary>圣盾：All In 1 金描边+辉光（挂在 UnitView 材质上）。</summary>
         static GameObject MountAegisAura(Transform host)
         {

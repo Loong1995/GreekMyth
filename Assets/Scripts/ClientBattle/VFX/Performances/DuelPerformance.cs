@@ -82,7 +82,8 @@ namespace ClientBattle.VFX
             {
                 if (ev.Effect != effect) continue;
                 if (string.IsNullOrEmpty(ev.Line)) continue;
-                float hold = ctx.Bubbles.SayExclusive(ctx.Unit(ev.HeroId), ev.Line);
+                float hold = ctx.Bubbles.SayExclusive(
+                    ctx.Unit(ev.HeroId), ev.Line, ctx.DurationMul, ctx.SpeedScale);
                 if (hold > 0f) yield return new WaitForSeconds(hold);
             }
         }

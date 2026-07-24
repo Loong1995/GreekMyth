@@ -17,9 +17,9 @@ namespace ClientBattle.VFX
     [RequireComponent(typeof(Camera))]
     public class CameraFitter : MonoBehaviour
     {
-        [Tooltip("设计安全区半宽（世界单位）：横排 3 卡 x±3.0 + 卡半宽 0.85 + 余量")]
+        [Tooltip("设计安全区半宽（世界单位）：与 StanceLayout 三列区域对齐")]
         public float DesignHalfWidth = 4.6f;
-        [Tooltip("设计安全区半高（世界单位）：两队 y±2.6 + 卡半高 1.15 + 气泡/飘字余量")]
+        [Tooltip("设计安全区半高（世界单位）：覆盖前后排 |y|=3.65 + 卡半高 + 气泡余量")]
         public float DesignHalfHeight = 5.2f;
 
         Camera _cam;

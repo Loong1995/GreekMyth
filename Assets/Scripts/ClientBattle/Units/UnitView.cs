@@ -20,8 +20,15 @@ namespace ClientBattle.Units
         public string TeamId { get; private set; }
         /// <summary>出场固定中心（槽位锚点，整局不变）。</summary>
         public Vector3 HomePosition { get; private set; }
-        /// <summary>当前休息点：每次位移回位后重采样，落在 Home 为中心、边长=卡宽/4 的正方形内。</summary>
+        /// <summary>当前休息点：落在 Home 为中心、边长=区域宽/5 的正方形内，
+        /// 且半边 ≤ StanceLayout.RestJitterHalf（保证邻格不重叠）。</summary>
         public Vector3 RestPosition { get; private set; }
+        float _restJitterHalf = 0.2f;
+        float _layoutScale = 1f;
+        float _frameW = StanceLayout.RefFrameW;
+        float _frameH = StanceLayout.RefFrameH;
+        float _portraitW, _portraitH, _portraitLocalY, _portraitMarkSlot;
+        float _hpBarWidth, _momentumBarWidth;
         public StatusIconPanel StatusPanel { get; private set; }
         public Transform BubbleAnchor { get; private set; }
 
@@ -31,7 +38,6 @@ namespace ClientBattle.Units
         SpriteRenderer _frame, _portrait, _hpFill, _petrifyOverlay;
         TextMesh _nameLabel, _hpLabel;
         Color _frameColor;
-        const float HpBarWidth = 1.5f;
         float _idlePhase; // 待机呼吸相位（按卡错开，不同步摆动）
         float _portraitBaseY;
         bool _ornateFrame; // Antique 等真框图：不染色；立绘叠内窗
@@ -44,25 +50,45 @@ namespace ClientBattle.Units
         bool _petrified, _aegisAura;
         Coroutine _aegisPulse;
 
-        // ---- 势能表现（B2）：四轨迷你条 + 满档常驻流光 + 溢出白闪 ----
+        // ---- 势能表现（B2）：四轨迷你条 + 溢出白闪（火/金光环见 MomentumFireController）----
         readonly System.Collections.Generic.Dictionary<string, SpriteRenderer> _momentumBars = new();
-        readonly System.Collections.Generic.List<Color> _momentumFullTints = new();
-        SpriteRenderer _momentumGlow, _overflowFlash;
-        const float MomentumBarWidth = 0.34f;
+        SpriteRenderer _overflowFlash;
 
         /// <summary>势能火（CFXR3）生命周期唯一管理者（挂/灭/渐灭/hold-off 全在其内）。</summary>
         public MomentumFireController MomentumFire { get; private set; }
 
-        public static UnitView Create(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position)
+        public static UnitView Create(HeroSnapshot hero, string teamId, Color factionColor,
+            Vector3 position, float restJitterHalf = -1f)
         {
             var go = new GameObject($"unit_{hero.HeroId}");
             var view = go.AddComponent<UnitView>();
-            view.Build(hero, teamId, factionColor, position);
+            view.Build(hero, teamId, factionColor, position, restJitterHalf);
             return view;
         }
 
-        void Build(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position)
+        void ApplyLayoutMetrics(float restJitterHalf)
         {
+            // 尺寸已由 BattleBoardView 在 Fit 相机后 RecalcFromCamera；此处只读结果
+            if (StanceLayout.CardHeight < 0.2f)
+                StanceLayout.RecalcFromCamera(Camera.main);
+            _frameW = StanceLayout.CardWidth;
+            _frameH = StanceLayout.CardHeight;
+            _layoutScale = StanceLayout.LayoutScale;
+            _restJitterHalf = restJitterHalf > 0f ? restJitterHalf : StanceLayout.RestJitterHalf;
+            _portraitW = _frameW * (0.96f / StanceLayout.RefFrameW);
+            _portraitH = _frameH * (1.47f / StanceLayout.RefFrameH);
+            _portraitLocalY = 0.06f * _layoutScale;
+            _portraitMarkSlot = 0.72f * _layoutScale;
+            _hpBarWidth = 1.5f * _layoutScale;
+            _momentumBarWidth = 0.34f * _layoutScale;
+        }
+
+        float S(float v) => v * _layoutScale;
+
+        void Build(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position,
+            float restJitterHalf)
+        {
+            ApplyLayoutMetrics(restJitterHalf);
             Hero = hero;
             TeamId = teamId;
             HomePosition = position;
@@ -79,78 +105,76 @@ namespace ClientBattle.Units
             if (_ornateFrame)
             {
                 _frame.color = Color.white;
-                FitSpriteToSlot(_frame, FrameSlotW, FrameSlotH);
+                FitSpriteToSlot(_frame, _frameW, _frameH);
             }
             else
             {
                 _frame.color = factionColor;
-                StretchSpriteToSlot(_frame, FrameSlotW, FrameSlotH);
+                StretchSpriteToSlot(_frame, _frameW, _frameH);
             }
 
             // 立绘叠在内窗上（order 高于框），等比 contain 不溢出边饰
             var portraitSprite = PlaceholderFactory.GetSprite(
                 "Portraits", hero.TemplateId, Color.Lerp(factionColor, Color.black, 0.35f), 96);
             _portrait = NewSprite("Portrait", portraitSprite, 1);
-            FitSpriteToSlot(_portrait, PortraitSlotW, PortraitSlotH);
-            _portraitBaseY = PortraitLocalY;
+            FitSpriteToSlot(_portrait, _portraitW, _portraitH);
+            _portraitBaseY = _portraitLocalY;
             _portrait.transform.localPosition = new Vector3(0f, _portraitBaseY, -0.02f);
 
             // 名字（框下方）
-            _nameLabel = NewText("NameLabel", hero.HeroId, 42, Color.white,
-                new Vector3(0f, -1.15f, 0f), 3);
+            _nameLabel = NewText("NameLabel", hero.HeroId, Mathf.RoundToInt(42 * _layoutScale), Color.white,
+                new Vector3(0f, S(-1.15f), 0f), 3);
 
             // 血条
             NewSprite("HpBack", PlaceholderFactory.MakeSolidSprite(new Color(0.12f, 0.12f, 0.12f), 8), 3)
-                .transform.SetLocalPositionAndScale(new Vector3(0f, -1.38f, 0f), new Vector3(HpBarWidth, 0.14f, 1f));
+                .transform.SetLocalPositionAndScale(new Vector3(0f, S(-1.38f), 0f),
+                    new Vector3(_hpBarWidth, S(0.14f), 1f));
             _hpFill = NewSprite("HpFill", PlaceholderFactory.MakeSolidSprite(new Color(0.35f, 0.9f, 0.4f), 8), 4);
-            _hpFill.transform.SetLocalPositionAndScale(new Vector3(0f, -1.38f, 0f), new Vector3(HpBarWidth, 0.14f, 1f));
-            _hpLabel = NewText("HpLabel", CurrentTroops.ToString(), 30, new Color(0.8f, 0.8f, 0.82f),
-                new Vector3(0f, -1.56f, 0f), 5);
+            _hpFill.transform.SetLocalPositionAndScale(new Vector3(0f, S(-1.38f), 0f),
+                new Vector3(_hpBarWidth, S(0.14f), 1f));
+            _hpLabel = NewText("HpLabel", CurrentTroops.ToString(), Mathf.RoundToInt(30 * _layoutScale),
+                new Color(0.8f, 0.8f, 0.82f), new Vector3(0f, S(-1.56f), 0f), 5);
 
             // 石化覆盖层（默认隐藏）
             _petrifyOverlay = NewSprite("PetrifyOverlay",
                 PlaceholderFactory.GetSprite("CardFrames", "petrify", new Color(0.55f, 0.55f, 0.5f, 0.85f), 96), 6);
-            StretchSpriteToSlot(_petrifyOverlay, FrameSlotW, FrameSlotH);
+            StretchSpriteToSlot(_petrifyOverlay, _frameW, _frameH);
             _petrifyOverlay.gameObject.SetActive(false);
 
             // 状态图标面板（卡顶外侧横排；尺寸跟卡宽）
             var panelGo = new GameObject("StatusIconPanel");
             panelGo.transform.SetParent(transform, false);
             StatusPanel = panelGo.AddComponent<StatusIconPanel>();
-            StatusPanel.Configure(FrameSlotW, FrameSlotH * 0.5f);
+            StatusPanel.Configure(_frameW, _frameH * 0.5f);
 
-            // 台词气泡锚点（卡牌右上）
+            // 台词气泡锚点（卡牌右上外侧，落在 LineReserve 带内）
             var anchor = new GameObject("BubbleAnchor");
             anchor.transform.SetParent(transform, false);
-            anchor.transform.localPosition = new Vector3(0.75f, 1.45f, 0f);
+            anchor.transform.localPosition = new Vector3(S(0.75f), S(1.45f), 0f);
             BubbleAnchor = anchor.transform;
 
-            // 势能常驻流光（满档轨 rim；默认隐藏）
-            _momentumGlow = NewSprite("MomentumGlow",
-                PlaceholderFactory.MakeSolidSprite(Color.white, 96), -1);
-            StretchSpriteToSlot(_momentumGlow, FrameSlotW * 1.09f, FrameSlotH * 1.07f);
-            _momentumGlow.gameObject.SetActive(false);
+            // 满档金光环：由 MomentumFireController 与势能火同档同灭
 
             // 溢出爆发白闪
             _overflowFlash = NewSprite("OverflowFlash",
                 PlaceholderFactory.MakeSolidSprite(Color.white, 96), 7);
-            StretchSpriteToSlot(_overflowFlash, FrameSlotW, FrameSlotH);
+            StretchSpriteToSlot(_overflowFlash, _frameW, _frameH);
             _overflowFlash.gameObject.SetActive(false);
 
             // 四轨势能迷你条（HP 数字下方）
             int trackCount = MomentumService.TrackTable.Count;
             foreach (var style in MomentumService.TrackTable.Values)
             {
-                float x = (style.Order - (trackCount - 1) / 2f) * (MomentumBarWidth + 0.05f);
+                float x = (style.Order - (trackCount - 1) / 2f) * (_momentumBarWidth + S(0.05f));
                 NewSprite($"MomentumBack_{style.Track}",
                         PlaceholderFactory.MakeSolidSprite(new Color(0.1f, 0.1f, 0.1f, 0.8f), 8), 3)
                     .transform.SetLocalPositionAndScale(
-                        new Vector3(x, -1.72f, 0f), new Vector3(MomentumBarWidth, 0.07f, 1f));
+                        new Vector3(x, S(-1.72f), 0f), new Vector3(_momentumBarWidth, S(0.07f), 1f));
                 var fill = NewSprite($"MomentumFill_{style.Track}",
                     PlaceholderFactory.MakeSolidSprite(Color.white, 8), 4);
                 fill.color = style.Tint;
                 fill.transform.SetLocalPositionAndScale(
-                    new Vector3(x, -1.72f, 0f), new Vector3(0f, 0.07f, 1f));
+                    new Vector3(x, S(-1.72f), 0f), new Vector3(0f, S(0.07f), 1f));
                 _momentumBars[style.Track] = fill;
             }
 
@@ -168,38 +192,25 @@ namespace ClientBattle.Units
                 _portrait.transform.localPosition = new Vector3(fp.x, _portraitBaseY, fp.z);
                 return;
             }
-            float bob = Mathf.Sin(Time.time * 2.1f + _idlePhase) * 0.035f;
+            float bob = Mathf.Sin(Time.time * 2.1f + _idlePhase) * S(0.035f);
             var p = _portrait.transform.localPosition;
             _portrait.transform.localPosition = new Vector3(p.x, _portraitBaseY + bob, p.z);
-
-            // 满档常驻流光：alpha 呼吸脉动（Update 驱动，零 alloc）
-            if (_momentumGlow != null && _momentumGlow.gameObject.activeSelf)
-            {
-                var c = _momentumGlow.color;
-                c.a = 0.35f + Mathf.PingPong(Time.time * 0.9f, 0.3f);
-                _momentumGlow.color = c;
-            }
         }
 
         // ---------------------------------------------------------- 势能表现（B2）
 
         /// <summary>刷新某轨势能迷你条（value 为事件权威值；按轨类型累计）。
-        /// 分档：0~3 半亮 / ≥Flash(4) 全亮 / ≥Full(5) 常驻流光（叠混各满档轨 tint）。</summary>
+        /// 分档：0~3 半亮 / ≥Flash(4) 全亮；火+金光环由 RefreshMomentumFire 驱动。</summary>
         public void SetMomentum(string track, int value)
         {
             if (!_momentumBars.TryGetValue(track, out var fill)) return;
             var style = MomentumService.TrackTable[track];
             float ratio = Mathf.Clamp01(value / (float)MomentumService.Full);
-            fill.transform.localScale = new Vector3(MomentumBarWidth * ratio, 0.07f, 1f);
+            fill.transform.localScale = new Vector3(_momentumBarWidth * ratio, S(0.07f), 1f);
             fill.transform.localPosition = new Vector3(
-                BarCenterX(style.Order) - MomentumBarWidth * (1f - ratio) / 2f, -1.72f, 0f);
+                BarCenterX(style.Order) - _momentumBarWidth * (1f - ratio) / 2f, S(-1.72f), 0f);
             fill.color = value >= MomentumService.Flash ? style.Tint
                 : new Color(style.Tint.r, style.Tint.g, style.Tint.b, 0.55f);
-            if (value >= MomentumService.Full && !_momentumFullTints.Contains(style.Tint))
-            {
-                _momentumFullTints.Add(style.Tint);
-                RefreshGlow();
-            }
         }
 
         /// <summary>该轨首次跨过闪光档（4）的爆发帧：白闪 + 卡牌 punch 缩放（定稿乙案）。
@@ -215,18 +226,16 @@ namespace ClientBattle.Units
             transform.DOPunchScale(Vector3.one * 0.08f, 0.3f, 6).SetLink(gameObject);
         }
 
-        /// <summary>行动窗清零：四轨条归零、流光撤除、势能火撤除；解除火 hold-off。</summary>
+        /// <summary>行动窗清零：四轨条归零、火+金光环撤除。</summary>
         public void ClearMomentum()
         {
             foreach (var pair in _momentumBars)
             {
                 var style = MomentumService.TrackTable[pair.Key];
-                pair.Value.transform.localScale = new Vector3(0f, 0.07f, 1f);
+                pair.Value.transform.localScale = new Vector3(0f, S(0.07f), 1f);
                 pair.Value.transform.localPosition = new Vector3(
-                    BarCenterX(style.Order) - MomentumBarWidth / 2f, -1.34f, 0f);
+                    BarCenterX(style.Order) - _momentumBarWidth / 2f, S(-1.72f), 0f);
             }
-            _momentumFullTints.Clear();
-            RefreshGlow();
             MomentumFire.Clear();
         }
 
@@ -247,12 +256,12 @@ namespace ClientBattle.Units
             {
                 _portraitMark = NewSprite("PortraitMark", null, 55);
                 // 卡顶正中偏上，避开落雷中心（约 y=0.55）
-                _portraitMark.transform.localPosition = new Vector3(0f, 1.55f, -0.6f);
+                _portraitMark.transform.localPosition = new Vector3(0f, S(1.55f), -0.6f);
             }
             _portraitMarkTween?.Kill();
             _portraitMark.sprite = PlaceholderFactory.GetSprite(
                 "Portraits", templateId, new Color(0.5f, 0.4f, 0.6f), 96);
-            FitSpriteToSlot(_portraitMark, PortraitMarkSlot, PortraitMarkSlot);
+            FitSpriteToSlot(_portraitMark, _portraitMarkSlot, _portraitMarkSlot);
             _portraitMark.sortingOrder = 55;
             _portraitMark.gameObject.SetActive(true);
             _portraitMark.color = new Color(1f, 1f, 1f, 0f);
@@ -283,7 +292,7 @@ namespace ClientBattle.Units
             var color = tint ?? Color.white;
             _overlayFlashIcon.sprite = PlaceholderFactory.GetSprite(
                 "VFX", iconKey, color, 64);
-            FitSpriteToSlot(_overlayFlashIcon, FrameSlotW * 0.55f, FrameSlotW * 0.55f);
+            FitSpriteToSlot(_overlayFlashIcon, _frameW * 0.55f, _frameW * 0.55f);
             _overlayFlashIcon.sortingOrder = 32;
             _overlayFlashIcon.gameObject.SetActive(true);
             _overlayFlashIcon.color = new Color(color.r, color.g, color.b, 0f);
@@ -304,22 +313,7 @@ namespace ClientBattle.Units
         }
 
         float BarCenterX(int order) =>
-            (order - (MomentumService.TrackTable.Count - 1) / 2f) * (MomentumBarWidth + 0.05f);
-
-        void RefreshGlow()
-        {
-            if (_momentumFullTints.Count == 0)
-            {
-                _momentumGlow.gameObject.SetActive(false);
-                return;
-            }
-            var mixed = Color.black; // 多轨满档叠色（加法混合后归一）
-            foreach (var t in _momentumFullTints) mixed += t;
-            mixed /= _momentumFullTints.Count;
-            mixed.a = 0.5f;
-            _momentumGlow.color = mixed;
-            _momentumGlow.gameObject.SetActive(true);
-        }
+            (order - (MomentumService.TrackTable.Count - 1) / 2f) * (_momentumBarWidth + S(0.05f));
 
         // ---------------------------------------------------------- 状态呈现
 
@@ -328,18 +322,19 @@ namespace ClientBattle.Units
         {
             CurrentTroops = Mathf.Max(0, troopsAfter);
             float ratio = Hero.MaxTroops > 0 ? (float)CurrentTroops / Hero.MaxTroops : 0f;
-            _hpFill.transform.localScale = new Vector3(HpBarWidth * ratio, 0.14f, 1f);
-            _hpFill.transform.localPosition = new Vector3(-HpBarWidth * (1f - ratio) / 2f, -1.0f, 0f);
+            _hpFill.transform.localScale = new Vector3(_hpBarWidth * ratio, S(0.14f), 1f);
+            _hpFill.transform.localPosition = new Vector3(
+                -_hpBarWidth * (1f - ratio) / 2f, S(-1.38f), 0f);
             _hpFill.color = ratio > 0.5f ? new Color(0.35f, 0.9f, 0.4f)
                           : ratio > 0.2f ? new Color(0.95f, 0.75f, 0.2f)
                                          : new Color(0.9f, 0.25f, 0.2f);
             _hpLabel.text = CurrentTroops.ToString();
         }
 
-        /// <summary>在出场固定中心附近重采样休息点（正方形边长 = 卡宽/4）。</summary>
+        /// <summary>在出场固定中心附近重采样休息点（正方形边长 = 站位区域宽/5）。</summary>
         public Vector3 RerollRestPosition()
         {
-            float half = FrameSlotW / 8f; // 边长 FrameSlotW/4 → 半边 FrameSlotW/8
+            float half = _restJitterHalf;
             RestPosition = HomePosition + new Vector3(
                 Random.Range(-half, half),
                 Random.Range(-half, half),
@@ -440,13 +435,6 @@ namespace ClientBattle.Units
                 _portrait.transform.localPosition = new Vector3(p.x, _portraitBaseY, p.z);
             }
 
-            if (_momentumGlow != null && _momentumGlow.gameObject.activeSelf)
-            {
-                var c = _momentumGlow.color;
-                c.a = frozen ? 0.4f : c.a;
-                _momentumGlow.color = c;
-            }
-
             // 阿瑞斯红呼吸
             if (_aresRagePulse != null)
             {
@@ -470,6 +458,7 @@ namespace ClientBattle.Units
             foreach (var driver in GetComponentsInChildren<ThunderAuraDriver>(true))
                 driver.enabled = !frozen;
 
+            // 含势能火 / 卡后金光环（AuraMount_*）
             foreach (Transform child in transform)
             {
                 if (child == null || !child.name.StartsWith("AuraMount")) continue;
@@ -647,6 +636,7 @@ namespace ClientBattle.Units
             transform.DOKill();
             _dimTween?.Kill();
             SetAresRage(false);
+            MomentumFire.Extinguish();
             _portrait.color = new Color(0.35f, 0.35f, 0.35f);
             _frame.color = _ornateFrame
                 ? new Color(0.4f, 0.4f, 0.42f)
@@ -680,14 +670,7 @@ namespace ClientBattle.Units
         }
 
         // ---------------------------------------------------------- 工具
-
-        // 卡面槽位：Antique doc view 1024×1680 → 外框 1.55×2.54；内窗约 62%×58%
-        const float FrameSlotW = 1.55f;
-        const float FrameSlotH = 2.54f;
-        const float PortraitSlotW = 0.96f;
-        const float PortraitSlotH = 1.47f;
-        const float PortraitLocalY = 0.06f; // 顶部饰件略高，立绘微下移居中内窗
-        const float PortraitMarkSlot = 0.72f;
+        // 卡面尺寸由 StanceLayout 按区域反算；本类用 _frameW/_frameH + LayoutScale。
 
         /// <summary>按 sprite.bounds 等比缩放到槽内（contain，不拉伸）。
         /// 与 BackgroundFitter 的 cover 同族；立绘用 contain 避免裁切无遮罩时溢出。</summary>
@@ -724,7 +707,7 @@ namespace ClientBattle.Units
             var go = new GameObject(name);
             go.transform.SetParent(transform, false);
             go.transform.localPosition = localPos;
-            go.transform.localScale = Vector3.one * 0.08f;
+            go.transform.localScale = Vector3.one * (0.08f * Mathf.Max(0.35f, _layoutScale));
             var mesh = go.AddComponent<TextMesh>();
             mesh.text = text;
             mesh.fontSize = fontSize;

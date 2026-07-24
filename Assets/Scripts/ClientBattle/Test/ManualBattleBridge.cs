@@ -205,7 +205,8 @@ namespace ClientBattle.Test
 
         // ------------------------------------------------------------ config 拼装
 
-        /// <summary>由 6 个上阵位拼 bridge config JSON（空位跳过，位置压实）。</summary>
+        /// <summary>由每队最多 6 个站位槽拼 bridge config（空位跳过；
+        /// slots 下标 0..5 = position 1..6）。</summary>
         public static string BuildConfigJson(ManualSlot[] slotsA, ManualSlot[] slotsB)
         {
             var root = new JObject
@@ -219,8 +220,9 @@ namespace ClientBattle.Test
         static JObject TeamObj(string teamId, ManualSlot[] slots)
         {
             var heroes = new JArray();
-            foreach (var s in slots)
+            for (int i = 0; i < slots.Length; i++)
             {
+                var s = slots[i];
                 if (s.IsEmpty) continue;
                 var extras = new JArray();
                 foreach (var sk in s.ExtraSkills)
@@ -228,6 +230,7 @@ namespace ClientBattle.Test
                 heroes.Add(new JObject
                 {
                     ["template"] = s.TemplateId,
+                    ["position"] = i + 1, // 槽位序 → 站位 1~6
                     ["extra_skills"] = extras,
                 });
             }

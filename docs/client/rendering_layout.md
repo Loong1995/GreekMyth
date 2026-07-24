@@ -19,22 +19,21 @@
 | OnGUI 缩放 | 横幅/按钮/结算表按 `Screen.height/800` 缩放字号与矩形 | `BannerService.OnGUI` / `SettlementPanel.OnGUI` 等 |
 | 禁止事项 | 表现层不得写死 orthoSize / 像素坐标 / 分辨率假设 | — |
 
-## 三、图像槽位缩放（2026-07-20 定）
+## 三、图像槽位缩放（随站位区域反算）
 
-任意分辨率/PPU 的上传图都在**运行时**缩放到固定世界槽位，
-资产侧不要求统一像素（P-20 上传红线另见 assets_upload_guide）：
+卡面世界尺寸由 `StanceLayout` 按阵型带极大化（含休息点抖动与上下
+台词带；交错阵以后排齐边带为竖向上限），不再写死 1.55×2.54。`UnitView` 以 `LayoutScale` 相对 Antique
+基准等比缩放立绘/血条/锚点：
 
-| 元素 | 模式 | 槽位（世界单位） |
+| 元素 | 模式 | 槽位 |
 |---|---|---|
-| 立绘 Portrait | **contain 等比**（不裁不拉伸，扁图留边） | 0.96 × 1.47（`UnitView.PortraitSlotW/H`，Antique 内窗） |
-| 头像标 PortraitMark | contain 等比 | 0.72 × 0.72（`PortraitMarkSlot`） |
-| 卡框 Frame / 石化层 / 白闪 | **stretch 铺满**（占位方块要拉成卡面比例） | 1.55 × 2.54（`FrameSlotW/H`，Antique doc view 1024×1680 外框） |
-| 满档流光 Glow | stretch，略大于卡框 | ×1.09 / ×1.07 |
+| 立绘 Portrait | **contain 等比** | 相对框宽高保持 0.96/1.55、1.47/2.54 比例 |
+| 头像标 PortraitMark | contain 等比 | `0.72 × LayoutScale` |
+| 卡框 Frame / 石化 / 白闪 | **stretch** | `StanceLayout.CardWidth × CardHeight` |
+| 满档外溢光环 | CFXR 挂卡后 | LightGlow A 去星点，scale 1.18~1.65；与火同渐灭 |
 
-代码：`UnitView.FitSpriteToSlot`（contain，`Mathf.Min(slotW/w, slotH/h)`）与
-`StretchSpriteToSlot`（非等比）；槽位常量在 `UnitView` 顶部。
-特效 prefab 不走槽位——按**目视校准**定 variant 根缩放（P-06），
-演出层只允许相对乘法（`*=`），回池由 `VfxOriginalScale` 复位。
+代码：`StanceLayout.Recalc()` + `UnitView.FitSpriteToSlot` /
+`StretchSpriteToSlot`。特效 prefab 仍目视校准（P-06），演出层只 `*=`。
 
 ## 四、sorting 层级表（谁盖住谁——查此表再查逻辑，P-21）
 
@@ -44,7 +43,7 @@
 |---|---|---|
 | -100 | 棋盘背景 | `BattleBoardView` |
 | -50 | 整盘滤镜 | `BoardFilterOverlay` |
-| -1 | 势能满档流光 | `UnitView` |
+| -1 | 势能满档卡后光环 | `UnitAuraService.MountMomentumGlow` |
 | 0 / 1 | 卡框 / 立绘 | `UnitView` |
 | 2~4 | 血条/势能条（文字类 +10 → 12/14） | `UnitView` |
 | 5 / 6 | 石化覆盖层 / 溢出白闪 | `UnitView` |
@@ -58,17 +57,25 @@
 
 ## 五、棋盘布局与卡牌结构
 
-- 上下布局：A 队下、B 队上；队内按站位（1~6，4~6 为后排语义）从左到右横排居中。
-- 卡牌 GameObject 树：Frame（阵营色染色）→ Portrait（槽位 contain）→
-  NameLabel → HpBar+HpLabel → 四轨势能迷你条 → StatusIconPanel（卡顶外侧横排）→
-  PetrifyOverlay → BubbleAnchor（右上，气泡锚点）。
-- 阵营配色唯一源：`BattleBoardView.FactionColors`（神金/人红/海蓝/冥紫），
-  规范见 [faction_style.md](faction_style.md)。
-- 待机呼吸：存活卡立绘正弦浮动、相位按站位错开（画面永远有活物）。
+- **阵型组合**（禁止同列前后排同时放卡，避免竖向四倍卡高）：
+  - **方圆阵** `{1,5,6}`：前左 + 后中 + 后右。
+  - **却月阵** `{1,2,6}`：前左 + 前中 + 后右。
+  - **鹤翼阵** `{2,4,6}`：前中 + 后左 + 后右。
+  - **前列横排** `{1,2,3}`：旧战报/仅前排兼容。
+  - **六区格心**（其它占位）：前 1~3 / 后 4~6 各落半格中心。
+- **布局半宽半高锁定设计安全区**（4.6×5.2，与 `CameraFitter` 一致）；
+  宽屏两侧余量只铺背景，三列不随视野横向撑开。
+- **交错阵几何**（方圆/却月/鹤翼共用，`StanceLayout`）：
+  **上侧(B)**：后排卡上缘贴队区上界、下缘贴 **前排区下 1/3 线**（卡高=该跨度）；
+  **前排卡底缘贴队区内缘（中缝侧）**，避免同卡高穿入中线；A 侧镜像。
+- 建棋盘：`CameraFitter.Fit` → **逐队** `DetectFormation` → `RecalcFromCamera(formA, formB)`；
+  异阵对打（如方圆 vs 鹤翼）各按本队落点，卡尺取交错带（任一方交错即用）。
+- 历史 `position` 0~2 → 1~3；卡牌树与阵营色不变。
 
 ## 六、维护清单
 
 - 上传图不生效 → 先查路径（必须 `Resources/ClientBattle/<类别>/`）与
   Texture Type=Sprite（P-20），再查槽位/层级。
 - 「特效没播」→ 先对照 §四层级表排除遮挡（P-21）。
-- 改卡面尺寸：只动 `UnitView` 槽位常量，勿逐元素改 localScale。
+- 改卡面尺寸：只调 `StanceLayout` 的 LineReserve/MidClear/垫缝或安全区，
+  由 `Recalc` 反算；勿在 `UnitView` 写死世界单位。

@@ -8,7 +8,8 @@ namespace ClientBattle.Names
     // 集中在这一张表——新增状态只在这里加一行，各服务只读本表：
     //   AuraKey      → UnitAuraService 常驻光环（null = 无光环）
     //   AuraOffset   → 挂载相对卡牌中心的偏移（底火/顶火等；默认卡心微上）
-    //   ControlIcon  → StatusIconPanel 卡中央大图标（控制类 + 冥火等登记项）
+    //   ControlIcon  → StatusIconPanel 卡顶外侧横排图标（硬控 + 冥火等；
+    //                    先攻/犹豫不展示图标，仅飘字/台词）
     //   StatsSkillId → BattleSkillStatsAggregator 结算表归因的战法格子
     //                  （null = 直通 status_id；神谕/被动载体 status_id ≠ skill_id）
     //   CollectiveMerge → CollectiveTriggerMergeProcessor 相邻同状态同来源触发
@@ -46,10 +47,9 @@ namespace ClientBattle.Names
     {
         static readonly Dictionary<string, StatusPresentation> Table = new()
         {
-            // ---- 控制类（卡中央大图标）----
+            // ---- 卡顶外侧图标（ControlIcon；先攻/犹豫刻意不列入，仅飘字+状态台词）----
             ["silence"] = new(controlIcon: true),
             ["disarm"] = new(controlIcon: true),
-            ["hesitation"] = new(controlIcon: true),
             ["petrify"] = new(controlIcon: true),
             ["freeze"] = new(controlIcon: true, auraKey: "aura_freeze",
                              auraOffset: new Vector3(0f, -0.3f, -0.5f)),
@@ -78,7 +78,7 @@ namespace ClientBattle.Names
             ["hades_lifesteal"] = new(auraKey: "aura_underworld", statsSkillId: "hades_underworld_dominion"),
             ["shadow_veil"] = new(auraKey: "aura_underworld", statsSkillId: "hades_underworld_dominion"),
             ["hades_command_drain"] = new(auraKey: "aura_underworld", statsSkillId: "hades_underworld_dominion"),
-            // 冥火：中央状态图标（与控制类同槽）；无光环、不用 CFXR 火
+            // 冥火：与硬控同槽卡顶图标；无光环、不用 CFXR 火
             ["underworld_burn"] = new(controlIcon: true, statsSkillId: "hecate_torch"),
             ["hecate_torch"] = new(statsSkillId: "hecate_torch"),
             ["lion_counter"] = new(statsSkillId: "heracles_counter"),

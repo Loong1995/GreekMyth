@@ -15,7 +15,7 @@ from __future__ import annotations
     basic_lifesteal       普攻吸血（贪食 10% / 暴食 8%）
     heal_up_bonus         治疗量加成（仁心 +15% / 师者 +10% / 柔波 +10%）
     flip_heal_lowest      治疗兵力最低单位前判定改治疗对面（仁心 20%）
-    forced_crit_on_taken  受击判定使该次攻击必定暴击（踵之弱 15%）
+    forced_crit_on_taken  受击判定使该次攻击必定暴击（踵之弱 20%）
     pursuit_boost         追伤最终伤害倍率（傲慢 无条件 25% 判定 ×1.5）
     attr_drain_multiplier 吸取属性效果翻倍（威权 20% ×2）
     on_kill               己方击杀后（求胜四维+10）
@@ -339,7 +339,7 @@ class _Qiusheng(Trait):
 @dataclass(frozen=True)
 class _Aoman(Trait):
     """阿喀琉斯·傲慢：追伤前无条件 25% 判定成功则追伤 ×1.5
-    并播贯穿台词（pierce）；受击 7.5% 踵之弱→该次攻击必定暴击
+    并播贯穿台词（pierce）；受击 20% 踵之弱→该次攻击必定暴击
     （台词延到暴击伤害落账后，见 engine.deal_damage）。"""
 
     def pursuit_boost_bps(self, engine, source, target, parent_seq):
@@ -350,9 +350,9 @@ class _Aoman(Trait):
         return 0
 
     def forced_crit_on_taken(self, engine, target, parent_seq):
-        # 2026-07-09 人工调参：踵之弱 15%→7.5%（降低一倍）
+        # 2026-07-23 人工调参：踵之弱 7.5%→20%（heel 默认 750→2000 bps）
         # 只判定+挂旗，不立刻弹台词（等暴击伤害事件写出后再 emit heel）
-        r = rate(engine, self.trait_id, "heel", 750)
+        r = rate(engine, self.trait_id, "heel", 2000)
         if engine.rng.rand_bps("trait", f"{target.hero_id}:heel") < r:
             engine.set_trait_flag(target.hero_id, "heel_line_pending")
             return True

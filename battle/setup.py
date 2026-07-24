@@ -47,6 +47,7 @@ class TeamSetup:
     team_id: str
     main_hero_id: str
     heroes: tuple[HeroSetup, ...]
+    formation: str = ""  # 阵型 id（battle/formations.py 注册表；空 = 无阵型，行为不变）
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,21 @@ def validate_setup(setup: BattleSetup) -> None:
         positions = [hero.position for hero in team.heroes]
         if len(set(positions)) != len(positions):
             raise SetupError("站位不能重复", team_id=team.team_id, positions=positions)
+        if team.formation:
+            from battle.formations import get_formation
+
+            formation = get_formation(team.formation)
+            if formation is None:
+                raise SetupError("未知阵型", team_id=team.team_id, formation=team.formation)
+            illegal = [p for p in positions if p not in formation.positions]
+            if illegal:
+                raise SetupError(
+                    "站位不在阵型槽位内",
+                    team_id=team.team_id,
+                    formation=team.formation,
+                    positions=illegal,
+                    allowed=sorted(formation.positions),
+                )
         for hero in team.heroes:
             if hero.hero_id in seen_hero_ids:
                 raise SetupError("hero_id 全局重复", hero_id=hero.hero_id)

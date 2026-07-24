@@ -65,6 +65,9 @@ namespace ClientBattle.Names
             ["fear"] = "恐惧", ["curse"] = "诅咒", ["certain_crit"] = "必胜",
             ["clear_mind"] = "清醒", ["zhonglie_burst"] = "忠烈·连发",
             ["haozhao_rally"] = "号召", ["qiusheng_win"] = "求胜",
+            // ---- 阵型整场被动（battle/formations.py）----
+            ["formation_yanxing_guard"] = "雁行·雁翼",
+            ["formation_yanxing_edge"] = "雁行·雁喙",
             // ---- P4-C 经理人战术 ----
             ["tactic_focus"] = "集火", ["tactic_protect"] = "保护",
             ["tactic_stance"] = "攻守倾向",

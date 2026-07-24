@@ -89,9 +89,9 @@
 | `VFX/CameraShaker.cs` | trauma 噪声模型震动：连抖累加封顶、Perlin 偏移、衰减自动复位（升级点：Cinemachine Impulse） |
 | `VFX/CutInService.cs` | **全屏 cut-in**：请求入口 Request（组去重+主体分发+duck）；单人斜带+巨幅立绘（PlaySolo，非阻塞）；决斗裂缝交错（DuelClashRoutine，阻塞，两半屏卡对向滑过裂缝线×clash_cutins） |
 | `VFX/CameraFitter.cs` | **机型兼容唯一权威**：按宽高比动态调 orthoSize 保安全区（半宽 4.6/半高 5.2），分辨率热切换每帧跟随；表现层禁止写死 orthoSize/像素坐标 |
-| `Units/BattleBoardView.cs` | 建棋盘（A 下 B 上按站位横排）、unitId→UnitView、背景（默认无色纯黑，上传底图则 BackgroundFitter cover 铺满）、整盘滤镜挂点 |
+| `Units/BattleBoardView.cs` | 建棋盘（A 下 B 上、阵型落点）、unitId→UnitView、背景（默认无色纯黑，上传底图则 BackgroundFitter cover 铺满）、整盘滤镜挂点 |
 | `Units/UnitView.cs` | 卡牌 GameObject：立绘/血条/受击/石化边框渐变/压暗/阵亡/待机呼吸（立绘错相位浮动，画面永远有活物）/四轨势能迷你条+满档流光 |
-| `Units/StatusIconPanel.cs` | 仅控制类图标：卡顶外侧横排（宽≈卡宽 1/5）+ 独立随机抖动 |
+| `Units/StatusIconPanel.cs` | 硬控/冥火卡顶外侧横排（宽≈卡宽 1/5）+ 抖动；先攻/犹豫不展示 |
 | `Events/Processors/AchillesPierceTagProcessor.cs` | 傲慢贯穿 TraitLine → 标记随后 achilles_wrath 追伤组（裂甲图标闸门） |
 | `Units/FloatingTextService.cs` | 所有伤害/治疗/状态头顶飘字（技能名+数值，硬性要求） |
 | `Units/ChatBubbleService.cs` | 台词独占气泡（`SayExclusive` 时长对齐时间轴） |
@@ -121,7 +121,7 @@
    群攻(≥2 目标)＝一个单元、施法者移中心、N 道刀光/魔法光（按伤害类型选 key）；
    单体主动按伤害段数逐段；普攻近身命中帧闪斩击（×1.0，追击 ×1.5）；
    追击群攻走主动、单体走普攻;
-   控制类状态图标居中折行；同帧状态+伤害音效去重；
+   硬控/冥火状态图标卡顶横排（先攻/犹豫不展示）；同帧状态+伤害音效去重；
    状态触发飘状态来源战法名；性格台词气泡当场弹出。
 6. **扩展点**：`EventPipeline.Register` 加自定义分析器；`SkillPerformance` 派生新
    演出模板（进场动画/死亡动画后续在 `PlaybackDirector.PlayGroup` 的 Defeat/

@@ -34,7 +34,7 @@ engine 不再手写状态元组）：`emit_voice_once`（同窗同人同状态�
 | `disarm` / `fear` / `ming_lock` / `petrify` | 因禁普攻跳过普攻时 | `FORBID_BASIC_VOICE`；同窗一次 |
 | 全禁主因 | 行动窗整体 `skipped` 时 | `pick_skip_voice_id`；同窗一次 |
 | `hesitation` | 判定成功、写出 `skill_trigger kind=delayed` 之前 | `emit_voice_once` |
-| `charm` | 魅惑改写选人池前 | `emit_voice_once` |
+| `charm` | 魅惑改写选敌初步备选池时（`alive_enemies`） | `emit_voice_once` |
 | `first_strike` | 先攻改序后，该武将 `action_start` 紧随（`_first_strike_voice` 集合，回合首重置） | 每回合一次 |
 
 ## 四、文字日志

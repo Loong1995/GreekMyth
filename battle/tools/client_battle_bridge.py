@@ -104,18 +104,37 @@ def build_catalog() -> dict[str, Any]:
 # ---------------------------------------------------------------- 配阵构建
 
 def build_setup_from_config(config: dict) -> BattleSetup:
-    """同 manual_battle.build_setup，另加跨队同模板改名「（敌）」。"""
+    """同 manual_battle.build_setup，另加跨队同模板改名「（敌）」。
+
+    每位英雄可带 ``position``（1~6；缺省按数组序 1..n，兼容旧 config 的
+    隐式 0..n-1 由 hero_setup 写入前在此显式化）。也可在队级提供
+    ``positions: [1,4,2]`` 与 heroes 等长，优先于英雄字段。
+    """
     seen_ids: set[str] = set()
     teams = []
     for i, tcfg in enumerate(config["teams"]):
         team_id = tcfg.get("team_id", "AB"[i])
+        heroes_cfg = tcfg["heroes"]
+        team_positions = tcfg.get("positions")
+        if team_positions is not None and len(team_positions) != len(heroes_cfg):
+            raise ValueError(
+                f"team {team_id}: positions 长度须与 heroes 一致"
+                f"（{len(team_positions)} vs {len(heroes_cfg)}）"
+            )
         setups = []
-        for pos, h in enumerate(tcfg["heroes"]):
+        for idx, h in enumerate(heroes_cfg):
             template = ROSTER[h["template"]]
             hero_id = h.get("hero_id", template.name)
             while hero_id in seen_ids:
                 hero_id += "（敌）"
             seen_ids.add(hero_id)
+            if team_positions is not None:
+                pos = int(team_positions[idx])
+            elif "position" in h:
+                pos = int(h["position"])
+            else:
+                # 缺省：按出现序占前排 1..n（新口径）；不再写 0..n-1
+                pos = idx + 1
             setups.append(hero_setup(
                 h["template"],
                 hero_id=hero_id,
@@ -128,6 +147,7 @@ def build_setup_from_config(config: dict) -> BattleSetup:
         teams.append(TeamSetup(
             team_id=team_id, main_hero_id=setups[0].hero_id,
             heroes=tuple(setups),
+            formation=tcfg.get("formation", ""),
         ))
     return BattleSetup(
         battle_id=config.get("battle_id", "manual_ui"),

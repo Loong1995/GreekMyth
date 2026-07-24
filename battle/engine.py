@@ -271,6 +271,20 @@ class SeriesEngine:
         ]
 
     def alive_enemies(self, hero: HeroState) -> list[HeroState]:
+        """选敌初步备选列表。
+
+        无魅惑：敌方存活单位。持有 charm_targeting：除自身外全体存活（敌我不分），
+        并发魅惑台词（同窗一次）。技能内部规则（互斥/指名最高属性/受击率加权等）
+        仍在本列表上执行——本方法只改池，不替技能做二次筛选。
+        必须读「真实敌方」的逻辑请用 `_alive_enemies`。
+        """
+        if st.any_forbid(self.hero_statuses(hero.hero_id), "charm_targeting"):
+            sv.emit_voice_once(self, hero, "charm")
+            return [
+                self.heroes[hero_id]
+                for hero_id in self.hero_order
+                if hero_id != hero.hero_id and self.heroes[hero_id].is_alive()
+            ]
         return self._alive_enemies(hero)
 
     def alive_allies(self, hero: HeroState) -> list[HeroState]:
@@ -282,9 +296,10 @@ class SeriesEngine:
 
         exclude_ids 供多段/连锁类战法排除已选目标。无候选时返回 None
         （B3 起连锁场景允许无目标，调用方自行跳过）。
-        魅惑（charm_targeting）：候选改为敌我全体（除自己），敌我不分（Phase 3）。
+        候选池 = alive_enemies（魅惑时为除自身外全体）。魅惑下随机改为等权
+        （等概率），互斥 exclude / 性格 prefer / 后排偏好仍在池上执行。
         性格干预（Phase 3）：force_basic_target（怒涛/好战/逐苹）直接指定目标；
-        prefer_target（狡黠后排/鲁莽嘲讽）缩小候选集后再按受击率 roll。
+        prefer_target（狡黠后排/鲁莽嘲讽）缩小候选集后再 roll。
         """
         trait = tr.of(attacker)
         if trait is not None:
@@ -296,9 +311,10 @@ class SeriesEngine:
                     "selected_id": forced.hero_id,
                 })
                 return forced
-        # 锁定最低兵力目标（月影狩猎，Phase 3）：跳过受击率 roll，确定性选取
+        charmed = st.any_forbid(self.hero_statuses(attacker.hero_id), "charm_targeting")
+        # 锁定最低兵力目标（月影狩猎）：在初步备选池上取兵力比最低
         if st.any_forbid(self.hero_statuses(attacker.hero_id), "lock_lowest_target"):
-            enemies = [h for h in self._alive_enemies(attacker) if h.hero_id not in exclude_ids]
+            enemies = [h for h in self.alive_enemies(attacker) if h.hero_id not in exclude_ids]
             if enemies:
                 selected = self._lowest_troops_ratio(enemies)
                 self._pending_target_selects.append({
@@ -308,16 +324,7 @@ class SeriesEngine:
                 })
                 return selected
             return None
-        if st.any_forbid(self.hero_statuses(attacker.hero_id), "charm_targeting"):
-            pool = [
-                self.heroes[hero_id]
-                for hero_id in self.hero_order
-                if hero_id != attacker.hero_id and self.heroes[hero_id].is_alive()
-            ]
-            # 魅惑改写选人：临选人前弹台词（同窗同人只弹一次）
-            sv.emit_voice_once(self, attacker, "charm")
-        else:
-            pool = self._alive_enemies(attacker)
+        pool = self.alive_enemies(attacker)
         candidates = [h for h in pool if h.hero_id not in exclude_ids]
         if not candidates:
             return None
@@ -336,14 +343,18 @@ class SeriesEngine:
                     candidates = back
         if len(candidates) == 1:
             selected = candidates[0]
+            weight = BPS if charmed else self._hit_weight(selected)
             self._pending_target_selects.append({
                 "reason": reason,
-                "candidates": [{"hero_id": selected.hero_id,
-                                "hit_bps": self._hit_weight(selected)}],
+                "candidates": [{"hero_id": selected.hero_id, "hit_bps": weight}],
                 "selected_id": selected.hero_id,
             })
             return selected
-        weights = [self._hit_weight(hero) for hero in candidates]
+        # 魅惑：等概率；否则受击点数加权
+        weights = (
+            [BPS] * len(candidates) if charmed
+            else [self._hit_weight(hero) for hero in candidates]
+        )
         index = self.rng.rand_weighted_index(weights, "target_select", reason)
         selected = candidates[index]
         # 选人过程事件化（动态受击点数 + 命中者），由最近的宣告/结算事件带出
@@ -484,6 +495,8 @@ class SeriesEngine:
                 ],
             },
         )
+        # 阵型整场被动（每局重挂，duration=PERMANENT；空阵型零事件零改动）
+        self._apply_formation_buffs()
         # 登场羁绊对话（全场 S1/S2 单元；无羁绊则跳过）
         from battle import voice_lines_enter as vle
         vle.emit_enter_dialogues(self)
@@ -527,6 +540,27 @@ class SeriesEngine:
         # game_end 语义清空战时状态与本局属性修改（不逐条发事件，契约 §19）
         self._reset_game_state()
         return winner, reason, end_round
+
+    def _apply_formation_buffs(self) -> None:
+        """阵型整场被动：按 hero_order 确定序给对应站位重挂 PERMANENT 状态
+        （battle/formations.py 注册表）。来源=持有者自身；不耗 RNG；
+        战时状态随局清空 → 每局 game_start 后重挂即达成「整场」语义。"""
+        from battle.formations import get_formation
+
+        formation_of_team = {
+            team.team_id: get_formation(team.formation) for team in self.teams
+        }
+        for hero_id in self.hero_order:
+            hero = self.heroes[hero_id]
+            if not hero.is_alive():
+                continue
+            formation = formation_of_team.get(hero.team_id)
+            if formation is None:
+                continue
+            builder = formation.buffs.get(hero.position)
+            if builder is None:
+                continue
+            self.apply_status(hero, hero, builder(), parent_seq=0)
 
     # ------------------------------------------------------------------ 单挑（B3 → 配对升级）
 
