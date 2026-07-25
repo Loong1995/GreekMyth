@@ -44,6 +44,7 @@ namespace ClientBattle.VFX
 
             // 分辨率/宽高比自适配（不同机型统一由 CameraFitter 权威取景）
             CameraFitter.EnsureOn(Camera.main);
+            BattlePostFx.Ensure(); // RFX4 等史诗特效依赖 HDR+Bloom
             board.Build(report);
 
             var vfx = VFXManager.Ensure();

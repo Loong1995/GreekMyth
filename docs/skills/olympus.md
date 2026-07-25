@@ -16,6 +16,7 @@
 - **效果**：对敌全体 200% 魔法伤害。
 - **实现**：逐目标；收局即停。
 - **事件流**：skill_trigger(cast) → damage×N。
+- **演出**：RemoteStrike；竖雷 DR 单道；命中 `hit_lightning`←Magic Effect19_Collision（禁 RFX4）。
 
 ## athena_aegis 埃癸斯圣盾（雅典娜·自带·神谕）
 
@@ -23,7 +24,7 @@
   ②己方统率最低单位单次受伤超受击前兵力 8% → 雅典娜治疗（智力×0.9），每回合最多 2 次；
   ③雅典娜【圣盾·守心】首次硬控消耗免疫。
 - **实现**：`reflect_rate_bps` + 控制减免链；明睿旁骛当回合圣盾不生效。
-- **演出**：反伤成功时持盾者卡面中央渐变闪 `VFX/icon_aegis`（待上传）。
+- **演出**：反伤成功时持盾者卡面中央渐变闪 `VFX/icon_aegis`（待上传）；挂身 AllIn1 金描边；反制命中 `hit_shield_counter`。
 - **事件流**：reflect damage / status_tick；守心 status_tick。
 
 ## athena_guard 神盾格挡（雅典娜·拆解·被动）
@@ -37,6 +38,7 @@
 - **效果**：敌我全体【血战】（通用易伤 +20%、暴击伤害 +50%）；己方武力最高【战神之勇】
   （武 +20、速 +20，整局；并列小站位）。
 - **实现**：`blood_battle`（`vulnerable_bps` + `crit_damage_up_bps`）/ `ares_might`。
+- **演出**：血战＝卡框红呼吸；战神之勇＝Magic `aura_ares_might`（Effect18）常驻，无呼吸。
 - **事件流**：prepare status_apply。
 
 ## ares_frenzy 战争狂热（阿瑞斯·拆解·被动）

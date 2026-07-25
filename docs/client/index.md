@@ -19,6 +19,7 @@
 | [settlement_stats.md](settlement_stats.md) | **战后技能结算表**：分局 Tab、带技能（神谕）归因到施法者技能格、status→skill 映射 |
 | [client_battle_framework.md](client_battle_framework.md) | **框架主文档**：5 层数据流向图、逐文件职责、关键机制（播放单元/补发重组/三级表演策略/占位回退）、运行方式 |
 | [assets_upload_guide.md](assets_upload_guide.md) | **资源清单·现状·成品化路线（唯一资源文档）**：全部 key 与路径、每类现状、六步成品化流程、采购登记（原 to_purchase.md 已并入） |
+| [vfx_playback_scheme.md](vfx_playback_scheme.md) | **特效播放方案快照**：包分工、宙斯/雅典娜现行接线、预览入口、验收战报 |
 | [faction_style.md](faction_style.md) | 四阵营视觉规范（配色同源 `Units/BattleBoardView.cs`） |
 | [manual_setup_panel.md](manual_setup_panel.md) | **手动配阵测试页**：客户端内配阵 → python 结算 → 播战报/百场统计 |
 

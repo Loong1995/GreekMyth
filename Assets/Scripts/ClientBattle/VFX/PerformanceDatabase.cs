@@ -65,7 +65,13 @@ namespace ClientBattle.VFX
                 ProjectileKey = "", HitKey = "hit_generic",
                 SfxKey = "sfx_active_default", HitSfxKey = "sfx_hit_default",
             };
+            // 主动默认：弹道/命中按伤害类型在 DefaultPerformance 解析（不再默认 Cast）
+            // 物理＝proj_bolt200 + hit_clash；魔法＝magic_bolt + hit_lightning
             db.ActiveDefault = db.GlobalDefault.Clone();
+            db.ActiveDefault.HitKey = "";
+            db.ActiveDefault.ProjectileKey = "";
+            db.ActiveDefault.CastKey = "";
+            db.ActiveDefault.CameraShakeOnHit = true;
             db.MeleeDefault = new PerformanceProfile
             {
                 Template = PerformanceTemplate.Melee,
@@ -94,15 +100,20 @@ namespace ClientBattle.VFX
                 // 神：雷霆神谕——常驻卡面频繁落劈；触发贯穿对面用 RemoteStrike
                 new() { SkillOrStatusId = "thunder_oracle", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_thunder", SfxKey = "sfx_oracle_thunder" },
-                // 雷霆落雷：不位移；目标头顶宙斯头像 + DR 程序化竖雷贯穿整卡
+                // 雷霆 / 天雷击：DR 单道竖雷 + Magic Pack Effect19_Collision 命中（无 ProjectileKey；禁 RFX4）
                 new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.RemoteStrike,
                         HitKey = "hit_lightning",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
-                // 宙斯拆技天雷击：RemoteStrike 竖劈 + Vefects Directional（群攻 Auto 弧线几乎看不见）
                 new() { SkillOrStatusId = "zeus_bolt", Template = PerformanceTemplate.RemoteStrike,
-                        ProjectileKey = "lightning_projectile", HitKey = "hit_lightning",
+                        HitKey = "hit_lightning",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
-                // 神：埃癸斯圣盾——挂身圣盾特效；反弹 Melee+Cast；重击回血走纯治疗分支闪 icon_aegis_heal
+                // 赫克托尔：走主动默认 Auto（群攻≥2→AoeCenter）；勿写死 AoeCenter，
+                // 否则 prepare（无伤害）也会空跑进中心，像没放技能
+                new() { SkillOrStatusId = "hector_warcry", Template = PerformanceTemplate.Auto,
+                        CameraShakeOnHit = true, SfxKey = "sfx_active_default" },
+                new() { SkillOrStatusId = "hector_assault", Template = PerformanceTemplate.Auto,
+                        CameraShakeOnHit = true },
+                // 神：埃癸斯圣盾——挂身 AllIn1 金描边；反弹命中=Magic Effect17_Collision
                 new() { SkillOrStatusId = "athena_aegis", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_aegis", SfxKey = "sfx_oracle_aegis" },
                 new() { SkillOrStatusId = "aegis_shield", Template = PerformanceTemplate.Melee,
@@ -112,12 +123,12 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "aegis_ward", Template = PerformanceTemplate.StatusTrigger,
                         CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
                         SfxKey = "sfx_aegis_counter" },
-                // 神：战神怒火（自带）——血战卡底火带；战神之勇卡顶更宽火带
+                // 神：战神怒火（自带）——血战卡框红呼吸；战神之勇 Magic Effect18 常驻环
                 new() { SkillOrStatusId = "ares_warfury", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_fire_foot", BoardFilterKey = "filter_bloodlust",
                         Intensity = 0.4f, SfxKey = "sfx_oracle_ares" },
                 new() { SkillOrStatusId = "ares_might", Template = PerformanceTemplate.OracleAura,
-                        AuraKey = "aura_fire_head", Intensity = 1.0f },
+                        AuraKey = "aura_ares_might", Intensity = 1.0f },
                 // 拆技战争狂热：无挂身火焰（仅数值被动）
                 new() { SkillOrStatusId = "ares_frenzy", Template = PerformanceTemplate.None },
                 new() { SkillOrStatusId = "war_frenzy", Template = PerformanceTemplate.None },

@@ -14,7 +14,7 @@
 
 | 机制 | 做法 | 代码 |
 |---|---|---|
-| 取景权威 | 按当前宽高比每帧调 orthographicSize，保证安全区（半宽 4.6 / 半高 5.2 世界单位）完整可见；分辨率热切换自动跟随 | `VFX/CameraFitter.cs` |
+| 取景权威 | 按当前宽高比取景：正交调 orthoSize；**近 3D 默认**调 FOV（`CameraFitter.PerspectivePilot`，俯角/`PilotPitchDeg`=**45°**，卡-地夹角≈45°），保证安全区（半宽 4.6 / 半高 5.2）完整可见 | `VFX/CameraFitter.cs` |
 | 背景铺满 | cover 模式：等比放大到两边都盖住（超出裁切），跟随相机每帧算 | `BattleBoardView.BackgroundFitter` |
 | OnGUI 缩放 | 横幅/按钮/结算表按 `Screen.height/800` 缩放字号与矩形 | `BannerService.OnGUI` / `SettlementPanel.OnGUI` 等 |
 | 禁止事项 | 表现层不得写死 orthoSize / 像素坐标 / 分辨率假设 | — |
@@ -53,7 +53,7 @@
 | 55 | 头像标（必须盖过落雷） | `UnitView.ShowPortraitMark` |
 | 60 | 飘字 | `FloatingTextService` |
 | 70 / 71 | 台词气泡底板 / 文字 | `ChatBubbleService` |
-| 80~90 | 全屏 cut-in（80 暗幕 / 82 斜带·半屏卡 / 83 巨幅立绘 / 85 裂缝线 / 90 大字） | `CutInService` |
+| 80~90 | 全屏 cut-in（80 暗幕 / 82 斜带·半屏卡 / 83 巨幅立绘 / 85 裂缝 / 88 交错白闪 / 90 大字） | `CutInService` |
 
 ## 五、棋盘布局与卡牌结构
 

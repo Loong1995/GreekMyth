@@ -59,10 +59,11 @@ namespace ClientBattle.VFX
                         onClash: () =>
                         {
                             ctx.Sfx.Play("sfx_duel_clash");
-                            ctx.Shake(0.22f, 0.2f);
+                            ctx.Shake(0.28f, 0.22f);
                         });
                 ctx.OnBanner?.Invoke($"单挑胜者：{result.WinnerId}！");
                 ctx.Sfx.Play("sfx_duel_win");
+                ctx.Shake(0.18f, 0.25f);
                 yield return WaitScaled(ctx, 0.8f);
                 // 败者四维惩罚等副事件
                 foreach (var ev in group.Events)

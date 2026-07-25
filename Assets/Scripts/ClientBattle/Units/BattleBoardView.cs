@@ -158,9 +158,9 @@ namespace ClientBattle.Units
         void LateUpdate()
         {
             var cam = Camera.main;
-            if (cam == null || !cam.orthographic || _renderer.sprite == null) return;
+            if (cam == null || _renderer.sprite == null) return;
             var spriteSize = _renderer.sprite.bounds.size;
-            float viewH = cam.orthographicSize * 2f + 1f;
+            float viewH = CameraFitter.VisibleHalfHeightAt(cam, transform.position.z) * 2f + 1f;
             float viewW = viewH * cam.aspect + 1f;
             // cover 模式：等比缩放到两边都盖住（真图不变形，两侧/上下超出裁掉）
             float scale = Mathf.Max(viewW / spriteSize.x, viewH / spriteSize.y);

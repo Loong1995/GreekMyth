@@ -63,11 +63,12 @@
 
 | skill/status | 模板 / 要点 | 配置 |
 |---|---|---|
-| `thunder` | `RemoteStrike`，不位移 | `PerformanceDatabase` |
+| `thunder` | `RemoteStrike`，DR 程序化竖雷 | `PerformanceDatabase` |
+| `zeus_bolt` | `RemoteStrike` + Vefects Directional | 同上 |
+| `hector_warcry` / `hector_assault` | `Auto`（群攻→AoeCenter）；资源走主动物理默认；prepare 无伤害不进中心 | 同上 |
 | `aegis_shield` | `Melee` + Cast 闪光；Actor=`OwnerId` | 同上 |
 | `perseus_flash` | 单体主动 `Melee`（非弹道） | 同上 |
 | `achilles_wrath` | 追伤 `Melee` | 同上 |
-| `zeus_bolt` | 无特殊配置 → 群攻 `AoeCenter` + 默认魔法弹道 | 组默认 |
 
 总纲：[performance_mechanisms.md](../client/performance_mechanisms.md)。
 

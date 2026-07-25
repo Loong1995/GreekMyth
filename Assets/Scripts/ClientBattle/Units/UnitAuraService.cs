@@ -15,7 +15,7 @@ namespace ClientBattle.Units
     // 资源：多数光环仍用 Resources/ClientBattle/VFX prefab；
     // 宙斯：Digital Ruby LightningBolt（DrLightningUtil）+ ThunderAuraDriver 调度；
     // 圣盾：All In 1 金色描边+辉光（UnitView.SetAegisAura）；
-    // 阿瑞斯：卡框红色呼吸（血战弱 / 战神之勇强）；不再用 FireRimFx。
+    // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect18 常驻盾环（不呼吸）。
     // 宙斯雷霆：卡面频繁落劈；触发贯穿见 RemoteStrike
     // 石化：UnitView.SetPetrified → All In 1 灰阶石色
     // 哈迪斯黑雾：强制极低透明度，避免整卡被黑住。
@@ -27,6 +27,7 @@ namespace ClientBattle.Units
         const float UnderworldAlphaMul = 0.12f;
         const float UnderworldSizeMul = 0.75f;
         const string AuraRootPrefix = "AuraMount";
+        const string AresMightAuraKey = "aura_ares_might";
 
         // (unit, statusId) → 光环实例；一单位一状态最多一个
         static readonly Dictionary<(UnitView, string), (string key, GameObject fx)> _active = new();
@@ -39,9 +40,13 @@ namespace ClientBattle.Units
             if (_active.ContainsKey((unit, statusId))) return;
 
             var offset = Names.StatusPresentationRegistry.AuraOffsetOf(statusId);
-            GameObject fx = key.StartsWith("aura_fire")
-                ? MountAresRage(key, statusId, unit)
-                : MountSingle(key, unit.transform, offset);
+            GameObject fx;
+            if (key == AresMightAuraKey)
+                fx = MountAresMightAura(unit.transform, offset);
+            else if (key.StartsWith("aura_fire"))
+                fx = MountAresRage(key, statusId, unit);
+            else
+                fx = MountSingle(key, unit.transform, offset);
             _active[(unit, statusId)] = (key, fx);
         }
 
@@ -171,7 +176,7 @@ namespace ClientBattle.Units
             }
         }
 
-        /// <summary>圣盾：All In 1 金描边+辉光（挂在 UnitView 材质上）。</summary>
+        /// <summary>圣盾：All In 1 金描边+辉光（挂在 UnitView 材质上；不挂 Magic 粒子）。</summary>
         static GameObject MountAegisAura(Transform host)
         {
             var unit = host.GetComponent<UnitView>() ?? host.GetComponentInParent<UnitView>();
@@ -179,6 +184,36 @@ namespace ClientBattle.Units
             var root = NewRoot("aura_aegis", host, Vector3.zero);
             var marker = root.AddComponent<AegisAuraMarker>();
             marker.Unit = unit;
+            return root;
+        }
+
+        /// <summary>战神之勇：Magic Effect18 全件挂卡（URP 未补丁时 Fringe 可能不可见，
+        /// 必须保留 FireBack/Particle 层，否则会「完全没特效」）。</summary>
+        static GameObject MountAresMightAura(Transform host, Vector3 offset)
+        {
+            var root = NewRoot(AresMightAuraKey, host, offset);
+            root.transform.localRotation = Quaternion.identity;
+
+            // scale 乘数作用在 prefab 根 0.22 上：2.8 → 约 0.62，卡面可读
+            var cell = SpawnCell(AresMightAuraKey, root.transform, Vector3.zero, 2.8f);
+            if (cell == null)
+            {
+                FallbackPlaceholder(AresMightAuraKey, root.transform);
+                return root;
+            }
+
+            // 只关音效与超大地面贴花；保留 FireBack + Shield*（可见性兜底）
+            foreach (var t in cell.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null || t.gameObject == cell) continue;
+                string n = t.name;
+                if (n.IndexOf("Audio", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || n.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    t.gameObject.SetActive(false);
+            }
+            foreach (var light in cell.GetComponentsInChildren<Light>(true))
+                light.enabled = false;
+
             return root;
         }
 
@@ -200,16 +235,15 @@ namespace ClientBattle.Units
             return root;
         }
 
-        /// <summary>阿瑞斯怒火：卡框红色呼吸（替代火舌）。</summary>
+        /// <summary>阿瑞斯血战：卡框红色呼吸（战神之勇已改挂 Magic 常驻环）。</summary>
         static GameObject MountAresRage(string key, string statusId, UnitView unit)
         {
-            float strength = statusId == "ares_might" ? 1f : 0.55f;
-            // 若已有更强怒火，取 max
+            float strength = 0.55f;
             float existing = 0f;
             foreach (var pair in _active)
             {
                 if (pair.Key.Item1 != unit || !pair.Value.key.StartsWith("aura_fire")) continue;
-                existing = Mathf.Max(existing, pair.Key.Item2 == "ares_might" ? 1f : 0.55f);
+                existing = Mathf.Max(existing, 0.55f);
             }
             unit?.SetAresRage(true, Mathf.Max(existing, strength));
 
@@ -219,7 +253,7 @@ namespace ClientBattle.Units
             return root;
         }
 
-        /// <summary>怒火挂载移除后：若还有其他火系状态则保持较弱/强档，否则关闭。</summary>
+        /// <summary>怒火挂载移除后：若还有血战则保持呼吸，否则关闭。</summary>
         static void RefreshAresRage(UnitView unit)
         {
             if (unit == null) return;
@@ -227,7 +261,7 @@ namespace ClientBattle.Units
             foreach (var pair in _active)
             {
                 if (pair.Key.Item1 != unit || !pair.Value.key.StartsWith("aura_fire")) continue;
-                strength = Mathf.Max(strength, pair.Key.Item2 == "ares_might" ? 1f : 0.55f);
+                strength = Mathf.Max(strength, 0.55f);
             }
             unit.SetAresRage(strength > 0f, strength);
         }

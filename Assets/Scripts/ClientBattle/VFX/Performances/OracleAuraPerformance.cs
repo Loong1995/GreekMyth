@@ -101,9 +101,9 @@ namespace ClientBattle.VFX
         void LateUpdate()
         {
             var cam = Camera.main;
-            if (cam == null || !cam.orthographic || _renderer == null) return;
-            // 铺满视野（跟随 CameraFitter，机型/转屏安全）
-            float h = cam.orthographicSize * 2f + 1f;
+            if (cam == null || _renderer == null) return;
+            // 铺满视野（跟随 CameraFitter，机型/转屏安全；兼容透视试点）
+            float h = CameraFitter.VisibleHalfHeightAt(cam, transform.position.z) * 2f + 1f;
             float w = h * cam.aspect + 1f;
             var size = _renderer.sprite.bounds.size;
             transform.localScale = new Vector3(w / size.x, h / size.y, 1f);

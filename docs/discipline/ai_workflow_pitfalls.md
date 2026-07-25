@@ -170,3 +170,50 @@ Python `io.open(..., encoding="utf-8")` 读写，禁止 PowerShell 管道改中�
 正确做法：落点/卡尺锁定设计安全区（半宽 4.6 / 半高 5.2）；相机只负责取景。
 改阵型几何后必须重生/重载对应战报（旧 `positions` 会触发错误阵型或同列叠放）。
 异阵对打必须**逐队** Detect，禁止两队站位并集推断（并集会落入 Grid2x3）。
+
+## P-25 RFX4 禁止接到宙斯/单挑（喷射粒子红线）
+
+现象：宙斯/单挑接 RFX4 Effect10/20/25 后观感是烟花喷射，用户多次否决（2026-07-24）。
+根因：RFX4 是 3D HDR 粒子爆发包，不是电弧几何/2D flipbook 电击。
+**硬性禁令**：宙斯 `thunder`/`zeus_bolt`、单挑 cut-in **禁止**再接 RFX4 任何 Effect。
+竖雷=`thunder`/`zeus_bolt` 均 DR 单道；命中一律 `hit_lightning`（Electric_Impact_02）；
+单挑=cut-in 白闪。
+RFX4 仅可作舞台远景/神像大场面候选，且须人工点名批准，禁止「试看」擅自接线。
+## P-26 群攻 Cast 不能在进中心前播
+
+现象：赫克托尔战吼冲击波「经常看不到」（2026-07-24）。
+根因：共用入口在 `PlayAoeCenter` 之前于**己方卡位**播 CastKey，随后武将才挪到
+棋盘中心齐射；冲击波落点错误且被卡面/时机淹没。
+## P-27 准备型战法专配 AoeCenter 会空跑
+
+现象：赫克托尔战吼「第一回合放技能没播」（2026-07-24）。
+根因：`prepare` 组无伤害，但 FindSpecial 仍返回 `Template=AoeCenter`，演出空跑
+进中心再回位，真实 `release` 齐射被观感淹没或误判为未播。
+正确做法：群攻专配用 `Auto`（有伤害且目标≥2 才升 AoeCenter）；无伤害/治疗组
+在 DefaultPerformance 入口直接飘技能名+落账并 yield break。
+
+## P-28 RFX4 不可用「拖进 ClientBattleDemo」预览
+
+现象：PC Demo 粉红村、Game 全白/全黑、Effect 一闪没有（2026-07-24）。
+根因：Demo 村是 Built-in 材质；战斗场景正交白底+无 Bloom；Scale 0.2 过小；
+弹道 Effect 高速飞走；粒子播完不重生。
+正确做法：只用菜单 **`GreekMyth → RFX4 可靠预览（一键）`**（`Rfx4Preview` 场景：
+透视、深色底、Bloom、地面、Effect1–27 自动循环）。禁止再手拖进战斗 Demo 当预览。
+
+## P-29 Magic Pack「预览好看、战斗残缺」与按键无反应
+
+现象：可靠预览有绕身/Fringe，战斗或接线后只剩火烟；←→ 按了没切换（2026-07-25）。
+根因：① 未导入 URP Patch → Distortion/Fringe 粉红或消失；② Resources 变体缩尺+关灯，
+`MountAresMightAura` 再裁剪组件；③ 项目仅 New Input System，焦点不在 Game 窗则收不到键。
+正确做法：选材以 **`GreekMyth → Magic Pack → 可靠预览`** 为准；战斗差异先导 URP Patch
+再查挂载。Play 后**先点 Game 窗口**再按 ←→ / 1/2/3。
+
+## P-30 RFX4 Effect22 全粉 / 部分特效带粉红成分
+
+现象：可靠预览里 Effect22 整片洋红，其它 Effect 局部粉块（2026-07-25）。
+根因：项目是 URP，但未导入官方 `HDRP and URP patches/URP patch.unitypackage`；
+`Effect22/Fog.mat` 等材质落到 Built-in `Particles/Additive` / `Standard`，URP 无法编译 → 洋红。
+正确做法：菜单 **`GreekMyth → RFX4 → 导入 URP Patch（修粉红）`**（或等价应用该 unitypackage）；
+再用 **`诊断粉红材质`** 确认 `Effects/Materials` 下无 Built-in/InternalError shader；
+重开可靠预览验收。禁止手改单个材质去「猜」URP 替代 shader（以官方 patch 为准）。
+

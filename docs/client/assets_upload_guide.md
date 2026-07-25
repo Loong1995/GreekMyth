@@ -27,15 +27,24 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `slash` | 近身斩击 Burst | 普攻×1.0、追击×1.5；**不作飞行弹道** |
 | `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | **030-DualBolt100** Orange / Purple |
 | `proj_bolt200` | （可选）粗束弹道 029；战吼已改走默认 `blade_bolt` | **029-Bolt200** Orange |
-| `lightning_projectile` | 宙斯拆技天雷击（`zeus_bolt`） | **Vefects** Directional；**RemoteStrike** 自上而下；池内 sorting≥45 |
+| `lightning_projectile` | （备选）宙斯竖劈弹道 | Vefects LP02 Directional；当前 `thunder`/`zeus_bolt` 已改走 DR，未用 |
 | `hit_generic` / `heal_generic` | 默认命中 / 治疗命中 | hit ← **Vefects Hit_05 Once** |
+| `hit_lightning` | 魔法主动默认 / `thunder`/`zeus_bolt` 命中 | **Magic Pack Effect19_Collision**（scale≈0.32） |
+| `hit_zeus_discharge` | （备选）宙斯电击闪 | Vefects Electric_Discharge_02 Bunch（当前宙斯未用） |
+| `cast_warcry` | （可选）物理冲击波，**主动默认已取消 Cast** | Impact_Shockwave v2 |
+| `cast_aoe_burst` | （可选）魔法中心爆，**主动默认已取消 Cast** | Explosion_01_Pivot |
+| `proj_bolt200` | **物理主动默认**弹道 | 029-Bolt200 Orange |
+| `magic_bolt` | **魔法主动默认**弹道 | DualBolt Purple |
+| `hit_clash` | **物理主动默认**命中（Radial_Spiky） | Vefects Radial_Spiky_Hit_01 |
+| `hit_warcry` | （可选）Radial_Burst 放大命中 | 战吼已改走默认 hit_clash |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
-| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯自带：血战/战神之勇 | 仅卡框红呼吸 `UnitView.SetAresRage`（不挂火粒子） |
+| `aura_fire_foot` / `aura_fire_head` | 阿瑞斯血战（脚） | 仅卡框红呼吸 `SetAresRage`（弱）；`aura_fire_head` 备用 |
+| `aura_ares_might` | 阿瑞斯战神之勇常驻 | **Magic Effect18**（无呼吸）；scale≈0.22 |
 | `momentum_fire` | 势能火（四轨最高 ≥4/5/6/7 分档） | **CFXR3 Fire (No Smoke)**；卡上缘；非状态光环 |
 | `momentum_glow` | 势能卡后柔光（≥4 起） | **CFXR LightGlow A**（**已去 Small Stars**）；关点光；sorting −1；与火同灭 |
 | `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
 | `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
-| `aura_aegis` / `hit_shield_counter` | 圣盾光环 / 反制命中 | 光环 ← **CFXR Magic Aura A (Runic)**；另有 All In 1 卡框金描边呼吸（`UnitView.SetAegisAura`） |
+| `aura_aegis` / `hit_shield_counter` | 圣盾挂身 / 反制命中 | 挂身＝**AllIn1 金描边**（无 Magic 粒子）；反制 ← **Magic Effect17_Collision** |
 | 石化 `petrify` | 美杜莎 | All In 1：立绘+卡框灰阶石色渐变（`UnitView.SetPetrified`） |
 | `lightning_strike` / `hit_lightning` | （旧）粒子落雷，触发已改程序化 | 命中闪仍可用 hit_lightning |
 | `aura_tide` | 波塞冬潮汐挂身（poseidon_tide） | **CFXR LightGlow A (Loop, Blue)** 蓝色呼吸光 |
@@ -91,7 +100,8 @@ Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。�
 （如 `thunder`→`zeus`、`hades_command_drain`→`hades`）调用
 `UnitView.ShowPortraitMark`，从 `Portraits/<key>.png` 取图缩到目标卡头顶短暂浮现。
 上传宙斯立绘后，雷霆落雷会自动显示宙斯小头像；未上传则仍为阵营色占位块。
-雷击本身走 VFX key `lightning_strike` / `hit_lightning`（§一.1），与头像标分开。
+雷击本身走 DR 单道竖雷（`thunder`/`zeus_bolt`）+ `hit_lightning`（Electric_Impact_02），
+与头像标分开。RFX4 **禁止**接到宙斯技能（P-25）。
 
 **全屏 cut-in 复用同一路径（无需另传）**：单人 cut-in（斜带+巨幅立绘）与决斗
 裂缝交错 cut-in（半屏卡）都取 `Portraits/<template_id>.png` contain 放大展示；
@@ -187,6 +197,8 @@ kenney.nl UI Pack（CC0）或 Asset Store fantasy card frame（$10~25）改色�
 | Combat Flipbook VFX - URP | $39.97 | 2026-07-05 | 已导入 `Assets/Vefects/`：雷电/命中/光环/爆炸 variant |
 | 2D Sword Slash VFX | $19.99 | 2026-07-05 | 已导入 `Assets/Cartoon Coffee/`：斩击/穿刺/裂甲 variant |
 | Universal Sound FX | ~$40 | 已购已导入（2026-07-20，`Assets/Universal Sound FX/`） | 按 §二步骤 2 逐 key 挑选接线；三皇音效优先从本包出 |
+| **KriptoFX Realistic Effects Pack 4** | $42 | 2026-07-24 | 已导入；**须** `GreekMyth → RFX4 → 导入 URP Patch（修粉红）`（2026-07-25 已应用；Effect22 全粉即未导）。**禁止用于宙斯/单挑**。仅舞台远景/神像大场面。**可靠预览**：`GreekMyth → RFX4 可靠预览（一键）`；粉红诊断同菜单下「诊断粉红材质」 |
+| **kripto289 Magic Effects Pack 1** | $37 | 2026-07-24 | 已导入；URP patch。宙斯命中=`Effect19_Collision`；战神之勇常驻=`Effect18`→`aura_ares_might`；雅典娜反制=`Effect17_Collision`；圣盾挂身回 AllIn1。**预览**：`GreekMyth → Magic Pack → 可靠预览` |
 | （候选）magic aura loop 2D 类 | $10~20 | 未购 | 光环族精修备选（步骤 5.2） |
 
 ## 四、维护红线

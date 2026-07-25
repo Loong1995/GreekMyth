@@ -4,7 +4,9 @@
     "references": [
         "Unity.InputSystem",
         "DigitalRuby.LightningBolt",
-        "AllIn1SpriteShaderAssembly"
+        "AllIn1SpriteShaderAssembly",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

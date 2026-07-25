@@ -82,7 +82,8 @@
 | BGM 分层 | 4 stem（`BGM/bgm_stem_{drums,bass,melody,other}`）按**全局势能**（=MomentumService.GlobalTotal）三档淡入淡出（0~7/8~15/16+）；**切层对齐小节边界**（登记 Bpm/BeatsPerBar，pending 到小节头生效）；单挑与 cut-in 全层 duck -8dB、0.5s 恢复；stem 缺失回退单曲 `bgm_main`（音量+低通随档），全缺则静默 no-op；`MomentumService` 不再直连 Audio——经 `GlobalMomentumChanged` 回调由 `PlaybackWorldBuilder.Build` 接线（2026-07-22 解耦） | `Audio/BgmLayerService.cs`（StemTable 注册表） |
 | 飘字手调 | 字体/字号/颜色/上浮曲线全参数收进 SO（`Resources/ClientBattle/FloatingTextTuning.asset`，缺失用代码默认）；字体放 `Resources/ClientBattle/Fonts/` 填名即换 | `Units/FloatingTextTuning.cs`；操作文档 [floating_text_tuning.md](floating_text_tuning.md) |
 | 头像标（皇卡 C1） | profile.PortraitMarkKey：受影响单位头顶短暂浮现指定武将头像——宙斯落雷 `thunder`→zeus（RemoteStrike 落雷节拍内挂）、哈迪斯吸统 `hades_command_drain`→hades | `UnitView.ShowPortraitMark` + `DefaultPerformance` |
-| 圣盾反弹/回血（C1） | 反伤 `mitigation=reflect` → `icon_aegis`；普通格挡 → `icon_block`；`aegis_shield` 反弹 Melee（Cast 后再突进）；**重击回血**纯治疗组不走 Melee，闪 `icon_aegis_heal` + `SettleHeal` 绿字；`aegis_ward` 控挡闪光 | `UnitView.FlashOverlayIcon` + `DefaultPerformance` 纯治疗分支 |
+| 圣盾反弹/回血（C1） | 反伤 → `icon_aegis`；格挡 → `icon_block`；`aegis_shield` Melee；挂身 AllIn1 金描边；反制闪=`hit_shield_counter`（Effect17_Collision）；重击回血 `icon_aegis_heal` | `MountAegisAura` + `FlashOverlayIcon` |
+| 战神之勇光环 | `ares_might` → Magic Effect18 常驻卡面（`aura_ares_might`），**无卡框呼吸**；血战仍红呼吸 | `MountAresMightAura` / `SetAresRage` |
 | 回位微抖 | 每次位移回位或受击顿挫结束重采样 `RestPosition`：边长=区域宽/5，半边由 `StanceLayout.RestJitterHalf` 约束（与卡面尺寸一并反算，保证邻格不叠）；突进/落雷瞄当前休息点 | `UnitView.DOMoveReturnHome` / `HitReact`；`StanceLayout` |
 | 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlaybackDirector.PlayGroupsRange`；入口 `PerformanceRunner.PlayHighlight`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
 
@@ -93,11 +94,12 @@
 | Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击** → 回位（休息点重采样） | `DefaultPerformance.PlayMelee` |
 | AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样） | `DefaultPerformance.PlayAoeCenter` |
 | PerSegment 逐段 | 单体主动/多段 | 每段一个节拍：弹道 → 命中掉血 | `DefaultPerformance.PlayPerSegment` |
-| RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`=DR 程序化竖雷；`zeus_bolt`=`lightning_projectile` Vefects Directional 自上而下 + 宙斯头像标 | `DefaultPerformance.PlayRemoteStrike` |
+| RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`/`zeus_bolt`：DR **单道**竖雷 + `hit_lightning`（Magic Effect19_Collision）+ 宙斯头像标。**禁 RFX4** | `DefaultPerformance.PlayRemoteStrike` |
+| 主动默认（按伤害类型） | 全部未专配主动 | **物理** Proj=`proj_bolt200` + Hit=`hit_clash`；**魔法** Proj=`magic_bolt` + Hit=`hit_lightning`。**默认不播 Cast** | `ProjectileKeyOf` / `ResolveHitKey` |
 | StatusTrigger | 状态触发组 | 默认按目标数走中心齐射/逐段；可特殊配置为 Melee / RemoteStrike | 同上（模板内分派） |
 | OracleAura 神谕 | 神谕/被动宣告 | 施法者前摇 → 组内状态一次性落账（同帧挂光环）+ 整盘滤镜 | `OracleAuraPerformance` |
 | None | 明确无演出（如蛇杖圣谕） | 只落账 | `PlaybackDirector.ApplyGroupSilently`（`EventApplyService.Apply(animated:false)`） |
-| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗渐变 → 号角 → 叫阵气泡 →（拒战｜应战→**全屏裂缝交错 cut-in**→胜者）→ 恢复渐变。裂缝 cut-in：中央斜裂缝线分屏，两张半屏武将卡一张自上而下、一张自下而上对向滑过裂缝算一次交错，`clash_cutins`（1~3，武力越接近越多）次来回、一次比一次快，末次停在中线对峙 + VS + 白闪后弹开 | `VFX/Performances/DuelPerformance.cs` + `CutInService.DuelClashRoutine` |
+| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗渐变 → 号角 → 叫阵气泡 →（拒战｜应战→**全屏裂缝交错 cut-in**→胜者）→ 恢复渐变。交错用 cut-in 同层白闪+裂缝扩光+震屏（**不叠 RFX 粒子**）。`clash_cutins` 1~3 | `DuelPerformance` + `CutInService.DuelClashRoutine` |
 
 **斩击尺寸规则（2026-07-10 定）**：普攻斩击 = 资源基准尺寸 ×1.0；追击 ×1.5；
 再乘 profile.StrikeVfxScale（Inspector 可调）。物理组默认 key=`slash`、

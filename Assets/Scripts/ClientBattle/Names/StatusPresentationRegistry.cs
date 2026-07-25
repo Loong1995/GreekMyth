@@ -64,10 +64,10 @@ namespace ClientBattle.Names
             ["aegis_ward"] = new(statsSkillId: "athena_aegis"),
             ["snake_staff_protection"] = new(statsSkillId: "asclepius_oracle"),
             ["snake_staff_tender"] = new(statsSkillId: "asclepius_oracle"),
-            // 阿瑞斯：仅卡框红呼吸（key 仍叫 aura_fire_*，UnitAuraService 特判，不再挂火粒子）
+            // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect18 常驻（无呼吸）
             ["blood_battle"] = new(auraKey: "aura_fire_foot", statsSkillId: "ares_warfury",
                                    auraOffset: StatusPresentation.FireFootOffset),
-            ["ares_might"] = new(auraKey: "aura_fire_head", statsSkillId: "ares_warfury"),
+            ["ares_might"] = new(auraKey: "aura_ares_might", statsSkillId: "ares_warfury"),
             ["war_frenzy"] = new(statsSkillId: "ares_frenzy"),
             ["divine_revelation"] = new(auraKey: "aura_sunlight", statsSkillId: "delphi_revelation"),
             ["nike_wings"] = new(auraKey: "aura_sunlight"),

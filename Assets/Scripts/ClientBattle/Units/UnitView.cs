@@ -85,6 +85,23 @@ namespace ClientBattle.Units
 
         float S(float v) => v * _layoutScale;
 
+        /// <summary>透视试点：卡与相机同倾角，保持 2D 立绘正对镜头。</summary>
+        void FaceCameraIfPilot()
+        {
+            if (!CameraFitter.PerspectivePilot)
+            {
+                transform.rotation = Quaternion.identity;
+                return;
+            }
+            var cam = Camera.main;
+            if (cam == null)
+            {
+                transform.rotation = Quaternion.identity;
+                return;
+            }
+            transform.rotation = Quaternion.Euler(cam.transform.eulerAngles.x, 0f, 0f);
+        }
+
         void Build(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position,
             float restJitterHalf)
         {
@@ -96,6 +113,7 @@ namespace ClientBattle.Units
             CurrentTroops = hero.InitialTroops;
             _frameColor = factionColor;
             transform.position = position;
+            FaceCameraIfPilot();
 
             // 卡框先铺底（Antique 中心是实心暗底，非透明挖空）
             var antique = PlaceholderFactory.TryLoadSprite("CardFrames", "antique_frame");

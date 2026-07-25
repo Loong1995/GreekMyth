@@ -1,5 +1,146 @@
 # Changelog
 
+## 2026-07-25 近 3D 默认 45° + 地面 AI 出图指令
+- `CameraFitter.PilotPitchDeg=45`、`PilotDistance=12.5`；卡 FaceCamera 后与地面夹角≈45°。
+- `docs/dev/near3d_evaluation.md` §七：正俯视地面母版指令 + 神/人/妖主题块 + 负面词 + 验收清单。
+- 同步 `rendering_layout` / `vfx_playback_scheme` / `stage_plan` 进度行。
+
+## 2026-07-25 RFX4 粉红修复（导入官方 URP Patch）
+- 根因：未导 `Realistic Effects Pack v4/.../URP patch`；Effect22 `Fog.mat` 等为 Built-in Particles/Standard。
+- 已应用官方 URP patch 覆盖材质/shader；新增菜单 `GreekMyth/RFX4/导入 URP Patch` + `诊断粉红材质`。
+- 验收：重开「RFX4 可靠预览」看 Effect22；若仍粉，跑诊断菜单并确认 URP Depth Texture。
+
+## 2026-07-25 Magic Pack 预览按键跳两格
+- 根因：Update(Input System) 与 OnGUI 双通道同帧各 Step 一次；已去掉 OnGUI 按键，只留一条。
+
+## 2026-07-25 Magic Pack 预览按键 + 以谁为准
+- 可靠预览=资产真貌；战斗残缺多因未导 URP / 挂载裁剪 / 缩尺，不以战斗为准选材。
+- 预览按键：须先点 Game 窗；勿叠双通道（会跳两格）。
+## 2026-07-24 近 3D 方案系统性评估文档
+- 新增 `docs/dev/near3d_evaluation.md`：结论=做稳健 A+（20° 透视 + 地面 Quad + 分层卡牌），
+  伪 3D 舞台物体隔离为独立实验不进主线；含成本表、风险红线与 4 步落地顺序。
+- 追加 §5：低模+AI 贴图不可行；稳健替代=AI 立牌（billboard/交叉双板/地面贴片）；
+  氛围四层清单（远景入画/立牌神像/RFX4 空气层/光色层）。
+
+## 2026-07-24 战神之勇特效「全灭」修复
+- 误关 FireBack 后 URP 下 Fringe 又不可见 → 零画面；恢复 FireBack+放大，仅关 Decal/Audio。
+
+## 2026-07-24 透视试点 A（漂浮 2D 卡 + Effect18 绕身）
+- `CameraFitter.PerspectivePilot`：透视+轻俯视；卡跟相机倾角。
+- 战神之勇挂载去 FireBack/Decal，保留盾环；背景/滤镜适配透视半高。
+- 须导入 Magic URP patch，否则绕身 shader 易失效。
+
+## 2026-07-24 战神之勇←Effect18；雅典娜圣盾回 AllIn1
+- `ares_might` 常驻 `aura_ares_might`（Magic Effect18），取消该状态卡框呼吸。
+- 雅典娜挂身恢复仅 AllIn1 金描边；反制仍 Effect17_Collision。
+
+## 2026-07-24 Magic Pack 1 一键可靠预览
+- 菜单 `GreekMyth/Magic Pack/可靠预览（一键）`：透视+Bloom+Effect1–33+Collision；1/2/3 跳盾/环/雷。
+
+## 2026-07-24 Magic Pack 1：宙斯命中+雅典娜圣盾
+- 方案快照 `docs/client/vfx_playback_scheme.md`；采购登记 Magic Pack 1。
+- `hit_lightning`←Effect19_Collision；`aura_aegis`←Effect18；`hit_shield_counter`←Effect17_Collision。
+- 竖雷仍 DR；菜单 `GreekMyth/Magic Pack/接线…`；验收战报 manual_3v3_seed20260722。
+
+## 2026-07-24 RFX4 一键可靠预览
+- 新增菜单 `GreekMyth/RFX4 可靠预览（一键）`：透视相机+HDR Bloom+地面+Effect1–27 循环。
+- 废止「拖进 ClientBattleDemo / 开粉红 PC Demo」预览；踩坑见 P-28。
+
+## 2026-07-24 thunder/zeus_bolt 对齐为 DR+hit_lightning
+- 两者均无 ProjectileKey：RemoteStrike 走 DR 单道竖雷 + `hit_lightning`。
+
+## 2026-07-24 thunder 与 zeus_bolt 对齐
+- （已再改为双 DR，见上条；曾短暂同用 LP02。）
+
+## 2026-07-24 宙斯恢复到稳定方案（DR+LP02+Impact_02）
+- 撤回今日 FireVolley / Flow / Discharge Bunch 升级。
+- `thunder`：DR 单道竖雷 + `hit_lightning`；`zeus_bolt`：LP02 Directional + `hit_lightning`。
+- 删除 `hit_thunder_impact`；零 RFX4。
+
+## 2026-07-24 宙斯技能 Vefects/DR 升级（禁 RFX）
+- （已撤回，见上条）
+
+## 2026-07-24 宙斯 RFX4 试看撤回（喷射粒子红线）
+- 用户明确禁止喷射粒子；拆除 `hit_thunder_rfx`/`hit_zeus_bolt_rfx`。
+- 恢复 `thunder`→`hit_lightning`、`zeus_bolt`→`hit_zeus_discharge`；P-25 升为硬禁。
+
+## 2026-07-24 宙斯 RFX4 命中试看（无门槛）
+- （已撤回，见上条）
+
+## 2026-07-24 单挑撤回 RFX4，改 cut-in 白闪
+- 胜者帧 Effect25「雷劈」与交错 Effect20 均显廉价，已从 `DuelPerformance` 拆除。
+- 交错峰值改 `CutInService` 同层白闪+裂缝扩光+震屏；删 `duel_*_rfx`。
+- RFX4 仍保留包与 Bloom，单挑暂不接，待舞台/Magic Pack 1 再选型。
+
+## 2026-07-24 单挑峰值接 RFX4 + 强制 Bloom
+- （单挑 RFX 接线已撤，见上条；`BattlePostFx` Bloom 保留。）
+
+## 2026-07-24 纠正 RFX4「整包烟花」误判
+- 先前表述过重：RFX4 是史诗峰值粒子包（包内即含雷暴/圣光等），按 stage_plan
+  支撑神像触发/单挑/大招换代；须 HDR+Bloom。
+- 真正禁的是「用 Effect10/25 整段替换宙斯竖雷几何」；日常竖雷仍 DR/Vefects，
+  RFX4 留给峰值加层。
+
+## 2026-07-24 宙斯命中撤回 RFX4，改回 Vefects 电击
+- 判定：RFX4 Effect10/25 整段替换竖雷观感不对；日常命中暂回 Vefects Electric_*。
+- `thunder` → `hit_lightning`；`zeus_bolt` → `hit_zeus_discharge`；删 `hit_*_rfx`。
+
+## 2026-07-24 宙斯落雷命中换 RFX4 炸点
+- （日常竖雷替换方案已废；峰值加层见单挑条）
+
+## 2026-07-24 取消主动 Cast + 修复战吼 prepare 空跑
+- 主动默认取消全部 Cast（不再播 Impact_Shockwave / Explosion_01）。
+- 根因：`hector_warcry` 写死 AoeCenter，prepare（无伤害）也空跑进中心→像没放技能；
+  改为 Auto，且无伤害/治疗组一律只飘技能名+落账、不走位移模板。
+
+## 2026-07-24 主动默认分物理/魔法三件套
+- 物理主动：Proj=`proj_bolt200` + Hit=`hit_clash`(Radial_Spiky)（Cast 已取消，见上条）。
+- 魔法主动：Proj=`magic_bolt` + Hit=`hit_lightning`(Electric_Impact_02)。
+- ActiveDefault 清空 Hit/Proj/Cast，由类型解析；赫克托尔仅 Auto+震屏。
+
+## 2026-07-24 宙斯 LP02 + 战吼中心爆发可见性修复
+- 宙斯：`lightning_projectile` ← Vefects Lightning_Projectile_**02** Directional；
+  `hit_lightning` ← Electric_Impact_02。
+- 赫克托尔看不见：根因是 Cast 冲击波在**挪中心前**播在己方卡位；改为
+  `PlayAoeCenter` 进中心后再播 Cast；命中改 `hit_warcry`（Radial_Burst 放大）。
+- 候选资源登记：`cast_aoe_burst`（Explosion_01）供魔法群攻默认选型。
+
+## 2026-07-24 宙斯落雷回滚 + 赫克托尔战吼武力化
+- **回滚**：宙斯 `lightning_projectile`/`hit_lightning` 恢复 Vefects；`thunder` 恢复
+  DR 程序化竖雷；RemoteStrike 恢复飞行弹道逻辑。RFX4 Effect10 判定为烟花粒子，
+  **不是**雷电几何，不适用于落雷升级。
+- **同逻辑升级候选**（未改，备选）：Vefects `Lightning_Projectile_02_Directional`、
+  `Electric_Flow_01_Directional`、命中 `Electric_Impact_02`；被动仍宜走 DR 线状雷。
+- 赫克托尔 `hector_warcry`/`hector_assault`：`cast_warcry`←Impact_Shockwave v2、
+  `proj_bolt200` 粗束、`hit_clash` 尖刺命中+震屏；AoeCenter 前摇留一拍。
+
+## 2026-07-24 宙斯落雷换 RFX4 Effect10
+- （已回滚，见上条）原 Effect10 接线作废。
+
+## 2026-07-24 美术风格基准定论 + 采购清单重规划
+- `stage_plan.md` §四.0 定论：**史诗感优先、其次写实精致**；特效走单一出品人
+  家族 **kripto289（KriptoFX）**；已购卡通三包定为占位备胎、战斗高频特效
+  随舞台落地逐步换代（variant 替换零代码）。
+- 必买五包：kripto289 Magic Effects Pack 1（$37 风格锚点）、Realistic Effects
+  Pack 4（$42 史诗大招级，URP 需 patch 实测）、Lumen Light FX 2、Water
+  Caustics URP（$14.99，替掉与写实冲突的手绘水下包）、Ground Crack URP。
+- 总预算 ¥1530~1950；新红线：风格一票否决（卡通/赛璐璐不买）、AI 出图锁定
+  写实厚涂史诗神话基调。
+
+## 2026-07-24 舞台加成改阵营制 + 神舞台实施方案
+- `stage_plan.md` 加成文本修正为阵营制定数：神（olympus）10% 伤害双倍、
+  人（heroes）8% 技能再释放、妖（sea/underworld）10% 负面状态 +1 回合。
+- 新增 `docs/dev/stage_olympus_impl.md`：core（stages.py 注册表 +
+  on_pre_damage_dealt 钩子 extra_up +10000 bps 精确 ×2 + emit_status_trigger）、
+  客户端（分层背景/赫拉 BoardActor/触发动画 ≤1.2s）、S1~S4 步骤与验收。
+
+## 2026-07-24 三舞台战斗场景规划立项
+- 新增 `docs/dev/stage_plan.md`（现行计划）：神/人/妖三舞台（奥林匹斯山巅/
+  特洛伊角斗场/冥海裂渊），标志神像赫拉/阿特拉斯/克拉肯 → 谋略/武力/敏捷系加成。
+- 定「先买特效包定风格 → AI 垫图出静态」工序铁律；预算 ≤¥2000（不含音效）。
+- 神像加成定为 core 侧机制（`stages.py` 注册表，同构阵型系统），待实施。
+- discipline/index.md 登记该计划为现行文档。
+
 ## 2026-07-23 势能光环改回 LightGlow A 并去星点
 - `momentum_glow` ← LightGlow A；变体与运行时均剥掉 Star/Spark 子物体。
 - 保留 Rays 柔光 + 关 Point Light；分档 1.18~1.65。

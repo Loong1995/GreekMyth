@@ -44,11 +44,18 @@ namespace ClientBattle.VFX
             if (group.Root is NormalAttackEvent { Kind: "coordinated" } && actor != null)
                 ctx.Floats.Show(actor, "协击", new Color(0.5f, 0.85f, 1f), 1.1f);
 
-            // 无伤害/治疗的默认主动（神使戏言/金羊号令/坚壁等）：伤害飘字不会带技能名，
-            // 施法者头顶补飘战法中文名，避免只剩 +先攻/+犹豫 看不出放了啥
-            if (damages.Count == 0 && heals.Count == 0
-                && group.Root is SkillTriggerEvent && actor != null)
-                ctx.Floats.ShowSkillName(actor, floatName);
+            // 无伤害/治疗：prepare/纯状态主动等——只飘技能名+落账，禁止走 AoeCenter/Melee
+            // （否则战吼 prepare 会被专配 AoeCenter 空跑进中心，观感像「没放技能」）
+            if (damages.Count == 0 && heals.Count == 0)
+            {
+                if (group.Root is SkillTriggerEvent && actor != null)
+                    ctx.Floats.ShowSkillName(actor, floatName);
+                ctx.Sfx.Play(SfxOf(group, profile));
+                foreach (var ev in group.Events)
+                    if (ev is not TraitTriggerEvent)
+                        SettleSideEvent(ev, ctx);
+                yield break;
+            }
 
             // 纯治疗组（无伤害）：禁止走 Melee/CastKey（圣盾反弹闪光），否则无治疗飘字且误闪反击盾
             // 圣盾重击回血：另闪 icon_aegis_heal（与反伤 icon_aegis 区分）
@@ -82,12 +89,12 @@ namespace ClientBattle.VFX
 
             // 满档 cut-in 后的出手（势能全开）：主音效换强化版
             ctx.Sfx.Play(ctx.EmpoweredStrike ? "sfx_attack_empowered" : SfxOf(group, profile));
-            if (!string.IsNullOrEmpty(profile.CastKey) && actor != null)
+            // 仅专配 CastKey（如圣盾）在 Melee 突进前播；主动默认不再播 Cast
+            if (!string.IsNullOrEmpty(profile.CastKey) && actor != null
+                && template == PerformanceTemplate.Melee)
             {
-                ctx.Vfx.PlayAt(profile.CastKey, actor.transform.position, ctx.Scaled(0.4f));
-                // 圣盾等：Cast 闪光需可见一拍再突进（动画时长驱动，非空定格）
-                if (template == PerformanceTemplate.Melee)
-                    yield return new WaitForSeconds(ctx.Scaled(0.22f));
+                ctx.Vfx.PlayAt(profile.CastKey, actor.transform.position, ctx.Scaled(0.55f));
+                yield return new WaitForSeconds(ctx.Scaled(0.22f));
             }
 
             switch (template)
@@ -208,7 +215,7 @@ namespace ClientBattle.VFX
         IEnumerator PlayAoeCenter(EventGroup group, PerformanceProfile profile, VFXContext ctx,
                                   Units.UnitView actor, List<DamageEvent> damages, string floatName)
         {
-            // 施法者移动至卡盘中心
+            // 施法者移动至卡盘中心 → 齐射弹道（主动默认不再播 Cast）
             if (actor != null && !actor.Defeated)
             {
                 var move = actor.transform.DOMove(ctx.BoardCenter, ctx.Scaled(0.3f))
@@ -372,12 +379,12 @@ namespace ClientBattle.VFX
             return magic ? "magic_bolt" : "slash";
         }
 
-        /// <summary>飞行弹道：物理 blade_bolt、魔法 magic_bolt（可被 profile.ProjectileKey 覆盖）。</summary>
+        /// <summary>主动飞行弹道默认：物理 proj_bolt200、魔法 magic_bolt。</summary>
         static string ProjectileKeyOf(PerformanceProfile profile, List<DamageEvent> damages)
         {
             if (!string.IsNullOrEmpty(profile.ProjectileKey)) return profile.ProjectileKey;
             bool magic = damages.Count > 0 && damages[0].DamageType == "magic";
-            return magic ? "magic_bolt" : "blade_bolt";
+            return magic ? "magic_bolt" : "proj_bolt200";
         }
 
         static int CountDistinctTargets(List<DamageEvent> damages)

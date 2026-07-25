@@ -27,6 +27,7 @@ namespace ClientBattle.VFX
         const int OrderPanel = 82;
         const int OrderPortrait = 83;
         const int OrderCrack = 85;
+        const int OrderFlash = 88; // 交错全屏白闪（盖住面板、低于 VS 字）
         const int OrderText = 90; // TextMesh 实际 order（NewText 内直接赋值）
 
         Transform _root;          // 每次演出的一次性挂点（相机中心）
@@ -198,6 +199,9 @@ namespace ClientBattle.VFX
                 0.07f, halfH * 2.4f, Vector3.zero, 8f);
             var crackGlow = NewQuad("crack_glow", Fade(Color.white, 0.25f), OrderCrack - 1,
                 0.3f, halfH * 2.4f, Vector3.zero, 8f);
+            // 交错白闪（与 cut-in 同层几何，不用 RFX 粒子）
+            var flash = NewQuad("clash_flash", Fade(Color.white, 0f), OrderFlash,
+                halfW * 2.2f, halfH * 2.2f, Vector3.zero, 0f);
 
             // 两张半屏卡：阵营色底板 + 巨幅立绘 + 名字
             var panelL = BuildDuelPanel("panel_L", left, colorL, halfW, halfH, -1);
@@ -221,7 +225,7 @@ namespace ClientBattle.VFX
                     {
                         clashed = true;
                         onClash?.Invoke();
-                        StartCoroutine(FlashCrack(crack, crackGlow));
+                        StartCoroutine(FlashClash(crack, crackGlow, flash));
                     }
                     yield return null;
                 }
@@ -243,7 +247,7 @@ namespace ClientBattle.VFX
                     var vs = NewText("vs", "VS", 88, Color.white);
                     vs.transform.localPosition = Vector3.zero;
                     onClash?.Invoke();
-                    yield return FlashCrack(crack, crackGlow);
+                    yield return FlashClash(crack, crackGlow, flash);
                     yield return new WaitForSeconds(ctx.Scaled(0.45f));
                 }
             }
@@ -280,11 +284,12 @@ namespace ClientBattle.VFX
             return panel;
         }
 
-        IEnumerator FlashCrack(SpriteRenderer crack, SpriteRenderer glow)
+        IEnumerator FlashClash(SpriteRenderer crack, SpriteRenderer glow, SpriteRenderer flash)
         {
-            for (float t = 0f; t < 0.18f; t += Time.deltaTime)
+            for (float t = 0f; t < 0.22f; t += Time.deltaTime)
             {
-                float a = 1f - t / 0.18f;
+                float u = t / 0.22f;
+                float a = 1f - u;
                 if (crack != null) SetAlpha(crack, 0.9f + a * 0.1f);
                 if (glow != null)
                 {
@@ -292,8 +297,18 @@ namespace ClientBattle.VFX
                     glow.transform.localScale = new Vector3(
                         0.3f * (1f + a * 2.2f), glow.transform.localScale.y, 1f);
                 }
+                // 前半段冲到 0.55 白，后半段淡出——干净的撞击感，无粒子
+                if (flash != null)
+                    SetAlpha(flash, u < 0.35f ? Mathf.Lerp(0f, 0.55f, u / 0.35f)
+                                             : Mathf.Lerp(0.55f, 0f, (u - 0.35f) / 0.65f));
                 yield return null;
             }
+            if (flash != null) SetAlpha(flash, 0f);
+        }
+
+        IEnumerator FlashCrack(SpriteRenderer crack, SpriteRenderer glow)
+        {
+            yield return FlashClash(crack, glow, null);
         }
 
         // ------------------------------------------------------------ 构件
@@ -301,7 +316,7 @@ namespace ClientBattle.VFX
         (float halfW, float halfH, Vector3 center) ScreenRect()
         {
             var cam = Camera.main;
-            float halfH = cam != null ? cam.orthographicSize : 5.2f;
+            float halfH = CameraFitter.VisibleHalfHeightAt(cam, 0f);
             float halfW = halfH * (cam != null ? cam.aspect : 1.78f);
             Vector3 center = cam != null
                 ? new Vector3(cam.transform.position.x, cam.transform.position.y, 0f)

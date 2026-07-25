@@ -30,9 +30,10 @@ namespace ClientBattle.VFX
             if (target == null) return;
 
             bool mitigated = !string.IsNullOrEmpty(damage.Mitigation);
-            // 出击命中帧：有专属 HitKey 时格挡/反弹也要播（「打出去了」）；无则靠 PlayMelee 斩击
-            if (!string.IsNullOrEmpty(profile.HitKey))
-                ctx.Vfx.PlayAt(profile.HitKey, target.transform.position, ctx.Scaled(0.5f));
+            // 出击命中帧：专属 HitKey 优先；主动默认按伤害类型（物理尖刺 / 魔法电击）
+            string hitKey = ResolveHitKey(profile, damage);
+            if (!string.IsNullOrEmpty(hitKey))
+                ctx.Vfx.PlayAt(hitKey, target.transform.position, ctx.Scaled(0.5f));
             if (!mitigated)
             {
                 target.HitReact(damage.IsCrit);
@@ -73,6 +74,14 @@ namespace ClientBattle.VFX
         /// 落账统一走 EventApplyService（animated=true 带飘字/音效）。</summary>
         protected static void SettleSideEvent(BattleEvent ev, VFXContext ctx) =>
             EventApplyService.Apply(ev, ctx, animated: true);
+
+        /// <summary>命中特效：profile.HitKey 优先；否则物理 Radial_Spiky / 魔法 Electric_Impact_02。</summary>
+        protected static string ResolveHitKey(PerformanceProfile profile, DamageEvent damage)
+        {
+            if (profile != null && !string.IsNullOrEmpty(profile.HitKey)) return profile.HitKey;
+            if (damage == null) return "hit_generic";
+            return damage.DamageType == "magic" ? "hit_lightning" : "hit_clash";
+        }
 
         /// <summary>取组内飘字用的战法名：状态触发飘"状态来源的战法名"（用状态中文名等价表达）。</summary>
         protected static string FloatNameOf(EventGroup group)
