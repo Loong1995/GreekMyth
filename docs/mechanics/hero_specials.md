@@ -24,13 +24,14 @@
 | effect | 判定 | 台词弹出 |
 |---|---|---|
 | `pierce` | 追伤前无条件 25% | 判定成功当下（追伤结算链） |
-| `heel` | 受击暴击判定前 20% → 必暴 + 挂 `heel_line_pending` | **暴击伤害事件写出后**（`amount>0`）；独立组根 `parent_seq=0` |
+| `heel` | 受击暴击判定前 20% → 必暴 + 挂 `heel_line_pending` | **暴击伤害事件写出后**（`amount>0`）；`parent_seq=damage_seq`（同组紧随） |
 
 实现：`forced_crit_on_taken` 只判定不弹词；`engine.deal_damage` 在
-`damage` 落账后清旗并发 `heel`。未真正打出暴击伤害则吞台词。
+`damage` 落账后清旗并发 `heel`（挂本条伤害）。未真正打出暴击伤害则吞台词。
+**禁止** `parent_seq=0`：另开组会被客户端排到整段出击（含阵亡）之后。
 
-客户端：独立 `TraitLine` 组，独占气泡完整时长（`SayExclusive`，
-见 [text_system.md §三](../client/text_system.md)）。
+客户端：`TraitLineExtract` 把同组内的 heel 抽成独占 `TraitLine`，夹在
+伤害段与后续事件之间（`SayExclusive`，见 [text_system.md §三](../client/text_system.md)）。
 
 ## 2. 神谕 / 被动「借手」触发
 

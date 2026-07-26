@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 768e766bc0612f041ae6e938cf9f8b9e
+timeCreated: 1495098183
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/RFX1_UVAnimation.cs
+  uploadId: 633025

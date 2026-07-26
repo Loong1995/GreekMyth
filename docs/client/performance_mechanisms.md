@@ -64,7 +64,7 @@
 | 机制 | 一句话 | 代码 |
 |---|---|---|
 | 势能镜像 | momentum_change → 四轨分值镜像账本（value 取事件权威值，零客户端加法）；action_start 该武将四轨清零（与服务器静默清零同步） | `Units/MomentumService.cs` |
-| 势能条 | 每卡 HP 下四条迷你轨条（按**轨类型**跨技能累计，非单技能独立条；注册表 `TrackTable`：主动暖金/被动铜绿/神谕雷紫/普攻追击赤红；0~3 半亮、≥4 全亮） | `UnitView.SetMomentum` |
+| 势能条 | **已取消展示（2026-07-25）**：不再画四轨迷你条，势能表现只保留火/金光环/溢出白闪；账本（`TrackTable` 按轨类型跨技能累计）与 `SetMomentum` 接口保留、空转 | `UnitView.SetMomentum` |
 | 势能火 | 四轨最高 ≥4 小 / ≥5 / ≥6 / ≥7 满分大；`momentum_fire`←CFXR3 Fire；**ActionPauseSeconds 渐灭**（条仍待自身下次 action_start 清）。生命周期收拢进控制器，Runner 只发相位信号（OnActionPauseBegin/End/OnRoundBanner）；hold-off 语义=**抑制同值重挂**——任何值变化的 momentum_change 即解除抑制按新档点火（2026-07-22 修 g1r5 响应涨势能无火 bug） | `Units/MomentumFireController.cs` |
 | 闪光档（4） | 某轨首次 `value≥Flash(4)`：白闪爆发帧 + punch 缩放（**乙案已定稿**；不采购专属 overflow 包） | `MomentumService.Apply` → `PlayMomentumOverflow` |
 | 满档（5）/闪光（4）+ | 四轨最高 ≥4 起挂：**卡上缘火** + **卡后 LightGlow A（无星点）**；同分档轻抬、行动切换同渐灭；≥5 起服务端 `cut_in` | `MomentumFireController` / `MountMomentumGlow` |
@@ -92,7 +92,7 @@
 | 模板 | 触发条件 | 演出 | 代码 |
 |---|---|---|---|
 | Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击** → 回位（休息点重采样） | `DefaultPerformance.PlayMelee` |
-| AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样） | `DefaultPerformance.PlayAoeCenter` |
+| AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样）。**物理群攻 + 近 3D 地面**（仅 `ArenaSlotLayout.GroundActive`）：弹道分 3 段 `ground_crack_path` + 命中 `ground_crack_hit`（直径卡宽×1.5×面积）。档位/面积见 [ground_crack_config.md](ground_crack_config.md)：准备型物理群攻档 2、瞬发档 1；`EmpoweredStrike` 强制档 3 弹道+面积×1.5 命中，并叠场心大裂地。**唯一入口 `GroundCrackService`**（亦接 PerSegment / Melee，见 P-46） | `DefaultPerformance.PlayAoeCenter` / `PlayPerSegment` / `PlayMelee` → `VFX/GroundCrackService.cs` |
 | PerSegment 逐段 | 单体主动/多段 | 每段一个节拍：弹道 → 命中掉血 | `DefaultPerformance.PlayPerSegment` |
 | RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`/`zeus_bolt`：DR **单道**竖雷 + `hit_lightning`（Magic Effect19_Collision）+ 宙斯头像标。**禁 RFX4** | `DefaultPerformance.PlayRemoteStrike` |
 | 主动默认（按伤害类型） | 全部未专配主动 | **物理** Proj=`proj_bolt200` + Hit=`hit_clash`；**魔法** Proj=`magic_bolt` + Hit=`hit_lightning`。**默认不播 Cast** | `ProjectileKeyOf` / `ResolveHitKey` |
@@ -149,7 +149,8 @@
 
 ## 六、布局与配色
 
-- 棋盘：上下布局，A 队下、B 队上；交错阵方圆/却月/鹤翼（见 `rendering_layout.md` §五）。
+- 棋盘：上下布局，A 队下、B 队上；六套预设与矩形六等分站位见
+  [battlefield_layout.md](battlefield_layout.md)。
 - 阵营配色：神金/人红/海蓝/冥紫，唯一源 `Units/BattleBoardView.cs` 内 `FactionColors` 常量（private），
   规范文档 [faction_style.md](faction_style.md)。
 - 中文名：`Names/ChineseNames.cs` 与后端 `battle/names.py` 同步（红线）。
@@ -159,7 +160,9 @@
 | 想改什么 | 去哪看 |
 |---|---|
 | 播放单元/时间轴阻塞/台词独占/管线 processor | [playback_units.md](playback_units.md) |
-| 分辨率适配/图像槽位/sorting 层级/布局 | [rendering_layout.md](rendering_layout.md) |
+| 分辨率适配/图像槽位/sorting 层级 | [rendering_layout.md](rendering_layout.md) |
+| 战场分区/站位/阵型识别/卡尺 | [battlefield_layout.md](battlefield_layout.md) |
+| 近 3D 舞台/相机/地天板 | [arena_stage.md](arena_stage.md) |
 | 飘字/气泡/横幅/cut-in/字体调参 | [text_system.md](text_system.md) |
 | 状态台词触发点（引擎侧） | [status_voice.md](../mechanics/status_voice.md) |
 | 伤害响应谁先触发 / 他人神谕 vs 自身标记 | [response_order.md](../mechanics/response_order.md) |

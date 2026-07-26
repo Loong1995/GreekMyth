@@ -143,6 +143,57 @@ def test_aoman_pierce_unconditional_with_override():
     assert pierce, "判定成功应播贯穿"
 
 
+def test_aoman_heel_line_immediately_after_crit_damage():
+    """踵之弱台词必须紧跟本条暴击伤害（同 parent），不得 parent=0 另开组。
+
+    parent=0 时客户端按 group 首次出现序播放，阵亡写回原组会把台词挤到
+    整段出击（含死亡）之后——人死了还在说话。"""
+    setup = BattleSetup(
+        battle_id="t_aoman_heel",
+        teams=(
+            TeamSetup(team_id="A", main_hero_id="a1", heroes=(
+                make_hero("a1", 0),
+            )),
+            TeamSetup(team_id="B", main_hero_id="b1", heroes=(
+                hero_setup("achilles", hero_id="b1", position=0),
+            )),
+        ),
+        metadata={"trait_rate_overrides": {"aoman.heel": 10000}},
+    )
+    engine, anchor = bare_engine(setup, seed=3)
+    a1, b1 = engine.hero_by_id("a1"), engine.hero_by_id("b1")
+    b1.troops = 500  # 一击可杀，覆盖「死后才说话」回归
+
+    engine.deal_damage(
+        a1, b1, damage_type="physical", rate_bps=10000, parent_seq=anchor,
+    )
+    evs = engine.writer.games_events()[-1]
+    dmg = next(
+        e for e in evs
+        if e["type"] == "damage"
+        and e["payload"].get("target_id") == "b1"
+        and e["payload"].get("is_crit")
+    )
+    heel = next(
+        e for e in evs
+        if e["type"] == "trait_trigger" and e["payload"].get("effect") == "heel"
+    )
+    assert heel["parent_seq"] == dmg["seq"], (
+        f"heel 必须挂在暴击伤害上，got parent={heel['parent_seq']} dmg={dmg['seq']}"
+    )
+    assert heel["seq"] == dmg["seq"] + 1 or heel["seq"] > dmg["seq"], "heel 须在伤害之后"
+    # 若本击致死，阵亡事件不得插在伤害与 heel 之间
+    between = [e for e in evs if dmg["seq"] < e["seq"] < heel["seq"]]
+    assert not any(e["type"] == "hero_defeated" for e in between), (
+        "阵亡不得插在暴击伤害与弱踵台词之间"
+    )
+    assert heel["seq"] < next(
+        (e["seq"] for e in evs
+         if e["type"] == "hero_defeated" and e["payload"].get("hero_id") == "b1"),
+        heel["seq"] + 1,
+    ), "弱踵台词须先于阵亡事件"
+
+
 def test_heracles_trials_next_phys_rate_bonus_consumed():
     """十二试炼：下一次兵刃系数可叠；非试炼兵刃消费；试炼伤害不消费。"""
     setup = duo_vs_duo("t_trials_bonus", ("heracles",))

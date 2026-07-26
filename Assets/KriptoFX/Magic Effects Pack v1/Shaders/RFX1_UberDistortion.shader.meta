@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: dfe6e51c0ffb87246af0df6ac28d4a6e
+timeCreated: 1502026046
+licenseType: Free
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Shaders/RFX1_UberDistortion.shader
+  uploadId: 633025

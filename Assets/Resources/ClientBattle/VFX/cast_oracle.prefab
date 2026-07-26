@@ -55,5 +55,28 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4748681987041982144, guid: 7624127e8d9d40f4d8cf6d35ea3e57ac, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5145184308125576562}
   m_SourcePrefab: {fileID: 100100000, guid: 7624127e8d9d40f4d8cf6d35ea3e57ac, type: 3}
+--- !u!1 &7380511652023769359 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4748681987041982144, guid: 7624127e8d9d40f4d8cf6d35ea3e57ac, type: 3}
+  m_PrefabInstance: {fileID: 2849209723762044879}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5145184308125576562
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7380511652023769359}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e6cf0fd8508a84f82b3ea5f7177716, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxFitter
+  Reference: 0
+  Factor: 1
+  BakedBasis: 1.7298138

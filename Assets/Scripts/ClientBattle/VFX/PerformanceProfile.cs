@@ -42,6 +42,19 @@ namespace ClientBattle.VFX
                                                       // 短暂浮现指定武将头像，如 zeus/hades）
         public string SfxKey = "";                    // 主音效
         public string HitSfxKey = "";                 // 命中音效
+        // 近 3D 地面特效（仅透视舞台生效；物理群攻主动默认 ground_shatter）
+        public string GroundPathKey = "";             // 弹道路径地面裂地
+        public string GroundHitKey = "";              // 受击者脚下地面命中
+        /// <summary>裂地强度档（1 轻 / 2 重 / 3 熔岩）。
+        /// 一档同时定缝宽、持续、亮度。0 = 未配 → 取档 1。
+        /// 配置约定见 docs/client/ground_crack_config.md：
+        /// 准备型物理主动群攻配 2，瞬发物理主动群攻留 0；
+        /// 势能加强出手由服务强制档 3，不受本字段限制。</summary>
+        public int GroundStrengthTier;
+
+        /// <summary>命中类裂地的面积倍率：在默认「卡宽 ×1.5」上再乘这个数。
+        /// 0 = 未配 → 1。势能加强出手强制 1.5，覆盖本字段。</summary>
+        public float GroundHitArea;
 
         [Header("参数（强度/缩放，后续人工调节）")]
         [Range(0f, 3f)] public float Intensity = 1f;  // 滤镜/光环强度参数

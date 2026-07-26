@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: d8e14db54c18a3341aefc739d28f22ec
+timeCreated: 1493458964
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/DemoResources/Scripts/RFX1_DemoGUI.cs
+  uploadId: 633025

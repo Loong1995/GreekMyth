@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 1d2c7a2ec77cae6478e7dfa17ee0b77d
+timeCreated: 1497255781
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/RFX1_ActivateGravityAfterCollision.cs
+  uploadId: 633025

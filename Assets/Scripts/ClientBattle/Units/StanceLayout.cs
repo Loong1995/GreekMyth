@@ -5,48 +5,61 @@ using UnityEngine;
 namespace ClientBattle.Units
 {
     // =========================================================================
-    // 站位布局：固定「阵型组合」驱动（禁止同列前后排同时占位，避免竖向四倍卡高）。
-    // 交错阵（方圆 / 却月 / 鹤翼）共用几何：
-    //   上侧(B)：后排卡 上缘=队区上界、下缘=前排区下 1/3 线；卡高=该跨度。
-    //           前排卡 底缘贴队区内缘（中缝侧），避免同卡高穿入中线。
-    //   下侧(A)：镜面对称。
-    // 两队可各用不同阵型：逐队 Detect，落点按该队阵型；卡尺取更宽松的一侧。
-    // 非已知阵型：回退经典 2×3 格心。
+    // 站位编号 / 阵型识别 / 卡尺（单体制）。
+    // 落点几何权威：BattlefieldLayout（矩形六等分）；本类负责 1–6 语义与卡尺寸。
+    // 文档：docs/client/battlefield_layout.md 、 docs/mechanics/formations.md
     // =========================================================================
 
+    /// <summary>预设阵型（精确站位集合匹配；None = 未命中任何预设）。</summary>
     public enum StanceFormation
     {
-        /// <summary>方圆阵：1+5+6（前左 + 后中 + 后右）。</summary>
-        FangYuan = 0,
-        /// <summary>却月阵：1+2+6（前左 + 前中 + 后右）。</summary>
-        QueYue = 1,
-        /// <summary>鹤翼阵：2+4+6（前中 + 后左 + 后右）。</summary>
-        HeYi = 2,
-        /// <summary>仅前排 1~3（或 0~2）单行横排。</summary>
-        FrontRow = 3,
-        /// <summary>经典 2×3：前 1~3 / 后 4~6 各落半格中心（任意占位兼容）。</summary>
-        Grid2x3 = 4,
+        None = 0,
+        /// <summary>一字阵 {1,2,3}</summary>
+        Yizi = 1,
+        /// <summary>锥形阵 {2,4,6}</summary>
+        Zhui = 2,
+        /// <summary>箕形阵 {1,5,6}</summary>
+        Ji = 3,
+        /// <summary>方圆阵 {3,4,5}</summary>
+        FangYuan = 4,
+        /// <summary>偃月阵 {1,3,5}</summary>
+        Yanyue = 5,
+        /// <summary>雁行阵 {1,2,6}</summary>
+        Yanxing = 6,
     }
 
     public static class StanceLayout
     {
-        public const float DesignHalfWidth = 4.6f;
-        public const float DesignHalfHeight = 5.2f;
-        public const float FrameAspect = 1024f / 1680f;
-        public const float RefFrameW = 1.55f;
-        public const float RefFrameH = 2.54f;
-        const float ChromeFactor = 1.08f;
+        public const float FrameAspectFallback = 1024f / 1680f;
+        public const float RefFrameWFallback = 1.55f;
+        public const float RefFrameHFallback = 2.54f;
 
-        public static readonly int[] FangYuanSlots = { 1, 5, 6 };
-        public static readonly int[] QueYueSlots = { 1, 2, 6 };
-        public static readonly int[] HeYiSlots = { 2, 4, 6 };
+        public static float DesignHalfWidth => BattlefieldLayoutConfig.DesignHalfWidth;
+        public static float DesignHalfHeight => BattlefieldLayoutConfig.DesignHalfHeight;
+        public static float FrameAspect =>
+            BattlefieldLayoutConfig.FrameAspect > 0.01f
+                ? BattlefieldLayoutConfig.FrameAspect : FrameAspectFallback;
+        public static float RefFrameW =>
+            BattlefieldLayoutConfig.RefFrameW > 0.01f
+                ? BattlefieldLayoutConfig.RefFrameW : RefFrameWFallback;
+        public static float RefFrameH =>
+            BattlefieldLayoutConfig.RefFrameH > 0.01f
+                ? BattlefieldLayoutConfig.RefFrameH : RefFrameHFallback;
+        public static float ChromeFactor => Mathf.Max(1f, BattlefieldLayoutConfig.ChromeFactor);
+        public static float CardScaleBoost => Mathf.Max(0.1f, BattlefieldLayoutConfig.CardScaleBoost);
 
-        /// <summary>卡尺所用阵型（两队取更宽松侧；交错优先）。</summary>
-        public static StanceFormation Formation { get; private set; } = StanceFormation.FangYuan;
-        public static StanceFormation FormationA { get; private set; } = StanceFormation.FangYuan;
-        public static StanceFormation FormationB { get; private set; } = StanceFormation.FangYuan;
-        public static float HalfWidth { get; private set; } = DesignHalfWidth;
-        public static float HalfHeight { get; private set; } = DesignHalfHeight;
+        public static readonly int[] YiziSlots = { 1, 2, 3 };
+        public static readonly int[] ZhuiSlots = { 2, 4, 6 };
+        public static readonly int[] JiSlots = { 1, 5, 6 };
+        public static readonly int[] FangYuanSlots = { 3, 4, 5 };
+        public static readonly int[] YanyueSlots = { 1, 3, 5 };
+        public static readonly int[] YanxingSlots = { 1, 2, 6 };
+
+        public static StanceFormation Formation { get; private set; } = StanceFormation.None;
+        public static StanceFormation FormationA { get; private set; } = StanceFormation.None;
+        public static StanceFormation FormationB { get; private set; } = StanceFormation.None;
+        public static float HalfWidth { get; private set; } = 4.6f;
+        public static float HalfHeight { get; private set; } = 5.2f;
         public static float RegionWidth { get; private set; }
         public static float CellHeight { get; private set; }
         public static float CardWidth { get; private set; }
@@ -56,59 +69,44 @@ namespace ClientBattle.Units
         public static float LineReserve { get; private set; }
         public static float MidClear { get; private set; }
 
-        static float _midEdge;
-        static float _outerTop;
-        static float _yFront;
-        static float _yBack;
-        static float _yFrontFlush;
-        static float _yBackBand;
-
-        static StanceLayout() =>
-            RecalcForTeams(DesignHalfWidth, DesignHalfHeight,
-                StanceFormation.FangYuan, StanceFormation.FangYuan);
-
-        public static bool IsStaggered(StanceFormation f) =>
-            f is StanceFormation.FangYuan or StanceFormation.QueYue or StanceFormation.HeYi;
+        static StanceLayout() => Recalc(DesignHalfWidth, DesignHalfHeight);
 
         public static string FormationDisplayName(StanceFormation f) => f switch
         {
+            StanceFormation.Yizi => "一字阵",
+            StanceFormation.Zhui => "锥形阵",
+            StanceFormation.Ji => "箕形阵",
             StanceFormation.FangYuan => "方圆阵",
-            StanceFormation.QueYue => "却月阵",
-            StanceFormation.HeYi => "鹤翼阵",
-            StanceFormation.FrontRow => "前列横排",
-            StanceFormation.Grid2x3 => "六区格心",
-            _ => f.ToString(),
+            StanceFormation.Yanyue => "偃月阵",
+            StanceFormation.Yanxing => "雁行阵",
+            _ => "无阵型",
         };
 
-        /// <summary>根据一队已占站位推断阵型（子集亦算该阵；未知组合回退 Grid2x3）。</summary>
+        /// <summary>服务端 formation_id 与枚举对齐。</summary>
+        public static string FormationId(StanceFormation f) => f switch
+        {
+            StanceFormation.Yizi => "yizi",
+            StanceFormation.Zhui => "zhui",
+            StanceFormation.Ji => "ji",
+            StanceFormation.FangYuan => "fangyuan",
+            StanceFormation.Yanyue => "yanyue",
+            StanceFormation.Yanxing => "yanxing",
+            _ => "",
+        };
+
+        /// <summary>精确集合相等才算命中预设阵型；否则 None。</summary>
         public static StanceFormation DetectFormation(IEnumerable<int> positions)
         {
             var set = new HashSet<int>();
             foreach (int raw in positions)
                 set.Add(Normalize(raw));
-            if (set.Count == 0) return StanceFormation.FangYuan;
-
-            bool onlyFront = true;
-            foreach (int p in set)
-                if (p > 3) { onlyFront = false; break; }
-            if (onlyFront) return StanceFormation.FrontRow;
-
-            if (SetEquals(set, FangYuanSlots) || IsSubset(set, FangYuanSlots))
-                return StanceFormation.FangYuan;
-            if (SetEquals(set, QueYueSlots) || IsSubset(set, QueYueSlots))
-                return StanceFormation.QueYue;
-            if (SetEquals(set, HeYiSlots) || IsSubset(set, HeYiSlots))
-                return StanceFormation.HeYi;
-            return StanceFormation.Grid2x3;
-        }
-
-        /// <summary>卡尺：任一方交错 → 交错带；双方皆前列 → 前列；否则格心。</summary>
-        public static StanceFormation SizingFormation(StanceFormation a, StanceFormation b)
-        {
-            if (IsStaggered(a) || IsStaggered(b)) return StanceFormation.FangYuan;
-            if (a == StanceFormation.FrontRow && b == StanceFormation.FrontRow)
-                return StanceFormation.FrontRow;
-            return StanceFormation.Grid2x3;
+            if (SetEquals(set, YiziSlots)) return StanceFormation.Yizi;
+            if (SetEquals(set, ZhuiSlots)) return StanceFormation.Zhui;
+            if (SetEquals(set, JiSlots)) return StanceFormation.Ji;
+            if (SetEquals(set, FangYuanSlots)) return StanceFormation.FangYuan;
+            if (SetEquals(set, YanyueSlots)) return StanceFormation.Yanyue;
+            if (SetEquals(set, YanxingSlots)) return StanceFormation.Yanxing;
+            return StanceFormation.None;
         }
 
         static bool SetEquals(HashSet<int> set, int[] slots)
@@ -119,28 +117,20 @@ namespace ClientBattle.Units
             return true;
         }
 
-        static bool IsSubset(HashSet<int> set, int[] slots)
-        {
-            foreach (int p in set)
-            {
-                bool ok = false;
-                foreach (int s in slots)
-                    if (s == p) { ok = true; break; }
-                if (!ok) return false;
-            }
-            return true;
-        }
-
         public static void RecalcFromCamera(Camera cam, StanceFormation formA, StanceFormation formB)
         {
             if (cam == null) cam = Camera.main;
             if (cam != null) CameraFitter.EnsureOn(cam);
-            RecalcForTeams(DesignHalfWidth, DesignHalfHeight, formA, formB);
+            BattlefieldLayout.RecalcFromCamera(cam); // 地面板随宽高比刷新
+            FormationA = formA;
+            FormationB = formB;
+            Formation = formA != StanceFormation.None ? formA
+                : formB != StanceFormation.None ? formB : StanceFormation.None;
+            Recalc(DesignHalfWidth, DesignHalfHeight);
         }
 
-        /// <summary>兼容单阵型调用（两队同阵）。</summary>
         public static void RecalcFromCamera(Camera cam = null,
-            StanceFormation formation = StanceFormation.FangYuan) =>
+            StanceFormation formation = StanceFormation.None) =>
             RecalcFromCamera(cam, formation, formation);
 
         public static void RecalcForTeams(float halfW, float halfH,
@@ -148,36 +138,26 @@ namespace ClientBattle.Units
         {
             FormationA = formA;
             FormationB = formB;
-            Recalc(halfW, halfH, SizingFormation(formA, formB));
+            Formation = formA != StanceFormation.None ? formA
+                : formB != StanceFormation.None ? formB : StanceFormation.None;
+            Recalc(halfW, halfH);
         }
 
-        public static void Recalc(float halfW, float halfH, StanceFormation formation)
+        /// <summary>单体制卡尺：按 θ=0 格尺寸反算卡宽高（旋转只改落点，不改卡尺）。</summary>
+        public static void Recalc(float halfW, float halfH)
         {
-            Formation = formation;
             HalfWidth = halfW;
             HalfHeight = halfH;
-            LineReserve = Mathf.Clamp(halfH * 0.10f, 0.42f, 0.95f);
-            MidClear = Mathf.Clamp(halfH * 0.055f, 0.28f, 0.65f);
-            float colPad = halfW * 0.012f;
-            float rowPad = halfH * 0.008f;
+            // 卡尺锁定 θ=0 格尺寸；halfW/halfH 保留兼容相机安全区。
+            RegionWidth = BattlefieldLayout.CardCellWidth;
+            CellHeight = BattlefieldLayout.CardCellDepth;
+            LineReserve = 0f;
+            MidClear = BattlefieldLayout.BeltHalfDepth * 2f;
 
-            RegionWidth = halfW * 2f / 3f;
-            float teamSpan = halfH - LineReserve - MidClear * 0.5f;
-            CellHeight = teamSpan * 0.5f;
-
-            _midEdge = MidClear * 0.5f;
-            _outerTop = halfH - LineReserve;
-            _yFront = _midEdge + CellHeight * 0.5f;
-            _yBack = _midEdge + CellHeight * 1.5f;
-
-            float bandBottom = _midEdge + CellHeight / 3f;
-            float bandTop = _outerTop;
-            float spanBand = bandTop - bandBottom;
-
-            bool staggered = IsStaggered(formation);
-            float vSpan = staggered ? spanBand : CellHeight;
-            float jMin = Mathf.Min(RegionWidth, vSpan) * 0.02f;
-            float maxFrameH = (vSpan - 2f * jMin - rowPad) / ChromeFactor;
+            float colPad = RegionWidth * 0.06f;
+            float rowPad = CellHeight * 0.06f;
+            float jMin = Mathf.Min(RegionWidth, CellHeight) * 0.02f;
+            float maxFrameH = (CellHeight - 2f * jMin - rowPad) / ChromeFactor;
             float maxFrameW = RegionWidth - 2f * jMin - colPad;
             CardHeight = Mathf.Min(maxFrameH, maxFrameW / FrameAspect);
             CardWidth = CardHeight * FrameAspect;
@@ -186,22 +166,26 @@ namespace ClientBattle.Units
                 CardWidth = maxFrameW;
                 CardHeight = CardWidth / FrameAspect;
             }
-            CardHeight = Mathf.Max(CardHeight, 0.4f);
+            CardHeight = Mathf.Max(CardHeight, 0.4f) * CardScaleBoost;
             CardWidth = CardHeight * FrameAspect;
 
-            float slackH = vSpan - CardHeight * ChromeFactor - rowPad;
-            float slackW = RegionWidth - CardWidth - colPad;
-            float jCap = RegionWidth / 10f;
-            RestJitterHalf = Mathf.Clamp(
-                Mathf.Min(slackH * 0.5f, slackW * 0.5f, jCap), jMin, jCap);
+            // 站位微抖半径固定为卡宽/6（圆盘采样）；旧 slack 方框抖动废弃。
+            RestJitterHalf = SlotJitterRadius;
             LayoutScale = CardHeight / RefFrameH;
+        }
 
-            float halfCardY = CardHeight * ChromeFactor * 0.5f;
-            // 交错 Y 始终算好：异阵对打时逐队选用
-            _yBackBand = (bandTop + bandBottom) * 0.5f;
-            _yFrontFlush = _midEdge + halfCardY + rowPad * 0.5f;
-            float maxFront = _outerTop - halfCardY;
-            if (_yFrontFlush > maxFront) _yFrontFlush = maxFront;
+        /// <summary>站位微抖圆盘半径 = 卡宽 × Config.SlotJitterRadiusFactor。</summary>
+        public static float SlotJitterRadius =>
+            Mathf.Max(CardWidth, 0.01f)
+            * Mathf.Clamp01(BattlefieldLayoutConfig.SlotJitterRadiusFactor);
+
+        /// <summary>在圆心 (cx,cy) 半径 SlotJitterRadius 的圆盘内均匀采样偏移 (dx,dy)。</summary>
+        public static void SampleSlotDiskOffset(out float dx, out float dy)
+        {
+            float r = SlotJitterRadius * Mathf.Sqrt(Random.value);
+            float a = Random.value * (Mathf.PI * 2f);
+            dx = r * Mathf.Cos(a);
+            dy = r * Mathf.Sin(a);
         }
 
         public static int Normalize(int position)
@@ -218,21 +202,14 @@ namespace ClientBattle.Units
         public static StanceFormation FormationOfTeam(int teamIdx) =>
             teamIdx == 0 ? FormationA : FormationB;
 
-        /// <summary>区域中心（相对棋盘原点）。teamIdx 0=A 下、1=B 上；按该队阵型落点。</summary>
+        /// <summary>正交回退：XZ 格心映到 XY 平面。纵深按比例压进安全区高度
+        /// （地面板纵深约 13 > 安全区 10.4，直映会出画），横向同比压进安全区宽。</summary>
         public static Vector3 SlotCenter(int teamIdx, int position)
         {
-            int p = Normalize(position);
-            float x = (ColumnOf(p) - 1) * RegionWidth;
-            var form = FormationOfTeam(teamIdx);
-            float yAbs;
-            if (IsStaggered(form))
-                yAbs = IsBackline(p) ? _yBackBand : _yFrontFlush;
-            else if (form == StanceFormation.FrontRow)
-                yAbs = _yFront;
-            else
-                yAbs = IsBackline(p) ? _yBack : _yFront;
-            float y = teamIdx == 0 ? -yAbs : yAbs;
-            return new Vector3(x, y, 0f);
+            BattlefieldLayout.SlotCenterXZ(teamIdx, position, out float x, out float z);
+            float ky = DesignHalfHeight * 2f * 0.9f / BattlefieldLayout.MainDepth;
+            float kx = Mathf.Min(1f, DesignHalfWidth / BattlefieldLayout.MainHalfWidth);
+            return new Vector3(x * kx, (z - BattlefieldLayout.MainCenterZ) * ky, 0f);
         }
     }
 }

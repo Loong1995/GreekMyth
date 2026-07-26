@@ -14,12 +14,18 @@
 | [architecture.md](architecture.md) | **播放架构权威**：分层依赖规则、L4 拆分（控制器/建造器/导演/策略）、生命周期迁移表、子机制索引、服务端适配点 |
 | [performance_mechanisms.md](performance_mechanisms.md) | **演出机制总纲（改演出先看这里）**：全部机制一句话结论+代码位置+细则索引 |
 | [playback_units.md](playback_units.md) | **播放单元机制**：一回合怎么在屏幕上展开、分组管线六 processor、时间轴阻塞规则、台词独占三原则、模板族节拍 |
-| [rendering_layout.md](rendering_layout.md) | **渲染/分辨率/层级**：机型适配、图像槽位缩放（contain/stretch）、sorting 层级总表、棋盘布局 |
+| [rendering_layout.md](rendering_layout.md) | **渲染/分辨率/层级**：机型适配、图像槽位缩放（contain/stretch）、sorting 层级总表、棋盘布局摘要 |
+| [battlefield_layout.md](battlefield_layout.md) | **战场分区与站位几何唯一权威**：UI/主战场/隔离带/矩形六等分、六套预设、单体制卡尺 |
+| [arena_stage.md](arena_stage.md) | **近 3D 舞台表现权威**：相机姿态、地/天底图拼接、卡牌姿态/浮空；站位引用 battlefield_layout |
+| [ground_crack_language.md](ground_crack_language.md) | **裂地表现语言权威**：模式×强度+面积；弹道 1/2 无熔岩、档 3 同命中；灭点消退、自烘遮罩、服务边界 |
+| [ground_crack_config.md](ground_crack_config.md) | **裂地技能配置登记表**：准备/瞬发物理群攻默认档、势能加强覆盖、按 skill_id 登记 |
 | [text_system.md](text_system.md) | **文字系统**：飘字（Tuning SO 调参）、台词气泡独占播放、横幅/cut-in、中文名注册表 |
 | [settlement_stats.md](settlement_stats.md) | **战后技能结算表**：分局 Tab、带技能（神谕）归因到施法者技能格、status→skill 映射 |
 | [client_battle_framework.md](client_battle_framework.md) | **框架主文档**：5 层数据流向图、逐文件职责、关键机制（播放单元/补发重组/三级表演策略/占位回退）、运行方式 |
 | [assets_upload_guide.md](assets_upload_guide.md) | **资源清单·现状·成品化路线（唯一资源文档）**：全部 key 与路径、每类现状、六步成品化流程、采购登记（原 to_purchase.md 已并入） |
 | [vfx_playback_scheme.md](vfx_playback_scheme.md) | **特效播放方案快照**：包分工、宙斯/雅典娜现行接线、预览入口、验收战报 |
+| [vfx_pack_integration.md](vfx_pack_integration.md) | **已购特效包改造与应用方案（权威）**：包内五类渲染层的可用性盘点、两套 RP asset 差异（编辑器≠真机）、改造项 A~E 与成本、接件标准流程与验收清单、分级方案、红线 |
+| [vfx_standardization.md](vfx_standardization.md) | **特效标准化纪律（点名即交付）**：画廊原料→Resources 标准件→Profile 接线；**无 GUI 晋升**；人指出哪件后 AI 默认按清单标准化并加载 |
 | [faction_style.md](faction_style.md) | 四阵营视觉规范（配色同源 `Units/BattleBoardView.cs`） |
 | [manual_setup_panel.md](manual_setup_panel.md) | **手动配阵测试页**：客户端内配阵 → python 结算 → 播战报/百场统计 |
 

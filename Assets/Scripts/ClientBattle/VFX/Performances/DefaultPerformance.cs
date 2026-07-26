@@ -200,6 +200,9 @@ namespace ClientBattle.VFX
                     var strike = ctx.Vfx.PlayAt(strikeKey,
                         target.RestPosition + new Vector3(0f, 0.2f, -0.5f), ctx.Scaled(0.45f));
                     strike.transform.localScale *= strikeScale;
+                    // 近身物理命中同样在受击者脚下起 T2（无弹道 → 只有命中档）
+                    if (GroundCrackService.Active(damages))
+                        GroundCrackService.PlayHit(ctx, profile, target);
                 }
                 SettleDamage(damage, profile, ctx, floatName);
                 if (striker != null && !striker.Defeated)
@@ -228,17 +231,33 @@ namespace ClientBattle.VFX
             Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
             float flightBase = ctx.Scaled(0.38f);
             float stagger = damages.Count > 1 ? ctx.Scaled(0.045f) : 0f;
+            var projectiles = new Transform[damages.Count]; // 供裂地跟随实际弹道
             for (int i = 0; i < damages.Count; i++)
             {
                 var target = ctx.UnitTransform(damages[i].TargetId);
                 if (target == null) continue;
                 float delay = i * stagger;
-                LaunchProjectile(ctx, projectileKey, from, target.position,
+                var launched = LaunchProjectile(ctx, projectileKey, from, target.position,
                     flightBase - delay, delay);
+                projectiles[i] = launched != null ? launched.transform : null;
             }
-            yield return new WaitForSeconds(flightBase); // 弹道飞行（弹道全程可见）
+            // 裂地是否参与本次出手，判据全在 GroundCrackService
+            bool groundFx = GroundCrackService.Active(damages);
+            // T3 全局大裂地：势能全开的加强出手，逻辑圆量级主缝从场心劈开。
+            // 与弹道同帧起，靠 T1/T2 在其上叠加，读作「一击震裂全场」
+            if (groundFx && ctx.EmpoweredStrike)
+                GroundCrackService.PlayArena(ctx);
+            if (groundFx)
+                yield return GroundCrackService.PlayPath(ctx, profile, from, damages,
+                                                        projectiles, flightBase);
+            else
+                yield return new WaitForSeconds(flightBase); // 弹道飞行（弹道全程可见）
             foreach (var damage in damages)
+            {
+                if (groundFx)
+                    GroundCrackService.PlayHit(ctx, profile, ctx.Unit(damage.TargetId));
                 SettleDamage(damage, profile, ctx, floatName);
+            }
             // 命中特效/受击闪烁与回身位移同播，命中后不垫定格
             if (actor != null && !actor.Defeated)
             {
@@ -295,17 +314,30 @@ namespace ClientBattle.VFX
                                    Units.UnitView actor, List<DamageEvent> damages, string floatName)
         {
             string projectileKey = ProjectileKeyOf(profile, damages);
+            // 单体弹道同样出裂地（与群攻同一套服务）：一段一条，朝向沿本段弹道
+            bool groundFx = GroundCrackService.Active(damages);
+            var single = new List<DamageEvent>(1) { null };
+            var projectile = new Transform[1];
             foreach (var damage in damages)
             {
                 var target = ctx.UnitTransform(damage.TargetId);
                 if (target != null)
                 {
                     float flight = ctx.Scaled(0.30f);
-                    LaunchProjectile(ctx, projectileKey,
-                        actor != null ? actor.transform.position : ctx.BoardCenter,
-                        target.position, flight);
-                    yield return new WaitForSeconds(flight); // 弹道飞行可见
+                    Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
+                    var launched = LaunchProjectile(ctx, projectileKey, from, target.position, flight);
+                    if (groundFx)
+                    {
+                        single[0] = damage;
+                        projectile[0] = launched != null ? launched.transform : null;
+                        yield return GroundCrackService.PlayPath(ctx, profile, from, single,
+                                                                projectile, flight);
+                    }
+                    else
+                        yield return new WaitForSeconds(flight); // 弹道飞行可见
                 }
+                if (groundFx)
+                    GroundCrackService.PlayHit(ctx, profile, ctx.Unit(damage.TargetId));
                 SettleDamage(damage, profile, ctx, floatName);
                 // 段间不垫定格：下一段弹道立刻起飞，受击闪烁/飘字与其同播
             }
@@ -314,9 +346,10 @@ namespace ClientBattle.VFX
 
         // ---------------------------------------------------------- 工具
 
-        /// <summary>弹道：朝向飞行、二次贝塞尔微弧、出生缩放；可选起飞错峰（群攻齐射）。</summary>
-        static void LaunchProjectile(VFXContext ctx, string key, Vector3 from, Vector3 to,
-                                     float flightTime, float launchDelay = 0f)
+        /// <summary>弹道：朝向飞行、二次贝塞尔微弧、出生缩放；可选起飞错峰（群攻齐射）。
+        /// 返回弹道实例，供地面裂地跟随其实时位置。</summary>
+        static GameObject LaunchProjectile(VFXContext ctx, string key, Vector3 from, Vector3 to,
+                                           float flightTime, float launchDelay = 0f)
         {
             float life = flightTime + launchDelay + 0.1f;
             var projectile = ctx.Vfx.PlayAt(key, from, life);
@@ -369,6 +402,7 @@ namespace ClientBattle.VFX
                     : Mathf.Lerp(1.08f, 0.72f, (u - 0.55f) / 0.45f);
                 t.localScale = baseScale * s;
             }, 1f, flightTime).SetEase(Ease.InOutSine));
+            return projectile;
         }
 
         /// <summary>近身斩击用：物理 slash、魔法 magic_bolt（可被 profile.ProjectileKey 覆盖）。</summary>

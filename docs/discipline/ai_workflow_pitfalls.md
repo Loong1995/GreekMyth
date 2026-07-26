@@ -169,7 +169,7 @@ Python `io.open(..., encoding="utf-8")` 读写，禁止 PowerShell 管道改中�
 与 `CameraFitter`「安全区固定、宽屏两侧只铺背景」冲突。
 正确做法：落点/卡尺锁定设计安全区（半宽 4.6 / 半高 5.2）；相机只负责取景。
 改阵型几何后必须重生/重载对应战报（旧 `positions` 会触发错误阵型或同列叠放）。
-异阵对打必须**逐队** Detect，禁止两队站位并集推断（并集会落入 Grid2x3）。
+异阵对打必须**逐队** Detect，禁止两队站位并集推断。
 
 ## P-25 RFX4 禁止接到宙斯/单挑（喷射粒子红线）
 
@@ -216,4 +216,359 @@ RFX4 仅可作舞台远景/神像大场面候选，且须人工点名批准，�
 正确做法：菜单 **`GreekMyth → RFX4 → 导入 URP Patch（修粉红）`**（或等价应用该 unitypackage）；
 再用 **`诊断粉红材质`** 确认 `Effects/Materials` 下无 Built-in/InternalError shader；
 重开可靠预览验收。禁止手改单个材质去「猜」URP 替代 shader（以官方 patch 为准）。
+
+## P-31 Play 中热重编译产生「幽灵卡」双影 + 旧程序集假验收
+
+现象：卡牌/名字双层错位叠影，多出的 UnitView `Hero==null`（2026-07-25）；
+另：改完代码直接截图验收，跑的还是旧逻辑（改动看似无效）。
+根因：Play 模式中 refresh → domain reload 清空非序列化状态（`_units` 字典、
+runner 会话），但场上 GameObject 仍在；重播时 `Clear()` 只按字典删卡 → 孤儿残留。
+且 Play 挂起时 Unity 不换新程序集，`refresh_unity` 返回成功≠新代码已加载。
+正确做法：① `BattleBoardView.Clear` 已改为 `GetComponentsInChildren<UnitView>`
+兜底全删（勿回退成只清字典）；② 验收流程固定 **stop → refresh → play**，
+改常量后可用反射读值确认新程序集已加载再截图。
+
+## P-32 厂包地面贴花在近 3D 舞台上"播了但全空"
+
+现象：接了 RFX4 `DecalCrackBorder` / Magic `Effect11_Collision` 的 `Decal`，
+实例存活、renderer enabled、位置在屏幕内，画面上就是什么都没有（2026-07-25）。
+根因：这些贴花是**屏幕空间深度投影**（`RFX1_UberDecal` / `KriptoFX/RFX4/Decal`：
+`Cull Front` + `ZWrite Off` + `SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture)`），
+而舞台地面是 `URP/2D/Sprite-Unlit-Default`、renderQueue 3000 的透明 Sprite，
+**不写深度** → 贴花没有可重建的表面。把 `_Cutout` 拉满、按命中法线
+`LookRotation(up)` 摆正都无效，这不是参数问题。
+正确做法：① 要用厂包贴花，先把地面换成不透明写深度的网格（见
+`docs/client/ground_crack_language.md` G1）；② 在那之前，地面特效只能用自建
+平躺 Sprite 面片（`VFX/GroundCrackDecal.cs`）；③ 排查此类"看不见"先查
+**目标表面是否写深度**，再查 alpha/朝向/排序，顺序反了会浪费很多轮。
+附带教训：`AssetDatabase.CopyAsset` 后同帧 `LoadAssetAtPath` 拿到 null，
+必须先 `ImportAsset(..., ForceSynchronousImport)`。
+
+## P-33 「地面不写深度」只是表层，KriptoFX 贴花在 URP 下根本不可用
+
+现象：按 P-32 的结论把地面改成不透明写深度网格（G1）后，Magic
+`Effect2_Collision` 的 `DecalCrater` 依然不对 —— 且不是"看不见"，而是渲成
+悬空的品红亮盒面（2026-07-25）。
+根因：`KriptoFX/RFX1/Decal`、`KriptoFX/RFX4/Decal` 是 **Built-in 管线 shader**。
+URP 会把无 `LightMode` 的 pass 当 `SRPDefaultUnlit` 画出来，但深度重建那套
+built-in 宏/矩阵不成立 → 投影盒立方体被原样加色渲染。地面写不写深度无关。
+正确做法：① KriptoFX 三个包的 Decal 组件**一律不接线**，只取粒子部分；
+② 地面投影走 URP 官方 Decal Renderer Feature + DecalProjector（它才真需要
+G1 的不透明+深度前提），或自建平躺面片；③ 采购红线：任何基于 KriptoFX
+贴花技术的裂地包都不要买。
+方法论教训：诊断出一个必要条件（地面写深度）不等于它是充分条件。
+G1 这类"大前提改造"应当先用**最小探针**验证收益再全量推进 —— 本次 G1 改造
+本身仍是对的（URP 贴花、遮挡关系都依赖它），但预期收益换了对象。
+探针要点：`Time.timeScale=0` + 关掉粒子 + 强制 `_Cutout=0`，才能把
+"贴花本身长什么样"从战斗画面里隔离出来；`cam.Render()` 手动渲染绕不出
+URP 完整路径，验收截图用 `ScreenCapture.CaptureScreenshot`。
+
+## P-34 地面特效"看不见"的三个真凶（都不是 alpha 不够）
+
+2026-07-25 落地三档裂地时逐个撞上，排查顺序按此表走能省很多轮：
+
+| 现象 | 真因 | 修法 |
+|---|---|---|
+| 遮罩铺上去是**整块方块**或**全透明** | 厂包裂纹图**明暗极性不统一**（RFX4 `Crack` 白线黑底、Magic `Crack1` 与 RFX4 `CrackHeight` 都是黑线白底），直接设成 Sprite 必错 | 自己烘遮罩，逐图指定 invert + 灰度重映射区间，统一成 RGB 白 + alpha |
+| 裂纹**在大地面上糊没了** | 原始线宽只占 1.4% 像素，铺到 3.4 世界尺寸就细到看不见 | 烘制时 alpha 做**最大值膨胀**（分离式两趟）加粗到 10% 量级 |
+| 受击者脚下的裂纹**完全看不到** | 卡牌是竖立 billboard，**它脚下的地面本就被自己挡住**；裂纹直径 2.2 < 卡宽 1.6 的投影覆盖 | 直径放大到明显超出卡轮廓（3.4）；验证时先把探针放到**空地**上再判断"到底有没有渲出来" |
+
+第四个坑（不是看不见，是看见了不该看见的）：地面尘雾被
+`VFXManager.EnsureVfxSorting` 的"粒子排序下限 45"一把抬到卡牌之前，
+把英雄立绘整片压灰。→ 加 `VfxGroundLayer` 标记豁免排序抬升。
+
+另一条方法论：高度图（`*Height.png`）**不是**裂纹遮罩。它的黑缝外围有一大圈
+柔性渐变，低阈值会把渐变一并留下，渲成一团灰雾而不是裂缝。
+
+验收取图教训：裂地是 1~2.6 秒的瞬时演出，靠 MCP 轮询"活实例再截图"命中率极低
+（该战报里物理群攻整场只触发一次）。可行做法是先加一条临时 `Debug.Log` 确认
+**接线是否触发**并拿到真实坐标/朝向，再用这些坐标复现出静态画面
+（长 `Hold` + `ParticleSystem.Simulate` 定格）来看观感。
+
+## P-35 「编辑器里效果对了」不等于真机对了：两套 RP asset 能力不同
+
+2026-07-25 盘点厂包可用性时查出：`Assets/Settings/PC_RPAsset.asset` 的
+`m_RequireDepthTexture` / `m_RequireOpaqueTexture` 都是 1，而
+`Mobile_RPAsset.asset` 两项都是 0；`QualitySettings` 里 PC 档
+`excludedTargetPlatforms` 含 Android/iPhone，Android 默认档指向 Mobile。
+
+后果：编辑器（Windows 平台）走 PC 档，屏幕扭曲（`_CameraOpaqueTexture`）、
+深度投影贴花、软粒子淡出（`SoftParticles_ON` / `_FADING_ON` 关键字）都"看着正常"，
+换到真机全部失去数据来源。**凡涉及这三类的验收结论，只有真机截图能作数**；
+在文档里写这类结论必须标注真机是否已验。
+
+推论方法：判断一个厂包层能不能用，先看它的 shader 采样了什么全屏纹理
+（`_CameraDepthTexture` / `_CameraOpaqueTexture`），再看目标平台的 RP asset
+有没有开对应开关 —— 比逐个试播快得多。详见
+`docs/client/vfx_pack_integration.md` §二。
+
+## P-36 Unity「假死」优先怀疑模态弹窗，而不是死锁
+
+2026-07-25 两次「编辑器无响应、MCP ping 不回、CPU 归零」，第一次误判为域重载
+死锁并重启了 Unity，第二次才看到真凶：**Script Updating Consent 模态框**
+（RFX4 三个物理脚本用了 `Rigidbody.velocity` / `drag` / `FindObjectsOfType`
+等改名 API，每次包重导入后域重载都会重新弹）。模态框霸占主线程消息循环，
+外部工具的一切请求都会超时，从外面看与死锁完全一样。
+
+判据：进程 `Responding=True`、CPU 停止增长、日志不再追加 —— 这三条同时成立时
+**先让人看一眼编辑器窗口**，不要直接重启（重启会丢掉未保存的场景状态，且解决
+不了问题，下次照弹）。
+
+处置：选「Yes, for these and other files that might be found later」。窄选项
+（just for these files）下次还会弹。厂包脚本的这类改名是机械且可复现的
+（包可从 Asset Store 重新导入），因此这是「厂包目录只读」红线的既定例外。
+
+补记（同日彻底关掉）：点 No 不省硬盘 —— 更新器是**就地改文件、不生成备份**，
+弹窗里那句"建议先备份"是让人自己用版本控制兜底。既然点 No 只换来反复卡编辑器，
+就直接把触发源改掉：`RFX4_PhysXSetImpulse` / `RFX4_PhysicsMotion` /
+`RFX4_PhysicsForceCurves` 三处 `velocity`→`linearVelocity`、
+`drag`→`linearDamping`、`angularDrag`→`angularDamping`。改完不再弹。
+注意 `ParticleSystem.Particle.velocity` 同名但**没有**弃用，不要跟着改。
+
+## P-37 体检工具的判据必须先证伪，否则"35 个有问题"全是假警
+
+2026-07-25 首次跑全量 VFX 体检报出 52 件里 35 件有问题，逐条看下去 67 条
+「材质空」全是误报，真问题只有 1 条。两个误判来源都出在"按 `Renderer` 通用写法
+查材质"：
+
+- `ParticleSystemRenderer.sharedMaterials` 第二槽是拖尾材质，**拖尾模块关着时
+ 本来就是 null**；要么只看 `sharedMaterial`，要么先判 `ps.trails.enabled`。
+- 厂包普遍用一个空粒子系统当**容器节点**（`renderer.enabled=false`、
+ `renderMode=None`），它没有材质是设计如此。
+
+教训：体检类工具第一版跑出来的高数量级报警，先假设是判据错而不是资产烂；
+拿一个具体条目 dump 出组件与渲染器状态验证过再动资产。修正判据后
+52 件里真问题 1 件（`aura_ares_might` 藏了一层画不出来的厂包贴花）。
+
+## P-38 尺寸归一的「参照基准」必须与特效当初被肉眼调好的那套布局同档
+
+2026-07-25 给 49 个特效补挂 `VfxFitter` 时，参照卡宽取自
+`RecalcForTeams(DesignHalfWidth, DesignHalfHeight, FangYuan, FangYuan)` = **2.041**，
+而实际战斗（雁行阵）跑出来的卡宽是 **1.206**。于是全部特效被静默缩到 59%，
+`aura_ares_might` 从 0.22 缩成 0.13。
+
+根因：`StanceLayout` 的卡宽只取决于**交错 / 非交错**两种阵型 regime
+（交错 = 方圆/却月/鹤翼，纵向可用跨度取 `spanBand`；非交错 = 雁行/经典 2×3，
+取更小的 `CellHeight`），两档相差 1.69 倍。与分辨率、宽高比无关 ——
+`RecalcFromCamera` 其实并不读相机尺寸，只用设计常量。
+
+红线：归一化这类「把手调值换算成公式」的改造，参照值必须**实测**自那批资产
+被调好时的运行环境，不能顺手拿一个看起来权威的设计常量。改造完必须在真实
+场景里比对一件旧资产的最终 `lossyScale` 是否与改造前一致（等于 1 倍才叫中性）。
+
+也记一条正面经验：这个 bug 是**特效画廊**（菜单 `GreekMyth/特效/特效画廊`）
+第一次跑起来就当场暴露的 —— 批量改造后必须有一个「把全部资产在真实舞台上
+逐件过一遍」的入口，否则这种全局性缩放错误在单点验收里看不出来。
+
+## P-39 「厂包整包没效果」先查 playOnAwake，别急着判包不可用
+
+2026-07-25 审核台里「彩色系列」132 件全部空白，差点整包否决。真因是这批
+prefab 的粒子系统一律 `playOnAwake=false`（原设计等它自己的控制脚本或示例场景
+触发），直接 `Instantiate` 后没人调 Play。补一次根级 `Clear + Play(withChildren)`
+即全部正常。
+
+配套三条同类判据（都实测踩过）：
+
+- **不能只看粒子数**：`particleCount>0` 但屏幕空白，多半是尺寸被定径缩过头，
+ 或截图时机在特效已播完之后（详见下一条）。
+- **静态取证要先定格**：MCP 分两次调用「先 Spawn、再截图」时，短效件早已播完。
+ 正确姿势是同一次调用里 Spawn → 对所有粒子 `Simulate(t, true, true)`（会暂停）
+ → `ScreenCapture`，等于按 t 定格取证。
+- **厂包"主件"不是散件,单点摆放必然演不出来**：`Prefabs/Effects/EffectN` 是一整套
+ 出手流程(自带位移 + 撞到碰撞体才生成自己的命中件),而 `EffectParts/EffectN_Collision`
+ 才是散件。把主件当散件摆在一个锚点上,它会沿自己的 local forward 飞出舞台、命中件
+ 永不生成,看起来就是"这包没有可用组件"。要演出来必须给两点(起点/目标)、写 `Target`、
+ 把 `Distance`/`Speed` 从厂包默认值(30 / 1)改成本项目尺度,并在落点放碰撞体 ——
+ 我们的舞台地面是特意去掉碰撞体的底图,全场一个碰撞体都没有。
+- **厂包脚本会在 `OnEnable` 里抛**：`RFX1/RFX4_ShaderFloatCurve` 与
+ `ShaderColorGradient` 只在 `Awake` 建 `MaterialPropertyBlock`，某些实例化路径下
+ `OnEnable/Update` 先跑而抛 `ArgumentNullException`，异常从 `Instantiate` 冒出来
+ 会把调用方（审核台）一起带停。已把这 4 个脚本改为惰性初始化，并给审核台的
+ 实例化加 try/catch —— 批量过资产的工具，禁止让单件把整轮审核带崩。
+
+## P-40 Play 模式下 Unity 会推迟编译，改完代码不停 Play 就是在测旧代码
+
+2026-07-25 改画廊定径规则后连续两轮"改了没用"：反射读回的字段值明明是新设的，
+表现却完全是旧逻辑。真因是 Unity 默认不做 Recompile-And-Continue —— **Play 模式
+中触发的 refresh 只把编译排队，脚本仍是进 Play 那一刻的版本**。
+
+固定动作：改了 `Assets/**` 下的运行期脚本 → **stop → refresh → 等编译 → play**。
+判据：在 Play 里调新加的方法/字段若抛 `MissingMethodException`，或行为与新代码
+明显不符而字段值又对得上，就是这条。别再去怀疑反射、序列化或 MCP 通道。
+
+## P-41 「特效在卡牌上看不见」先查定径基准，别查渲染
+
+2026-07-25 Effect31 在卡身锚点下完全不可见，一路查了 URP 不透明贴图、场景灯光、
+深度代理是否误裁 —— 全是无关项。真因：它的核心包围盒是 2.9 宽 × 8.7 高的**柱状**，
+而当时的定径规则按"地面投影最大边缩到卡宽"，把整件缩到 1.15m 宽，
+**比卡还窄、整件缩进卡牌轮廓里**，屏幕上就读作"没东西"。
+
+排查顺序（省时间）：
+1. 先把同一件**原样**（不定径、不换父、scale 1）扔到棋盘中心 —— 能看见就是
+ 我方处理链的问题，看不见才去查管线/材质；
+2. 再打印 `renderer.bounds.size` 与定径后的 `localScale`，跟卡面尺寸对比；
+3. 立体柱状件按**壳本体**定径（见 P-42）；贴地件才按地面投影定径。
+
+## P-42 厂包件的"尺寸"不是一个数：整件包围盒会随时间暴涨，别拿它定径
+
+2026-07-25 罩身件连错三轮，每轮都是定径基准选错：
+
+| 基准 | 为什么错 |
+|---|---|
+| 整件渲染器包围盒 | 混着**世界空间模拟 + 重力飞散**的碎石/烟。Effect31 本地高度 0.12s 时 ~10.5、后期 ~30，量早了量晚了都不是壳的尺寸 |
+| 多时刻包围盒并集 | 更糟，直接量成"整场余波" |
+| 自带碰撞体 | 那是**被罩住的人形**（2.0×2.5），不是罩子（2.89×8.66），差 3.5 倍 |
+| 正解：件里 Y 向最高的那个渲染器 | 壳必然是最高部件；壳类粒子的 SizeOverLifetime 通常是关的，发射后尺寸不变 |
+
+配套三条：
+1. **同一帧读 `Collider.bounds` 是过期值** —— 物理场景默认延后同步，
+ 刚 `Instantiate` + 摆位就读会漏掉子节点的本地偏移（实测底面差 0.25），
+ 须先 `Physics.SyncTransforms()`；
+2. **不要量第二遍**来对齐位置：粒子每帧都变，第二遍是另一个时刻的盒子。
+ 缩放绕 transform 原点做，按比例**解析推算**新的 min/center 即可；
+3. **不要为对齐某条边而非等比缩放**：8.66 高的壳压到 ×0.29 会变成薄饼，
+ 一眼就看出"这不是竖直的罩子"。等比 + 允许超出，才是厂包该有的比例。
+
+## P-43 特效标准化不要做成「给人点的 GUI 晋升」
+
+现象：一度要做画廊 U 入队 + 菜单「晋升队列」，把标准化变成用户操作流。
+根因：把「审核台」和「交付流水线」绑死；用户实际要的是**点名后 AI 按纪律交付**。
+正确做法：权威见 `docs/client/vfx_standardization.md`——人指出画廊/厂包件，
+AI 默认 Copy→清洗→Fitter/Ground→guide→Profile；禁止 Profile 指包目录；
+批处理 Standardizer / Wire* 脚本可留，**不要**晋升队列 GUI。
+
+## P-44 阵型站位革新：双档卡宽与旧阵名一次性废止
+
+2026-07-26 用矩形六等分替换逻辑圆径向站位后：
+
+1. **卡宽只剩一档**（设计布局 ≈1.889）。旧「交错 2.041 / 非交错 1.206」
+   （P-38）与阵型 regime 绑定的算法已删。改 `BattlefieldLayout` / `Recalc`
+   后必须跑「GreekMyth/特效/标准化」回填 `BakedBasis`（本次回填 49 件），
+   否则运行时 `CardWidth/BakedBasis` 会把特效整体放大或缩小。
+2. **阵名**：却月/鹤翼/旧方圆{1,5,6} 禁止再写进现行文档与注释；对应现称
+   雁行{1,2,6} / 锥形{2,4,6} / 箕形{1,5,6}；新方圆为 {3,4,5}。
+3. **新脚本无 .meta**：Unity 未导入前其它文件会报 `BattlefieldLayout does not
+   exist`；force refresh 生成 meta 后再编译。勿以为是命名空间写错。
+4. **阵型禁止传字符串**：`TeamSetup.formation` 是只读属性（按站位 detect）；
+   配将 / config / manual 入口均不接受 formation 字段。改站位即改阵型。
+5. **站位矩形禁止手拍设计常量**：首版拍了 W=23/D=17（近缘 −7），而相机
+   45°/焦段 55 只拍到 z≥−2.97，A 队后排整排出屏。定案是反过来：先解析求
+   「相机正好拍全」的地面板（屏底视线落地 = 近缘、屏侧边在接缝处 = 半宽），
+   分区在这块板上做。凡"世界矩形要在屏幕上完整展示"的布局，一律从视锥
+   反算矩形，不许先定矩形再指望相机拍全。另注意卡牌向后倾，判可见要算
+   **卡顶**是否越过屏幕上沿，不只是脚点。
+
+## P-45 弹道裂地「几道独立」= CrackGroup 朝向被烤歪
+
+现象：物理群攻 T1 `ground_crack_path` 三段不跟弹道，读成互不相关的独立裂地。
+根因：G4 `AddComponent<GroundCrackDecal>` 立刻 OnEnable，此时 `RandomizeSpin`
+仍是默认 true；在已平躺（俯仰 90°）上读改 `localEulerAngles` 触发万向节锁，
+错误 yaw（实测 path 偏 52°）被 `SaveAsPrefabAsset` 烤进 prefab。之后再设
+`RandomizeSpin=false` 已晚。调用方 `YawAlong` 正常，叠在歪子节点上等于白给。
+正确做法：① 组装时先 `SetActive(false)`，配完 `RandomizeSpin` 等字段、写死
+`Euler(90,0,0)` 再激活；② OnEnable 禁止读改 euler，随机自旋用
+`Quaternion.Euler(90,0,z)`；③ 改组合器后必须重跑 G4 重生三档 prefab。
+
+## P-46 「特效完全不显示」先查有没有接线，再查渲染
+
+现象：单体弹道技能全程无裂地，误报为"渲染坏了"。
+根因两条，都不是渲染：① 裂地只接在 `PlayAoeCenter`（还要求互异目标≥2），
+单体技能走 `PerSegment`，整条链没有任何裂地调用 —— 属于**静默缺失**；
+② 实例存活时长按倍速换算（`ctx.Scaled`），而 `GroundCrackDecal` 的
+淡入/驻留走真实秒，4 倍速下刚淡入就被回池，看起来也像"没播"。
+分辨手段：不要靠肉眼看战斗。先数**池里有没有实例**（有实例＝接线通、问题在渲染
+或时长；无实例＝压根没调用），再用探针（`GroundCrackProbe`）把件摆到**空地**上
+强制点亮截图。本次靠"池里 path×9/hit×6 但画面无感"一步定位到时长换算不同步。
+方法论：任何"按倍速缩放生命期"的特效，其内部动画必须收同一把尺
+（本次加 `DurationScale`）；两把尺就是迟早会撞的坑。
+系统性修法：把触发判据与三档入口收进 `GroundCrackService` 单一模块，
+新增演出模板时漏接会集中在一处而不是散落各模板。
+
+## P-47 编辑器组装工具激活组件会把「运行时初态」烤进 prefab
+
+现象：裂地三档触发日志全对、池里有实例，但面片 alpha 永远 0，肉眼全透明。
+根因：G4 组合器为了让 `OnEnable` 里的平躺基准生效，存 prefab 前
+`SetActive(true)`——`OnEnable → Apply(0)` 把所有 SpriteRenderer 的
+alpha 清成 0，`SaveAsPrefabAsset` 原样烤进资产；运行期 `Collect()`
+把这个 0 当基色缓存，`基色a × 动画a` 恒等于 0。
+教训：编辑器工具里**激活过带生命周期组件的对象，存盘前必须把被
+OnEnable/Update 改过的可视状态复原**（本次：颜色 alpha 归 1、旋转归
+平躺基准）。运行时侧再加自愈（基色 alpha≈0 视作满）作第二道防线。
+另：用 MCP 隔秒查瞬态动画毫无意义——工具往返动辄几十秒，动画早播完；
+要么把驻留临时拉长再查，要么在同一次 execute 里查。
+
+## P-49 「参考某 EffectN 的观感」必须走标准化协议，且要逐层判定
+
+坑：把「第 3 档参考 Magic Pack Effect8 的熔岩裂开」理解成「照感觉把亮度调高」。
+这既复现不出观感，也让后来人不知道参照物与差距在哪。
+正解（已写进 `vfx_standardization.md` §二 与 `global_rules` §四.8）：
+参照类需求与直接点名接件**同级触发标准化协议**，必须先定件、看清层构成，
+逐层给出「晋升 / 替代」去向表并落到机制文档。Effect8 实例：粒子/扭曲/雾/光
+可直接晋升（→ `ground_lava_bloom`，G12），只有 `KriptoFX/RFX1/Decal` 贴花层
+URP 画不出必须替代（自研 `GroundCrack.shader` 推 `_Growth` 复现厂包推
+`_Cutout` 的手法）。结论永远是「逐层判定」，不是整件一刀切可行/不可行。
+附带：`EffectN` 与 `EffectN_Collision` 是不同件（主件含地面层、后者只是命中碎件），
+不得互相替代。厂包件里常混着 `RFX1_Target` / `TransformMotion` 等弹道脚本，
+晋升时必须摘掉，否则与池化播放抢 transform。
+
+## P-48 裂地存续不吃倍速（地面痕迹类特效的通例）
+
+4 倍速下若把裂地生命期同比压缩，整段只剩 ~0.4s，等于没播。裂地不
+yield、不阻塞节拍，存续与播放倍速解耦（只吃 DurationMul 放慢倍率），
+快进时痕迹以常速淡出即可。凡「留在场上的痕迹」类特效同理。
+
+## P-50 装饰性子面片必须探出主体轮廓外，否则等于没加
+
+给弹道裂地加毛刺分叉时，毛刺摆在主缝中线（y=0）、长度只有主缝 0.2~0.4，
+从画面上完全看不出分叉 —— 整根埋在主缝那条带子里，用户直接反馈"没看到毛刺"。
+凡「在主体旁边加细节」的活（毛刺、飞溅、边缘碎屑），落位第一原则是
+**必须有一段伸到主体轮廓之外**；先算它能露出多少，再谈角度和数量。
+验收也要配套：拉一台临时相机贴近拍特写，远景全局图看不出这类差别。
+
+## P-51 「档位」不要把形状和烈度混成一张表
+
+裂地早期把「弹道/命中/全局」当三档，同一张表里既有遮罩形状又有亮度与尺寸。
+后果是想让某个技能"更猛"只能新造一档、并为它另烘 prefab 变体。
+正解是拆成正交维度：**形状骨架**（烘制期定型，件数=骨架数）×
+**烈度档**（运行期整档写入）+ **大小参数**（运行期）。
+判据：如果新需求只是"更大/更亮/更久"，就绝不该产生新资产。
+
+## P-52 粒子「无贴图＝软方块」在俯视舞台上不是软的
+
+Unity 默认粒子材质没有贴图时是白方角 billboard。俯视近 3D 舞台上它不会
+「糊成一团烟」，而是立着/平躺的半透明方块，用户直接叫「方块贴图」。
+地面烟雾必须自带软圆（或烟雾）alpha 贴图，并优先 HorizontalBillboard 贴地；
+URP 下用 `URP/Unlit` 透明吃贴图 alpha，不要假设 `Particles/Unlit` 一定乘 alpha。
+
+## P-53 parent_seq=0 的「独立台词组」会被阵亡事件挤到末尾
+
+`GroupByGroupId` 按 group_id **首次出现序**排列播放单元；同组后续事件
+（即便 seq 更晚）仍追加进已出现的组。若台词 `parent=0` 另开组插在
+`damage` 与 `hero_defeated` 之间，阵亡写回伤害原组 → 播放序变成
+「整段出击含死亡 → 再播台词」。踵之弱必须 `parent_seq=damage_seq`，
+由 `TraitLineExtract` 抽成夹在伤害与后续之间的独占组。
+
+## P-54 Unity `Mathf.SmoothStep` ≠ HLSL `smoothstep`
+
+`Mathf.SmoothStep(from, to, t)` 是把 t∈[0,1] 映射成 from→to 的平滑插值；
+HLSL `smoothstep(edge0, edge1, x)` 才是「低于 edge0 为 0、高于 edge1 为 1」。
+自烘裂缝遮罩误用前者当边缘函数，整图 alpha≈0，弹道裂地完全看不见。
+数据贴图边缘一律自写 `EdgeSmooth`，并在写入前断言 maxA≥0.5。
+
+## P-55 「最高档」不能靠叠一张自带形状的外部贴图来堆
+
+裂地档 3 曾在自研裂缝上叠厂包熔岩层 `ground_lava_bloom` 并把亮度堆到 4.5，
+人工验收判为「地上贴了张发光图，完全不是档 1/2 的自然裂缝」。
+分档是**同一语言的连续台阶**：高档应沿用同一骨架（放大 + 加宽 + 加亮 +
+沿缝色彩渐变），外部件只有在**不自带轮廓**（纯加光/纯噪声）时才可叠。
+新增最高档前先问：把它和低一档并排放，读起来是同一种东西吗？
+
+## P-56 「参数正确」不等于「不僵硬」：匀速 + 全场同参数 = 机关动画
+
+裂地一次群攻同时出 3~5 处，若推进速度、起火时刻、停留时长全按表里的常数走，
+每处播的是同一段动画的复读，人工验收直接判「僵硬」。自然现象类演出必须给
+**每次出场现摇的抖动**（本项目 `GroundCrackDecal.Roll`）+ **非匀速曲线**
+（脆性扩展是走走停停）+ **层间滞后**（附属层晚于主体）。
+同理：几何骨架靠「N 条等长直线」一定读作图标，要递归分叉 + 粗细起伏。
+
 

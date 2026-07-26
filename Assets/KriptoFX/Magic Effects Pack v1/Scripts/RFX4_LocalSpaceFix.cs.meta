@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 187eb8ef32374c24785d5602e1a9e723
+timeCreated: 1506307483
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/RFX4_LocalSpaceFix.cs
+  uploadId: 633025

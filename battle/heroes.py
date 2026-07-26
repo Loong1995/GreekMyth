@@ -58,9 +58,9 @@ class HeroState:
 
 
 def build_hero_state(hero: HeroSetup, team: TeamSetup) -> HeroState:
-    from battle.formations import get_formation
+    from battle.formations import resolve_formation
 
-    formation = get_formation(team.formation)
+    formation = resolve_formation(h.position for h in team.heroes)
     initial_hit_points = DEFAULT_HIT_POINTS_BPS
     if formation is not None:
         initial_hit_points = formation.hit_points_bps.get(

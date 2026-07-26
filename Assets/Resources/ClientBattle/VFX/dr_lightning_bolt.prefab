@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 490088}
   - component: {fileID: 12010332}
   - component: {fileID: 11427938}
+  - component: {fileID: 3468863077415850265}
   m_Layer: 0
   m_Name: dr_lightning_bolt
   m_TagString: Untagged
@@ -175,6 +176,21 @@ MonoBehaviour:
   Rows: 1
   Columns: 1
   AnimationMode: 0
+--- !u!114 &3468863077415850265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 106988}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e6cf0fd8508a84f82b3ea5f7177716, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxFitter
+  Reference: 0
+  Factor: 1
+  BakedBasis: 1.7298138
 --- !u!1 &163122
 GameObject:
   m_ObjectHideFlags: 0

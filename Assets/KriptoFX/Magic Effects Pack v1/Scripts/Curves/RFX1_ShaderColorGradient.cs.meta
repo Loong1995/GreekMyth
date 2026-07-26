@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 0ce1863b1388ac1409bab3357f5d2c1b
+timeCreated: 1495098308
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/Curves/RFX1_ShaderColorGradient.cs
+  uploadId: 633025

@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: c98d6c10bc08dc946b1214158bf3d892
+timeCreated: 1493501344
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/Curves/RFX1_ShaderProperties.cs
+  uploadId: 633025

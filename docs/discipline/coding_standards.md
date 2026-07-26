@@ -43,6 +43,12 @@
    对象回池必须复位 scale/alpha/粒子。
 5. asmdef 依赖显式登记（Newtonsoft/DOTween/InputSystem）；
    新 Input System API，不用旧 Input。
+6. **特效标准化**（权威 `docs/client/vfx_standardization.md`）：
+   用户点名画廊/厂包件后，默认落盘 `Resources/ClientBattle/VFX/<key>.prefab`
+   + 清洗死贴花/Projector + `VfxFitter`/`VfxGroundLayer` + guide 登记 +
+   Profile 填 key。禁止 Profile 引用包目录；禁止为人做晋升 GUI/入队流程；
+   可重跑的接线写成 Editor `MenuItem` 常量脚本（如 Wire*），批处理清洗用既有
+   Standardizer 即可。
 
 ## 四、提交纪律
 

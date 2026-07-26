@@ -46,8 +46,13 @@ namespace ClientBattle.Units
         readonly Dictionary<string, UnitView> _units = new();
         BattleReport _report;
 
-        /// <summary>棋盘中心（群攻战法施法者移动的落点）。</summary>
-        public Vector3 Center => transform.position;
+        /// <summary>棋盘中心（群攻战法施法者移动的落点）；透视模式下取地面圆心
+        /// （TransformPoint 随「桌面扭转」一起旋转）。</summary>
+        public Vector3 Center => _arenaMode
+            ? transform.TransformPoint(ArenaSlotLayout.GroundCenter())
+            : transform.position;
+
+        bool _arenaMode;
 
         /// <summary>整盘滤镜挂点（海洋滤镜/血色呼吸等全屏级特效挂这里）。</summary>
         public Transform BoardFxRoot { get; private set; }
@@ -59,7 +64,7 @@ namespace ClientBattle.Units
             _report = report;
             Clear();
 
-            // 先 Fit 相机；两队各自推断阵型（异阵对打互不影响）
+            // 先 Fit 相机；两队各自推断阵型（仅识别/展示，卡尺单体制）
             var cam = Camera.main;
             if (cam != null) CameraFitter.EnsureOn(cam);
             var formA = DetectTeamFormation(report, 0);
@@ -77,7 +82,10 @@ namespace ClientBattle.Units
                 var team = report.Teams[teamIdx];
                 foreach (var hero in team.Heroes)
                 {
-                    Vector3 local = StanceLayout.SlotCenter(teamIdx, hero.Position);
+                    // 透视与正交统一：格心几何同源；正交用 StanceLayout 映到 XY
+                    Vector3 local = _arenaMode
+                        ? ArenaSlotLayout.SlotCenter(teamIdx, hero.Position)
+                        : StanceLayout.SlotCenter(teamIdx, hero.Position);
                     string faction = FactionOf.TryGetValue(hero.TemplateId, out var f) ? f : "heroes";
                     var unit = UnitView.Create(hero, team.TeamId,
                         FactionColors[faction], transform.position + local,
@@ -86,25 +94,35 @@ namespace ClientBattle.Units
                     _units[hero.HeroId] = unit;
                 }
             }
+
+            // 特效专用碰撞层：厂包弹道件的命中件、碎石落地都依赖它（详见 VfxCollisionStage）
+            VfxCollisionStage.Ensure(this);
         }
 
         /// <summary>单队站位推断阵型。</summary>
         static StanceFormation DetectTeamFormation(BattleReport report, int teamIdx)
         {
             if (report?.Teams == null || teamIdx < 0 || teamIdx >= report.Teams.Count)
-                return StanceFormation.FangYuan;
+                return StanceFormation.None;
             var list = new List<int>();
             foreach (var h in report.Teams[teamIdx].Heroes)
                 list.Add(h.Position);
             return StanceLayout.DetectFormation(list);
         }
 
-        /// <summary>棋盘背景：无色（相机透明底，独立运行时显示为黑）。
-        /// 上传 Resources/ClientBattle/UI/board_background.png 后自动改为真图
-        /// cover 铺满（BackgroundFitter 每帧跟随，分辨率热切换安全）。</summary>
+        /// <summary>棋盘背景。优先级：近 3D 舞台（Arena 地/天分图，透视模式）→
+        /// UI/board_background 平面 cover → 纯黑。资源协议见 assets_upload_guide §Arena。</summary>
         void BuildBackground()
         {
             var cam = Camera.main;
+
+            _arenaMode = ArenaStageView.TryBuild(transform, out _);
+            if (_arenaMode)
+            {
+                if (cam != null) cam.backgroundColor = Color.black; // 板外露底统一黑
+                return;
+            }
+
             var real = Placeholder.PlaceholderFactory.TryLoadSprite("UI", "board_background");
             if (real == null)
             {
@@ -134,16 +152,21 @@ namespace ClientBattle.Units
 
         public void Clear()
         {
-            foreach (var unit in _units.Values)
+            // 按组件扫全部子物体兜底：Play 中热重编译会清空 _units 字典但留下
+            // 卡牌 GameObject（Hero 引用丢失的"幽灵卡"），只清字典会漏删导致双影
+            foreach (var unit in GetComponentsInChildren<UnitView>(true))
             {
-                if (unit == null) continue;
                 unit.transform.DOKill(true);
                 Destroy(unit.gameObject);
             }
             _units.Clear();
-            if (BoardFxRoot != null) Destroy(BoardFxRoot.gameObject);
-            var bg = transform.Find("BoardBackground");
-            if (bg != null) Destroy(bg.gameObject);
+            BoardFxRoot = null;
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                var child = transform.GetChild(i);
+                if (child.name is "BoardBackground" or "ArenaStage" or "BoardFxRoot")
+                    Destroy(child.gameObject);
+            }
         }
     }
 

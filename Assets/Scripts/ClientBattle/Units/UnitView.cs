@@ -18,15 +18,14 @@ namespace ClientBattle.Units
     {
         public HeroSnapshot Hero { get; private set; }
         public string TeamId { get; private set; }
-        /// <summary>出场固定中心（槽位锚点，整局不变）。</summary>
+        /// <summary>出场固定中心 = 逻辑格心（原站位点，整局不变）。</summary>
         public Vector3 HomePosition { get; private set; }
-        /// <summary>当前休息点：落在 Home 为中心、边长=区域宽/5 的正方形内，
-        /// 且半边 ≤ StanceLayout.RestJitterHalf（保证邻格不重叠）。</summary>
+        /// <summary>休息点 = 以 Home 为圆心、半径卡宽/6 的圆盘内均匀随机点
+        /// （下缘贴该点；建卡与回位重采样同源）。</summary>
         public Vector3 RestPosition { get; private set; }
-        float _restJitterHalf = 0.2f;
         float _layoutScale = 1f;
-        float _frameW = StanceLayout.RefFrameW;
-        float _frameH = StanceLayout.RefFrameH;
+        float _frameW = StanceLayout.RefFrameWFallback;
+        float _frameH = StanceLayout.RefFrameHFallback;
         float _portraitW, _portraitH, _portraitLocalY, _portraitMarkSlot;
         float _hpBarWidth, _momentumBarWidth;
         public StatusIconPanel StatusPanel { get; private set; }
@@ -74,7 +73,7 @@ namespace ClientBattle.Units
             _frameW = StanceLayout.CardWidth;
             _frameH = StanceLayout.CardHeight;
             _layoutScale = StanceLayout.LayoutScale;
-            _restJitterHalf = restJitterHalf > 0f ? restJitterHalf : StanceLayout.RestJitterHalf;
+            _ = restJitterHalf; // 抖动半径改由 SlotJitterRadius 权威，参数保留兼容调用方
             _portraitW = _frameW * (0.96f / StanceLayout.RefFrameW);
             _portraitH = _frameH * (1.47f / StanceLayout.RefFrameH);
             _portraitLocalY = 0.06f * _layoutScale;
@@ -85,21 +84,14 @@ namespace ClientBattle.Units
 
         float S(float v) => v * _layoutScale;
 
-        /// <summary>透视试点：卡与相机同倾角，保持 2D 立绘正对镜头。</summary>
-        void FaceCameraIfPilot()
+        /// <summary>近 3D 卡姿：绕 X 固定旋转 CameraFitter.CardPitchDeg
+        /// （＝与地面夹角 CardLeanDeg 的补角）。**不读相机** —— 角度链与
+        /// 相机垂直卡面的关系统一在 CameraFitter 里定义，见该处注释。</summary>
+        void ApplyCardLean()
         {
-            if (!CameraFitter.PerspectivePilot)
-            {
-                transform.rotation = Quaternion.identity;
-                return;
-            }
-            var cam = Camera.main;
-            if (cam == null)
-            {
-                transform.rotation = Quaternion.identity;
-                return;
-            }
-            transform.rotation = Quaternion.Euler(cam.transform.eulerAngles.x, 0f, 0f);
+            transform.rotation = CameraFitter.PerspectivePilot
+                ? Quaternion.Euler(CameraFitter.CardPitchDeg, 0f, 0f)
+                : Quaternion.identity;
         }
 
         void Build(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position,
@@ -108,12 +100,12 @@ namespace ClientBattle.Units
             ApplyLayoutMetrics(restJitterHalf);
             Hero = hero;
             TeamId = teamId;
-            HomePosition = position;
-            RestPosition = position;
+            HomePosition = position; // 逻辑格心（原站位点）
+            RestPosition = SampleRestAroundHome();
             CurrentTroops = hero.InitialTroops;
             _frameColor = factionColor;
-            transform.position = position;
-            FaceCameraIfPilot();
+            transform.position = RestPosition;
+            ApplyCardLean();
 
             // 卡框先铺底（Antique 中心是实心暗底，非透明挖空）
             var antique = PlaceholderFactory.TryLoadSprite("CardFrames", "antique_frame");
@@ -138,6 +130,11 @@ namespace ClientBattle.Units
             FitSpriteToSlot(_portrait, _portraitW, _portraitH);
             _portraitBaseY = _portraitLocalY;
             _portrait.transform.localPosition = new Vector3(0f, _portraitBaseY, -0.02f);
+
+            // 深度代理：卡牌进入深度图与不透明贴图，厂包的折射壳/软粒子/深度排序
+            // 才能正确处理卡牌（详见 CardDepthProxy）。不改卡面本体渲染。
+            CardDepthProxy.AttachTo(_frame);
+            CardDepthProxy.AttachTo(_portrait);
 
             // 名字（框下方）
             _nameLabel = NewText("NameLabel", hero.HeroId, Mathf.RoundToInt(42 * _layoutScale), Color.white,
@@ -179,22 +176,8 @@ namespace ClientBattle.Units
             StretchSpriteToSlot(_overflowFlash, _frameW, _frameH);
             _overflowFlash.gameObject.SetActive(false);
 
-            // 四轨势能迷你条（HP 数字下方）
-            int trackCount = MomentumService.TrackTable.Count;
-            foreach (var style in MomentumService.TrackTable.Values)
-            {
-                float x = (style.Order - (trackCount - 1) / 2f) * (_momentumBarWidth + S(0.05f));
-                NewSprite($"MomentumBack_{style.Track}",
-                        PlaceholderFactory.MakeSolidSprite(new Color(0.1f, 0.1f, 0.1f, 0.8f), 8), 3)
-                    .transform.SetLocalPositionAndScale(
-                        new Vector3(x, S(-1.72f), 0f), new Vector3(_momentumBarWidth, S(0.07f), 1f));
-                var fill = NewSprite($"MomentumFill_{style.Track}",
-                    PlaceholderFactory.MakeSolidSprite(Color.white, 8), 4);
-                fill.color = style.Tint;
-                fill.transform.SetLocalPositionAndScale(
-                    new Vector3(x, S(-1.72f), 0f), new Vector3(0f, S(0.07f), 1f));
-                _momentumBars[style.Track] = fill;
-            }
+            // 势能迷你条已取消展示（2026-07-25）：势能表现只保留火/金光环/白闪；
+            // _momentumBars 留空，SetMomentum/ClearMomentum 自然空转。
 
             MomentumFire = new MomentumFireController(transform);
             _idlePhase = (position.x * 0.73f + position.y * 1.31f) * 2.4f;
@@ -349,15 +332,23 @@ namespace ClientBattle.Units
             _hpLabel.text = CurrentTroops.ToString();
         }
 
-        /// <summary>在出场固定中心附近重采样休息点（正方形边长 = 站位区域宽/5）。</summary>
+        /// <summary>在原站位点（Home）为圆心、半径卡宽/6 的圆盘内均匀采样休息点。
+        /// 透视：在地面 XZ 采样后经 GroundPoint 贴下缘；正交：在 XY 平面采样。</summary>
         public Vector3 RerollRestPosition()
         {
-            float half = _restJitterHalf;
-            RestPosition = HomePosition + new Vector3(
-                Random.Range(-half, half),
-                Random.Range(-half, half),
-                0f);
+            RestPosition = SampleRestAroundHome();
             return RestPosition;
+        }
+
+        Vector3 SampleRestAroundHome()
+        {
+            StanceLayout.SampleSlotDiskOffset(out float dx, out float dy);
+            if (CameraFitter.PerspectivePilot && ArenaSlotLayout.GroundActive)
+            {
+                var foot = ArenaSlotLayout.GroundFoot(HomePosition);
+                return ArenaSlotLayout.GroundPoint(foot.x + dx, foot.z + dy);
+            }
+            return HomePosition + new Vector3(dx, dy, 0f);
         }
 
         /// <summary>位移回位：先重采样休息点，再 tween 过去（演出层观感抖动，不影响结算）。</summary>
@@ -672,9 +663,9 @@ namespace ClientBattle.Units
             transform.DOKill();
             _dimTween?.Kill();
             _dimAmount = 0f;
-            RestPosition = HomePosition;
-            transform.position = HomePosition;
-            transform.rotation = Quaternion.identity;
+            RestPosition = SampleRestAroundHome();
+            transform.position = RestPosition;
+            ApplyCardLean(); // 阵亡倒下改过 rotation，复活必须回到固定卡姿
             _portrait.color = Color.white;
             _frame.color = _ornateFrame ? Color.white : _frameColor;
             if (_nameLabel != null) _nameLabel.color = Color.white;

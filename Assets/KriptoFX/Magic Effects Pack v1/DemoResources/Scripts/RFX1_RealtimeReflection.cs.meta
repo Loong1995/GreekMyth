@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 6833e12ddb0d86b4588ef33e62319967
+timeCreated: 1493458856
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/DemoResources/Scripts/RFX1_RealtimeReflection.cs
+  uploadId: 633025

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 32ed75d04da1d2348baeac9738ccd729
+timeCreated: 1548035466
+licenseType: Free
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Shaders/RFX1_UberDecal.shader
+  uploadId: 633025

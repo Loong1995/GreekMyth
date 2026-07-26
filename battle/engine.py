@@ -545,11 +545,12 @@ class SeriesEngine:
         """阵型整场被动：按 hero_order 确定序给对应站位重挂 PERMANENT 状态
         （battle/formations.py 注册表）。来源=持有者自身；不耗 RNG；
         战时状态随局清空 → 每局 game_start 后重挂即达成「整场」语义。"""
-        from battle.formations import get_formation
+        from battle.formations import resolve_formation
 
-        formation_of_team = {
-            team.team_id: get_formation(team.formation) for team in self.teams
-        }
+        formation_of_team = {}
+        for team in self.teams:
+            formation_of_team[team.team_id] = resolve_formation(
+                h.position for h in team.heroes)
         for hero_id in self.hero_order:
             hero = self.heroes[hero_id]
             if not hero.is_alive():
@@ -2075,7 +2076,10 @@ class SeriesEngine:
         if self.trait_flag(target.hero_id, "heel_line_pending"):
             self.clear_trait_flag(target.hero_id, "heel_line_pending")
             if is_crit and damage > 0:
-                tr.emit_trigger(self, target, "heel")
+                # 必须挂在本条暴击伤害上（同组、紧随其后）。parent=0 会另开组，
+                # 客户端按 group 首次出现序播放时，阵亡等后续事件仍写回原组，
+                # 台词组会被排到整段出击（含死亡）之后 —— 人死了还在说话。
+                tr.emit_trigger(self, target, "heel", parent_seq=damage_seq)
         # Phase 4 势能：普攻命中（未被闪避）+1；追伤等触发类每次造成伤害 +1；
         # 其余 kind 仅暴击 +1（触发类不叠暴击，防双计）。
         if self.momentum_enabled and source.hero_id != target.hero_id:

@@ -50,9 +50,9 @@ ctx 字段：`attacker / target / strike_no / damage_seq`。
 - **队伍初始化**：config 每位英雄可带 `position`，或队级 `positions: [1,4,2]`
   与 heroes 等长；缺省按出现序 1..n（`manual_battle.build_team` /
   `client_battle_bridge.build_setup_from_config`）。
-- **客户端布局**：固定阵型组合——**方圆**`{1,5,6}` / **却月**`{1,2,6}` /
-  **鹤翼**`{2,4,6}`（均无同列前后叠放）；几何见
-  `docs/client/rendering_layout.md` §五。结算侧 `is_backline` 仍按 position≥4。
+- **客户端布局**：六套预设（一字/锥形/箕形/方圆/偃月/雁行）精确集合识别；
+  几何见 [battlefield_layout.md](../client/battlefield_layout.md)。
+  结算侧 `is_backline` 仍按 position≥4。
 
 ## 四、维护红线
 

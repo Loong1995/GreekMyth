@@ -147,7 +147,6 @@ def build_setup_from_config(config: dict) -> BattleSetup:
         teams.append(TeamSetup(
             team_id=team_id, main_hero_id=setups[0].hero_id,
             heroes=tuple(setups),
-            formation=tcfg.get("formation", ""),
         ))
     return BattleSetup(
         battle_id=config.get("battle_id", "manual_ui"),

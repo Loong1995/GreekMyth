@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 9aa7cee1483ea774590fffd1a72de103
+timeCreated: 1504827699
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/RFX1_ColorHelper.cs
+  uploadId: 633025

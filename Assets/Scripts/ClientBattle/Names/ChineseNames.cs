@@ -68,6 +68,9 @@ namespace ClientBattle.Names
             // ---- 阵型整场被动（battle/formations.py）----
             ["formation_yanxing_guard"] = "雁行·雁翼",
             ["formation_yanxing_edge"] = "雁行·雁喙",
+            // ---- 预设阵型显示名（formation_id）----
+            ["yizi"] = "一字阵", ["zhui"] = "锥形阵", ["ji"] = "箕形阵",
+            ["fangyuan"] = "方圆阵", ["yanyue"] = "偃月阵", ["yanxing"] = "雁行阵",
             // ---- P4-C 经理人战术 ----
             ["tactic_focus"] = "集火", ["tactic_protect"] = "保护",
             ["tactic_stance"] = "攻守倾向",

@@ -205,13 +205,22 @@ namespace ClientBattle.VFX
             }
         }
 
-        /// <summary>Vefects 等源 Prefab sortingOrder=0，会被卡面盖住；抬到池默认档。</summary>
+        /// <summary>Vefects 等源 Prefab sortingOrder=0，会被卡面盖住；抬到池默认档。
+        /// 地面层特效（VfxGroundLayer）豁免：它们必须留在卡牌之下。
+        ///
+        /// 遍历 Renderer 基类而非只遍历 ParticleSystemRenderer：厂包大招里的护盾/
+        /// 冲击波/尖刺/锁链/岩石都是 MeshRenderer 或 Trail/LineRenderer，源 prefab
+        /// sortingOrder=0，只抬粒子会让这些层被卡牌立绘盖住（2026-07-25 定案）。</summary>
         static void EnsureVfxSorting(GameObject instance)
         {
             if (instance == null) return;
+            if (instance.GetComponent<VfxGroundLayer>() != null) return;
             const int minOrder = 45;
-            foreach (var r in instance.GetComponentsInChildren<ParticleSystemRenderer>(true))
+            foreach (var r in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r is SpriteMask) continue; // 遮罩不参与排序抬升
                 if (r.sortingOrder < minOrder) r.sortingOrder = minOrder;
+            }
         }
 
         GameObject Build(string key, Color? tint)

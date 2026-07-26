@@ -1,9 +1,615 @@
 # Changelog
 
+## 2026-07-26 弹道 1/2 关熔岩 + 档 1 变细 + 战吼档 3
+- 弹道 Light/Heavy `GlowPeak`/`Ember`=0；档 3 仍与命中同亮（4.4）。
+- `_MaskGain` 档 1：1.55→**1.15**；档 2 仍 2.55。`hector_warcry`→档 3。
+
+## 2026-07-26 三档裂地缝宽再抬
+- `_MaskGain` → 1.55 / 2.55 / 3.1；遮罩主缝弹道 6.5~10.5px、命中 UV 0.022~0.055。重跑 G4。
+
+## 2026-07-26 弹道/命中缝宽加粗 + 弹道同亮度熔岩
+- `_MaskGain` 1.2/2.0/2.4；弹道熔岩三档与命中同（Glow 2.1/3.6/4.4）。
+- 遮罩主缝加粗：弹道 4.8~8.0px、命中 UV 0.016~0.042；重跑 G4。
+
+## 2026-07-26 弹道改树杈分叉 + 主缝变细
+- 主缝宽 8.5~13 → **3.6~6.2**（对齐命中主缝量级）；段间留缝错位。
+- 去掉漂浮平行毛刺层；改为从主缝长出的树杈（每段 2~4 根、长短三档、可二级小杈）。
+- 重跑 G4。
+
+## 2026-07-26 弹道毛刺短缝加码
+- 贴身短叉从本体长出：更密更粗更长，可双侧/三叉簇；周遭短缝贴得更近、更粗。
+- 散落细缝 8~14 条、少收尖。重跑 G4。
+
+## 2026-07-26 弹道大缝 ±40° + 周遭短缝
+- 大缝偏角放到约 ±40°、折拐更勤，去掉「太齐整」。
+- 大缝生长时沿途在周遭撒短小缝；另加 4~8 条散落细缝。重跑 G4。
+
+## 2026-07-26 弹道大缝改接力链 + 分段不复读
+- 遮罩：2~4 条大缝沿 +X 接力（厚段重叠 55~120px、两端弱羽化），禁双轨贯通；
+  角度约 ±20°。运行：`PickPathKeys` 同弹道三段各抽不同变体。重跑 G4。
+
+## 2026-07-26 弹道大缝改「轴向推进 + Y 奔放」
+- 极坐标步长易竖折成塔、丢弹道感；改为强制 +X 前进，斜率吃 dir（±~55°）。
+- 双缝间距 12~32px，第二条起步偏角反号；重跑 G4。
+- 变体长度/条数规则不变；出场仍 `PickPathKey` 抽 `path_0`~`_3`。
+
+## 2026-07-26 弹道遮罩多变体：长度/条数/间距去僵硬
+- 根因：单张 spine 遮罩固定哈希 → 每次出手同一张「两道大缝」。
+- G4 烘 4 套 `ground_crack_path_{0..3}`；出场 `PickPathKey` 随机抽。
+- 大缝：55%/45% 一或两条；长度大幅拉开；两缝间距 14~38px；方向更奔放。
+
+## 2026-07-26 弹道熔岩：1/2 关、3 档微熔岩
+- `BuildSpec`：弹道 Light/Heavy 的 GlowPeak/EmberFloor=0；Blaze=1.8/0.14
+  （约命中档 3 的 40%）。命中三档熔岩不变。文档 language / assets_upload。
+
+## 2026-07-26 裂地技能配置规则 + 登记文档
+- 规则：准备型物理群攻＝档 2；瞬发＝档 1；`EmpoweredStrike` 强制档 3 弹道
+  + 命中面积 ×1.5（覆盖专配）。`hector_warcry` 3/1.5 → 2；assault 仍默认 1。
+- 新建 `docs/client/ground_crack_config.md`（按 skill 登记）；同步 language /
+  index / extension_points / performance_mechanisms。
+
+## 2026-07-26 弹道接回熔岩 + 裂地权威文档重写
+- `BuildSpec` 弹道/命中共用 GlowPeak/EmberFloor（生长跟着骨架、灭点消退同逻辑）。
+- `ground_crack_language.md` 重写为现行权威（≤500 行）：两维结构、熔岩时序、
+  遮罩规则、模块边界、G14；同步 index / assets_upload / performance_mechanisms。
+
+## 2026-07-26 弹道大缝收至 1~2 条并放开方向
+- 大缝 3~4→**1~2**；起步偏角 ±40°、急折更勤/更大，clamp 0.95；大缝改极坐标步长。
+- 小缝 5~8。重跑 G4。
+
+## 2026-07-26 弹道改大小缝混排 + 命中熔岩灭点消退
+- 弹道：`BakePathMask` 烘 3~4 大缝 + 6~9 小缝进一张遮罩；`PathMode.Spurs=0`，
+  不再挂独立毛刺面片。重跑 G4。
+- 命中熔岩：生长收紧跟着骨架（Delay 0.12、GrowMul 1.15）；消退改 shader
+  `_LavaExtinguish` 多灭点噪声渐灭（每发 `_LavaFadeSeed`），禁全局同步压暗。
+
+## 2026-07-26 熔岩收归命中类
+- `BuildSpec` 弹道模式 `GlowPeak`/`EmberFloor` 归零：弹道裂地只留暗缝，
+  熔岩只出现在命中处（避免一路烧红抢走落点的分量）。缝宽/持续/放大照常分档。
+
+## 2026-07-26 裂纹大随机化 + 多发裂地彻底错峰
+- 命中：主缝 8→10，起点在中心 0~0.09 内随机偏移并加恒定 curl（去"四射星"），
+  长度差拉大，新增 4 处离心次级裂源；角度抖动定在 ±0.3rad（±0.55 会聚到一侧）。
+- 弹道：遮罩 128→256px、`bakedWidth` 0.55→1.05；改按 x 等步 + y 斜率游走
+  （极坐标步长转角一大就铺不满全宽），回中力只在越过半幅 60% 时介入。
+- 去同步：Roll 区间放宽（推进 0.55~1.9×、熔岩起步 0.35~2.4×、爬速 0.65~2.0×），
+  子面片点火滞后 0~0.45，新增每发 0~0.22s 整体错峰起裂。
+- 重跑 G4。
+
+## 2026-07-26 弹道主缝再随机化 + 熔岩亮度整列上调
+- 主缝折转 0.34→0.55rad，加 18% 概率的急折与 0.6~1.4 倍不等段长（回中力 0.75
+  保住不跑偏）；重跑 G4。
+- 三档熔岩亮度整列上调：1.6/2.8/3.5 → 2.1/3.6/4.4（只准整列动，保台阶间距）。
+
+## 2026-07-26 遮罩去直线 + 熔岩多火口去同步
+- 弹道主缝/毛刺改折线生成（新 `RasterizeSegments`）：34 段折转 + 半数段带短分叉，
+  摆动收敛（折转 ≤0.34rad、回中 0.7）；命中主缝步数 7→10、折转幅度加大。
+- 熔岩火口：shader 加 `_LavaScatter`/`_LavaCells` 值噪声，点火时刻散 ±0.2、强度
+  散 0.55~1.35；`Decal` 每子面片再随机 0~0.28 滞后；熔岩推进满值 1.47→1.95。
+- 重跑 G4（spine/spur/radial 全部重烘）。
+
+## 2026-07-26 命中骨架改自烘分形裂纹 + 熔岩/推进去同步去匀速
+- 命中遮罩弃用厂包 Crack1（自带同心环）：自烘 `mask_crack_radial`，8 主缝递归
+  分叉 3 级 + 中心碎裂短缝 + 不闭合短连接缝；角度抖动收到 ±0.22rad 防聚簇。
+- 熔岩独立时间轴：shader 加 `_GlowGrowth`，火晚 0.35×GrowTime 起步、慢 1.7 倍爬，
+  寿命只占裂缝 0.6 且涨退重叠，比缝先灭。
+- 去僵硬：`Decal.Roll()` 每发重摇推进/熔岩/停留倍率，推进过 `Burst()` 走走停停，
+  熔岩叠双频明灭；毛刺/缝底层间滞后 0.22/0.08（推进满值 1.25→1.47）。
+- 重跑 G4；文档 ground_crack_language。
+
+## 2026-07-26 裂地档 3 改为「档 2 的自然增强」（去独立贴图感）
+- 取消档 3 叠厂包熔岩层 `ground_lava_bloom`（自带形状 → 读成独立发光贴图）；
+  晋升件留库备用，`StandardizeLavaBurst` 不动。
+- 档 3 重定：缝宽 2.6→2.05、亮度 4.5→3.5、锋面 0.28→0.24、余烬 0.42→0.34，
+  新增 `StrengthSpec.SizeScale`＝1.35（同一骨架整体放大，裂得更远）。
+- Shader 加 `_LavaGradient`：缝沿暗红→缝底熔岩→缝心白热，并沿生长方向由热到凉。
+- 文档：ground_crack_language / assets_upload_guide；踩坑录 P-55。
+
+## 2026-07-26 修复弹道裂地完全隐形（SmoothStep 误用）
+- 根因：自烘主缝用了 `Mathf.SmoothStep(from,to,t)`（插值），当成 HLSL
+  `smoothstep(edge0,edge1,x)`，整条脊 alpha≈0（PNG maxA=0.004）。
+- 改为自写 `EdgeSmooth`；主缝加粗、带宽 0.55；烘制前校验 maxA≥0.5。
+- 重跑 G4，spine maxA=1、实心约 19%。踩坑录 P-54。
+
+## 2026-07-26 弹道裂地改为「主缝 + 短毛刺」干净骨架
+- 弃用厂包 Crack.png 作弹道遮罩（锯齿拉宽后杂乱）；G4 自烘 `mask_crack_spine`
+  + `mask_crack_spur`；带宽 0.9→0.42；毛刺 5→4、浅角短枝。
+- 重跑 G4。
+
+## 2026-07-26 去碎块烟雾 + 裂地持续按模式分档 + 弱踵台词紧绑暴击
+- 命中漂浮「烟雾块」＝碎块粒子（Dust 已关仍在）：两模式 `ChunkCount=0`；
+  熔岩层 G12 去掉 GroundFog。重跑 G4/G12。
+- 持续：弹道档 3＝档 1×1.5，命中档 3＝档 1×2（中间档插值）；`SpecOf(strength, mode)`。
+- 弱踵：`heel` 改挂 `parent_seq=damage_seq`（禁止 parent=0），避免台词组排到
+  整段出击（含阵亡）之后；单测 `test_aoman_heel_line_immediately_after_crit_damage`。
+
+## 2026-07-26 取消裂地尘雾 + 档 3 亮度下调
+- 命中类 `ImpactMode.Dust=false`，不再烘 Dust 层（烟雾抢戏/方块感，直接关掉）。
+- 档 3 `Blaze`：GlowPeak 6.0→4.5、FrontWidth 0.34→0.28、EmberFloor 0.55→0.42。
+- 重跑 G4。
+
+## 2026-07-26 命中尘雾去方块 + 赫克托尔战吼档 3×1.5 面积
+- 命中类尘雾根因：`BuildDust` 用无贴图白材质，粒子 billboard 渲成方角竖牌
+  （雅典娜受击时读作「方块烟雾」）。改为 G4 自烘软圆 `tex_ground_dust` +
+  `URP/Unlit` 透明（Particles/Unlit 不吃贴图 alpha）+ HorizontalBillboard 贴地。
+- `hector_warcry`：`GroundStrengthTier=3`（弹道/命中同档）+ `GroundHitArea=1.5`
+  （命中直径＝卡宽×1.5×1.5）。重跑 G4。
+
+## 2026-07-26 裂地重组为「模式两类 × 强度三档 + 面积」
+- 两维正交（`GroundCrackPalette` 重写）：**模式** `PathMode/ImpactMode` 只管形状骨架
+  （遮罩/生长/朝向/毛刺/碎块/尺寸基准），**强度** `Strength.Light/Heavy/Blaze` 一档同时
+  定缝宽+持续+亮度，**面积** 为命中类调用参数。prefab 由 3 件降为 2 件，
+  场心大裂地＝命中类骨架 + 档 3 + 面积 3.2（删 `ground_crack_arena`）。
+- 缝宽走新 shader 参数 `_MaskGain`（抬遮罩 alpha），不缩放面片，避免放射骨架被拉椭圆；
+  `GroundCrackDecal` 新增 `ApplyStrength/ApplyArea`；profile 字段改
+  `GroundStrengthTier` + 新增 `GroundHitArea`。
+- 亮光与裂缝同步渐变：`Glow()` 只熄到余烬水平后维持，最终消失交给淡出（glow 乘 alpha）。
+- 毛刺可见度修复：首版整根埋在主缝带内，改为侧向偏移 + 外指角度 + 长度 0.34~0.60。
+- 重跑 G4，G11 探针改成 2 模式 ×3 档一次摆全；实测毛刺清晰、三档台阶拉开、
+  驻留期亮光在场、淡出期亮与缝同步消失。文档 §3.0.1/§四/§四.五 重写。
+
+## 2026-07-26 T1 加毛刺分叉 / T2 直径放大到 1.5 卡宽
+- 弹道裂地不再是单一长条：`Tier.Spurs=5`，`GroundCrackComposer.BuildSpurs` 把毛刺
+  装成裂缝组子面片（共用材质与生长/熔岩/淡出），布局写死不随机，辉度压 0.7 保主次。
+- 命中裂地 `CardWidthFactor` 1.15 → 1.5（实测卡宽 1.582 → 直径 2.37）。
+- 重跑 G4；Play 中摆件确认毛刺可读、命中圆明显大于卡牌。
+
+## 2026-07-26 裂地强度改为「件自带三档 + 场景选档」
+- 结构分离：裂地 prefab 三档通吃（`GroundCrackDecal.ApplyGlow` 出场现写强度），
+  用哪档由场景选——档位基线（T1/T2 默认档 1，T3 恒档 3）+ 战法专配
+  `PerformanceProfile.GroundGlowTier`，解析在 `GroundCrackService.ResolveGlow`
+  （只升不降）。不为分档另烘 prefab 变体。
+- 取值：赫克托尔自带 `hector_warcry` 配档 3 熔岩过曝（先配 2，同日观感试看提到 3，
+  会叠 `ground_lava_bloom`）；拆解技 `hector_assault` 与其它物理群攻不配＝档 1 微光。
+- 实测重播：默认技能全部 `glow=Ember`，`hector_warcry` 解析为 `Molten`。
+  extension_points 增登记行；ground_crack_language §3.0.1 重写为选档规则表。
+
+## 2026-07-26 裂地发光分三档 + Effect8 熔岩层按标准化协议晋升
+- 纪律先行：`vfx_standardization.md` §二 新增触发句「参考/做到接近某 EffectN」，
+  与直接点名接件同级——必须逐层判定「晋升/替代」并把去向表落文档，禁止凭印象
+  手搓；`global_rules` §四.8、`00-session-start` 表同步；踩坑录 P-49。
+  另明示 `EffectN` 与 `EffectN_Collision` 是不同件，不得互相替代。
+- 发光改三级台阶 `GroundCrackPalette.Glow`（微光/明亮/熔岩过曝）：亮度、锋面宽、
+  余烬三个 shader 参数统一派生，`Tier` 只声明档位；T1/T2/T3 依次为档 1/2/3。
+- 第 3 档观感目标 Effect8：新增 G12 `StandardizeLavaBurst`（菜单 `GreekMyth/裂地/G12`）
+  逐层晋升成 `ground_lava_bloom`（留 Particles/Trail/GroundDistortion/GroundFog/Light，
+  摘 Decal1 死贴花 + Wind + Audio + 弹道脚本），只跟 T3 叠播。
+- 重跑 G4；实测 T3 熔岩裂地可见。guide 登记新 key，ground_crack_language §3.0.1
+  记录三档表与逐层去向表。
+
+## 2026-07-26 裂地全透明真因：G4 把 alpha=0 烤进 prefab（P-47/48）
+- 赫克托尔群攻裂地「完全看不到」最终定位：G4 存盘前 `SetActive(true)` 触发
+  `OnEnable→Apply(0)`，面片 alpha=0 被烤进三档 prefab；运行期 `Collect()`
+  把 0 当基色，恒全透明。修：G4 存盘前把 SpriteRenderer alpha 归 1 并重跑；
+  `GroundCrackDecal.Collect` 加自愈（基色 alpha≈0 视作满）。
+- 裂地存续改为不吃倍速（只吃 DurationMul）：痕迹类特效不阻塞节拍，
+  4 倍速同比压缩只剩 ~0.4s 等于没播；快进时以常速淡出。
+- 重播实测：path/hit 三档均触发且肉眼可见。踩坑录 P-47、P-48。
+
+## 2026-07-26 裂地收口成 GroundCrackService + 补全模板接线
+- 新增 `VFX/GroundCrackService.cs`：裂地唯一入口（`Active` 判据 +
+  `PlayPath/PlayHit/PlayArena`），朝向/进度/分段节拍全在内；`DefaultPerformance`
+  不再持有裂地私有方法，也不得再直调 `GroundCrackPalette`。
+- 修「裂地完全不显示」两个真因：① 裂地此前只接 `PlayAoeCenter`（还要目标≥2），
+  单体弹道走 `PerSegment` 全程无调用 → 现 PerSegment 每段一条 T1 + 命中 T2，
+  Melee 近身补 T2；② 实例存活按倍速换算而贴花动画走真实秒，高倍速下刚淡入
+  就回池 → 新增 `GroundCrackDecal.DurationScale`，两者同一把尺。
+- 新增编辑器探针 `GroundCrackProbe`（菜单 `GreekMyth/裂地/G11 静态探针`）：
+  Play 中把三档摆到空地并延长驻留，用于分辨「没接线」与「渲不出来」。
+- 文档：ground_crack_language 新增 §四.五 模块边界 + G10 阶段；
+  extension_points / performance_mechanisms 同步；踩坑录 P-46。
+
+## 2026-07-26 修弹道裂地朝向：G4 烤坏 CrackGroup 旋转
+- 根因：`AddComponent<GroundCrackDecal>` 时 `RandomizeSpin` 仍默认 true，
+  OnEnable 在俯仰 90° 读改 `localEulerAngles` 万向节锁，把错误 yaw 烤进
+  `ground_crack_path`（实测偏 52°）→ 三段裂地读成互不相关。
+- 修：组装前先 `SetActive(false)` 再配参；OnEnable 用 `Euler(90,0,z)` 写死平躺；
+  重跑 G4。PlayGroundCrack 每次清根旋转再上 yaw。
+
+## 2026-07-26 修复 arena_olympus 导入类型（换图后全黑）
+- 换贴图后 meta 被重置为 Default → `Load<Sprite>` 失败舞台放弃；强制改回
+  Sprite(Single) 并重跑 G3 碎块图集。以后换图勿删 meta，只覆盖 png。
+
+## 2026-07-26 战场分区/卡尺改为静态配置 BattlefieldLayoutConfig
+- 去掉 `BattlefieldLayoutTuning` SO / Resources 资产；改用
+  `Units/BattlefieldLayoutConfig.cs` 静态字段调 UI/院区/隔离带比例、接缝、
+  旋转、CardScaleBoost、浮空、站位微抖等。改数字后重新进 Play 生效。
+
+## 2026-07-26 战场院区：主战场远侧抽出 D/5 过渡天际线
+- `CourtyardDepthFraction=0.2`：原主战场纵深 D₀ 的远侧横条作院区（无站位）；
+  站位/隔离带改在缩后主战场（D₀×4/5）内，旋转原点改 `MainCenterZ`。
+
+## 2026-07-26 阵型只按站位自动识别（禁止 formation 字符串入参）
+- `TeamSetup` 去掉 `formation` 字段；改为只读属性 `detect_formation(站位)`。
+- `resolve_formation(positions)` 仅吃站位；setup / manual_battle / bridge /
+  `test_manual_3v3` 不再接受 formation 配置。改站位即改阵型。
+
+## 2026-07-26 站位逻辑旋转 + UI 侧栏 W/4
+- `BattlefieldLayout.RotationDeg`：主战场区（含隔离带）绕贴图中心逻辑旋转
+  （正 = 顺时针，|θ|<90）；卡牌只平移不自转。
+- 修正规则：旋转侧边与地面上/下缘截点回推站位区半纵深
+  V=(D/2−M·|sinθ|)/cosθ；隔离带只旋转不修正。六等分在旋转系内做，
+  `LocalToWorld` 转回世界；15°/30° 实测格心全部在地面板内。
+- `UiSideFraction` 0.2 → **0.25**（UI 侧栏 W/5 → W/4）；θ=0 卡尺仍 1.442
+  （高受限，VFX 基准不变）；Standardizer 设计基准锁 θ=0。
+
+## 2026-07-26 地面板「正好拍全」动态反算（修 6 号位出屏根因）
+- 根因：站位矩形吃死设计常量 W=23/D=17（近缘 −7），而相机 45°/焦段 55 实际
+  只拍到地面 z≥−2.97 → A 队后排整排掉出屏底。
+- 定案：`BattlefieldLayout.Recalc(aspect)` 解析反算「相机正好拍全」矩形——
+  近缘 = 屏底视线落地、半宽 = 屏侧边在地天接缝处的半宽、远缘 = 接缝 z=10；
+  地面下侧/左右恰好卡屏幕边缘（`EdgeGuard` 0.05），站位分区同源 → 天然全入画。
+- 纵深恒 13.0、宽随宽高比（差异被 UI 侧栏吞掉）；卡尺 1.889 → **1.442**
+  （由格纵深决定、与宽高比无关）；VfxStandardizer 回填 BakedBasis×49。
+- `ArenaStageView` 地面板改用同源矩形（删 GroundNearMinZ/WidthMargin 冗余）；
+  `CameraFitter.PilotFovFor` 收口 FOV 公式；正交回退纵深压缩映射进安全区。
+
+## 2026-07-26 阵型站位系统革新（矩形六等分 + 六套预设）
+- **站位权威**新建 `docs/client/battlefield_layout.md`：地面 W×D → UI 各 W/5 →
+  主战场 3W/5 → 隔离带 D/8 → A/B 矩形六等分格心；卡下缘中点贴格心。
+  废除逻辑圆径向站位（`Front/BackRowRadial`）；装饰圆可留。
+- **客户端**：`BattlefieldLayout` + 改写 `ArenaSlotLayout` / `StanceLayout` /
+  `BattleBoardView`；单体制卡宽 ≈1.889；`VfxStandardizer` 回填 BakedBasis×49。
+- **服务端**：六阵注册 + `detect_formation` / `resolve_formation`；显式 id 须与
+  站位集合一致；空 id 按站位自动识别。雁行数值保留，其余五阵骨架。
+- **名词**：一字/锥形/箕形/方圆{3,4,5}/偃月/雁行；废却月/鹤翼/旧方圆{1,5,6}。
+  文档同步 arena/rendering/formations/manual_setup/index/extension_points；P-44。
+
+## 2026-07-26 特效标准化纪律定稿（点名即交付，无 GUI 晋升）
+- 新增权威 `docs/client/vfx_standardization.md`：画廊原料 → Resources 标准件 →
+  Profile key；用户指出哪件后 AI 默认按清单标准化并加载。
+- **明确不做**画廊入队/晋升菜单等 GUI；已删拟议 `VfxPromoteTool`。
+- 登记：`client/index`、`discipline/index`+coding_standards+extension_points、
+  `.cursor/rules`（00-session-start / client-battle）、pack_integration §四指向新权威；
+  pitfalls P-43。
+
+## 2026-07-26 极长焦 55 + 舞台按视锥拉大 + 罩身观感余量；卡尺/站位回原
+- **焦段** `PilotDistance = 55`（FOV ≈12°）；去掉旧 FOV 下限 28°（否则长焦名存实亡）。
+  地面板近缘改为每帧按屏底射线求交外扩，盖住长焦下的"桌沿"黑框。
+- **卡牌尺寸** `CardScaleBoost` 试过 2 已回 **1**；**站位** `Front/BackRowRadial`、
+  `SpreadCap`、弦端余量一并恢复原值（0.31/0.44/1.1/0.75）。
+- **罩身** `TopOvershoot=1.6`、`WidthOvershoot=1.2`：几何齐平在长焦俯视下仍读作
+  "差一点"，必须额外超出才观感平齐；折射壳出厂全黑轮廓时补菲涅尔。
+- 画廊：`*_Collision` 命中碎件自动贴脚下、加快重播、HUD 标明"一闪即逝"；
+  警告文案改为层风险（可贴花摘掉 / 扭曲已开不透明贴图待真机），避免误读成整件废件。
+- 文档：`arena_stage` 心智模型与关键几何表同步到 45°/55 焦段与原站位。
+
+## 2026-07-25 角度链定稿（卡后倾 30° / 相机垂直卡面）+ 定位圆重定义 + 罩身特效
+- **术语定论**：「后倾 θ 度」一律指**离竖直** θ 度，实现即 `Euler(θ)`。
+  唯一真源 `CameraFitter.CardPitchDeg = 30`，派生 `CardLeanDeg = 60`（与地面夹角），
+  `PilotPitchDeg = CardPitchDeg`（光轴垂直卡面）。当日先按"与地面 30°"
+  （Euler 60 + 俯角 60）实现过，试废：影子纵深 3.13 > 卡宽 2.04 把定位圆撑到
+  1.8 倍卡宽（读作"圆被相机拉歪"），且 8.7 米高的竖立件在陡俯角下收敛成
+  "指着相机的柱子"。45/55 解耦方案同废。
+- **定位圆重定义**＝卡牌影子（**竖直**投影，非相机投影）的外接圆：
+  圆心 = 卡心正下方，半径 = √(卡宽² + `CardShadowDepth`²)/2，
+  `CardShadowDepth` = 卡高×sin(后倾角)。旧定义（下缘投影为心、卡宽为直径）
+  与卡的真实足迹无关。新增 `ArenaSlotLayout.CardTopY`（卡上缘高度）。
+- **新增罩身类特效规格** `VFX/VfxShroudFitter`：世界竖直 + 等比 + 水平切面对齐
+  定位圆 + 底面坐地；定径基准取件里 **Y 向最高的渲染器（壳本体）**，
+  `Simulate(0.6s)` 量一次，摆位解析推算。画廊加第 5 锚点「罩身」，
+  `ShroudKeys` 名单（现 `effect31`）自动选中；撤掉旧的「包裹卡牌」定径与 V 键同倾开关。
+- 实测支撑：Effect31 在 identity 下 Shield 2.89×**8.66(Y)**×2.89、Lightning
+  2.45×7.36(Y)×2.45、Decal 平躺 —— 资源本来就是竖柱，任何补旋转都是错的。
+  另查明其壳用 `RFX1_UberDistortion` 折射壳（`_UseMainTex=0`，靠采样
+  `_CameraOpaqueTexture` 成像），厂包预览之所以好看还因为 demo 会在罩内放角色、
+  并持续朝罩发射弹体产生涟漪 —— 这两件我们暂时都没有，低端机上性价比低，
+  建议罩身视觉素材改用自发光壳，Effect31 只作高配加料。
+- 文档：arena_stage §一/§二/§三改写 + 新增 §四b 角度链 / §四c 定位圆与罩身；
+  rendering_layout、vfx_playback_scheme §七 同步；vfx_pack_integration 新增
+  「罩身锚点」小节（含三个错法对照表）。
+
+## 2026-07-25 卡牌倾角与相机俯角解耦：修「卡不畸变、定位圆畸变」的割裂感（当日已被上条取代）
+- 病根是几何而非 bug：卡牌倾角旧实现直接取 `cam.eulerAngles.x`，卡面因此
+  **严格平行于成像平面** → 透视只对它等比缩放、永不斜切；而定位圆躺在水平面里
+  必然投影成椭圆。两种畸变不同族，同框就别扭。
+- 新增 `CameraFitter.CardLeanDeg = 45f`（卡牌与地面固定夹角），与
+  `PilotPitchDeg = 55f`（相机俯角）彻底解耦。差 10° → 卡牌出现左右对称的轻微
+  梯形畸变，与地面圆同族；卡面压缩 cos10°≈0.985，肉眼无损。
+- `UnitView.FaceCameraIfPilot` → `ApplyCardLean`（固定倾角，不跟相机）；
+  `ResetForNewGame` 改为回到固定卡姿（原来置 identity）。
+  `ArenaSlotLayout.GroundPoint`/`GroundFoot` 的倾斜补偿改用 `CardLeanDeg`。
+  红线：禁止再拿 `cam.eulerAngles.x` 当卡牌倾角。
+- 画廊「包裹卡牌」件改为**跟卡同倾**、原点放卡牌**下缘中心**（沿卡自身向下
+  半个卡高，非地面投影），修"椭球升起方向跟卡牌完全不是一个方向"；
+  贴地件仍世界竖直。V 键切两种朝向对比。
+- 文档：arena_stage 新增 §四b「畸变一致性」并改写心智模型/常量表。
+
+## 2026-07-25 合成底座三件套：碰撞层 + URP 贴花通道 + 卡牌深度代理
+- 定调「不换框架」：厂包水土不服的病根在**合成模型**（卡牌是透明 Sprite、
+  舞台零碰撞体、URP 贴花通道未开），不在管线选型。退回 Built-in / 改真 3D 的
+  收益/代价比明确不划算，结论写入 vfx_pack_integration §8.4，勿再重复讨论。
+- **B 碰撞层** `VfxCollisionStage`：新建 layer `VfxCollision`（slot 8）；地面一块
+  顶面贴齐 `GroundY` 的 BoxCollider + 每卡一块随卡倾斜的 `VfxHitBox`（取运行期卡面）。
+  画廊弹道随之改为**打真卡牌碰撞盒**（起止点从贴地定位圆心改为卡身中心，
+  贴地平飞会从盒下擦过），落点标记退化为纯 Target。实测 Effect12 命中件
+  生成在敌卡碰撞面上。碰撞体是表现层附属物，禁止逻辑读它做判定。
+- **C URP 贴花通道**：`Mobile_Renderer`/`PC_Renderer` 的 `m_RendererFeatures` 原为空，
+  各加一个 `DecalRendererFeature`。这不让 KriptoFX 贴花件直接可用（红线不变），
+  但为"重烘成 URP Decal"与裂地升级真投影开了门。
+- **A 卡牌深度代理** `CardDepthProxy`：每卡补一份不透明 alpha-clip 同形副本
+  （卡框+立绘，Geometry 队列，略小略靠后），卡牌因此进深度图与不透明贴图。
+  折射壳不再把卡抹掉、软粒子正常淡出、卡后的特效被深度裁掉自动前后分层
+  （**排序策略不变**：sortingOrder 只管透明件画序，深度测试照旧生效）。
+  画廊 J 键整场开关做 A/B。
+- 画廊定径修正：卡身锚点改用「包裹卡牌」规则（只按宽度缩到 1.35×卡宽，
+  高度放开、2.6×卡高兜底，原点放定位圆心且**不按包围盒中心对齐**）。
+  原按地面投影定径会把柱状件缩得比卡还窄、整件缩进卡牌轮廓 → 误判"没效果"。
+- pitfalls 追加 P-40（Play 模式推迟编译，改完必须 stop→refresh→play）、
+  P-41（"特效在卡上看不见"先查定径基准，附三步排查顺序）。
+
+## 2026-07-25 画廊补弹道模式：厂包主件（出手全流程）终于能演出来
+- 病根：厂包主件（`Prefabs/Effects/EffectN`）自带位移脚本，单锚点摆放下会沿
+  自己的 local forward 飞出舞台，且命中件永不生成 —— 被误判为"标准化不出可用件"。
+- Runner 新增弹道模式（自动识别 `*TransformMotion`/`*PhysicsMotion`，B 键开关，
+  F 键也有手动档）：施法者定位圆心 → 敌方卡定位圆心，反射写 `Target`、
+  `Distance`/`MaxDistnace` 改实测距离、`Speed = 距离/0.9s`，落点放不可见碰撞体
+  （半径＝定位圆）让厂包自己生成命中件。实测 Effect1/Effect10 弹道贴地飞至目标、
+  落点自动生成 `Effect1_Collision`。
+- 厂包生成的命中件是场景根节点：补排序抬升 + 换件时按 `(Clone)` 清场
+  （池化件都有父节点，不会误清）。
+- 新增慢放 0.25×（K）；碎片件排到主件之后（原 Ordinal 排序让 28 件命中碎片占据
+  Magic Pack 开头）。
+- 文档：vfx_pack_integration 新增「弹道模式」四条必备项与失败后果表。
+
+## 2026-07-25 定名「卡牌定位圆」+ 厂包件在地面定位圆内审核
+- 新增权威 API `ArenaSlotLayout.CardCircleCenter/CardCircleRadius/CardCircleDiameter`：
+  **卡牌定位圆** = 以卡牌接地中心（`GroundFoot`）为心、运行时卡宽为直径的平躺圆，
+  今后所有「落在某张卡脚下」的演出共用此基准（裂地 T2 即其 1.15 倍）。
+- 画廊换到厂包组时自动切「目标=雅典娜 / 锚点=卡牌脚下 / 定位圆定径」，
+  并把定位圆画成青环；C 键开关定径。定径按 `Simulate(0.12s)` 的起手核心量
+  地面投影（推到 0.35s 会把碎屑算进去、主体缩到 ×0.13 看不见），钳在 [0.25,20]。
+- 修「彩色系列 132 件全无效果」：整包粒子 `playOnAwake=false`，审核台改为
+  实例化后根级 `Clear+Play(withChildren)` 起播。
+- 修厂包脚本崩审核台：`RFX1/RFX4_ShaderFloatCurve`、`ShaderColorGradient` 四个
+  脚本的 `MaterialPropertyBlock` 改惰性初始化（原只在 Awake 建，OnEnable 先跑就抛），
+  画廊实例化再加 try/catch 兜底。
+- 定位圆圆环改为躺在地面平面里（物体绕 X 转 90° + 本地下环 + `alignment=TransformZ`）；
+  原默认 `alignment=View` 让带子朝相机竖起，55° 俯角下看着"不像画在地上"。
+  圆心/半径仍直取 `ArenaSlotLayout`，不做任何补偿。
+- 厂包件不做"内容底面对齐地面"抬升：`*_Collision` 原点是爆点、内容上下对称，
+  对齐底面会把爆点抬到半空（实测 +4.1）；正确是爆点落圆心、下半截被地面挡掉。
+  只保留「整件完全在地面以下」的兜底抬升。
+- 文档：ground_crack_language 定位圆红线、vfx_pack_integration 画廊篇补定径与起播、
+  pitfalls 新增 P-39（整包无效果先查 playOnAwake / 定格取证 / 单件不得带崩工具）。
+
+## 2026-07-25 特效画廊扩到全项目 898 件 + 审核标记
+- 画廊改为按包分组：我方标准件 52 / Magic Pack 61 / RFX4 54 / Vefects 308 /
+  Cartoon FX 170 / 2D 斩击 119 / 彩色系列 132 / 闪电链 2，合计 898 件。厂包件
+  由启动器编辑期用 AssetDatabase 收集注入（不在 Resources 下，运行期加载不到）。
+- 非特效件筛除判据：须含粒子或线/拖尾渲染器且不得含蒙皮网格，剔掉 37 件
+  （Magic Pack 的 `Character_Effect*` 是整套 challenger 角色）。
+- 新增：↑↓/Tab 切包、PgUp/PgDn ±10 跳件、`-`/`=`/`0` 试穿缩放、
+  **M 记可用 / N 记否决 / P 导出到 `Temp/vfx_audit_marks.txt`**。
+- 新增锚点「脚下平躺」（判能否当地面法阵用；`aura_aegis` 自带平躺符文环层，
+  放脚下即成地面法阵）。HUD 就地标出该件是否含贴花层/扭曲层/品红 shader。
+- 厂包件直接实例化时补排序抬升，否则被地面与卡牌盖住无法审核。
+
+## 2026-07-25 特效画廊 + 修正尺寸归一参照（全部特效被缩 41%）
+- 新增 `Assets/Scripts/ClientBattle/Test/VfxGalleryRunner.cs` 与菜单
+  `GreekMyth/特效/特效画廊（一键）`：用真战报建**真实舞台 + 真实卡牌**，把
+  `Resources/ClientBattle/VFX` 全部 52 件逐个过。←→ 切件 / R 重播 / F 切锚点
+  （卡牌身上·卡牌脚下·棋盘中心）/ T 切目标卡 / G 自动重播 / P 导出清单。
+  HUD 反射扫 `PerformanceProfile` 的 string 字段，显示该 key 现接在哪些战法上。
+- 画廊首跑即抓出改造 B 的错：参照卡宽误取交错阵型的 2.041，而实战雁行阵是
+  非交错的 1.206，49 件特效被静默缩到 59%。改 `VfxStandardizer` 取非交错档并
+  回填全部 `BakedBasis`，旧件 `lossyScale` 恢复原值（归一化中性）。
+- 画廊对站位重号的旧战报（Position 是 0/1/2 下标而非 1~6 格号）就地摊到
+  雁行 1/2/6，避免两张卡压同一格挡住特效。
+- pitfalls 追加 P-38（归一化参照必须实测自资产被调好时的环境；批量改造必须有
+  「全资产在真实场景逐件过」的入口）。
+
+## 2026-07-25 裂地默认改为「裂缝生长 + 熔岩锋面」（改造 C）
+- 新增自研 `Assets/Shaders/ClientBattle/GroundCrack.shader`：按生长场推进阈值镂空
+  （命中/全局径向外扩、弹道沿 uv.x 推进），锋面一条 HDR 熔岩亮带 + 余烬，
+  预乘 alpha 混合让「近黑裂缝盖地面」与「熔岩加光」共存于一个 pass。
+- `GroundCrackDecal` 增 `GrowTime / GrowthMode / GlowPeak / GlowDecay`，
+  经 MaterialPropertyBlock 逐帧写 `_Growth`/`_GlowIntensity`；缝底层辉度压 0.35。
+- `GroundCrackPalette` 增 `Lava`（HDR 2.4/0.55/0.12，偏红避开宙斯金雷）与三档
+  生长参数；物理群攻的弹道档/命中档**默认开**（0.16s 轴向 2.0 / 0.28s 径向 2.6）。
+- 首版翻车并修正：余烬铺满 + 锋面过宽 + 两层等亮 → 橙色爆点盖住裂缝；
+  改为锋面/余烬按 mask² 聚拢、`_FrontWidth` 0.16→0.10、`_EmberFloor` 0.22→0.07。
+- `ground_crack_language.md` 增 §3.0 记录配方、红线（_Growth 必须推过 1.25）与调参教训。
+
+## 2026-07-25 厂包标准化落地（改造 A/B）+ 贴花判死 + 关掉 API 弹窗
+- D-VFX-1 定案为「开」：`Mobile_RPAsset` 置深度/不透明贴图为 1，
+  `m_OpaqueDownsampling: 1`（2x 双线性压带宽）。真机帧耗待实测。
+- 改造 A：`VFXManager.EnsureVfxSorting` 由只抬 `ParticleSystemRenderer` 改为遍历
+  `Renderer` 基类（护盾/冲击波/锁链等网格层不再与卡牌抢层），`VfxGroundLayer` 豁免不变。
+- 改造 B：新增 `VfxFitter`（CardWidth / ArenaDiameter / None 基准 + Factor +
+  BakedBasis）与两个菜单工具 `GreekMyth/特效/体检·标准化`。全量跑完 52 件：
+  补挂 49、地面件跳过 3、清理死贴花 1（`aura_ares_might` 的 `Decal2`），体检 52/52 全绿。
+  设计期基准卡宽 2.041 由布局常量复算得出，与运行期一致。
+- 厂包深度贴花受控复测（shader 可用 + 相机深度开 + 地面不透明写深度 + 强制全显）
+  仍零像素，判定失败形态是「静默不出图」而非品红；红线维持"贴花件一律不接"，
+  改造 D 降级。裂地继续走自研三层配方。
+- 关掉反复弹的 Script Updating Consent：直接改掉 RFX4 三处弃用 API
+  （`velocity`/`drag`/`angularDrag` → `linearVelocity`/`linearDamping`/`angularDamping`）。
+- pitfalls 追加 P-36 补记（点 No 不省硬盘，更新器就地改文件不备份）与 P-37
+  （体检工具首版高数量级报警要先证伪判据：粒子拖尾槽与空容器节点造成 67 条假警）。
+
+## 2026-07-25 已购特效包改造与应用方案成文
+- 新文档 `docs/client/vfx_pack_integration.md`（已在 client/index 登记）：厂包按
+  渲染层分五类盘点可用性（粒子/闪电直接可用；网格层缺排序托管；扭曲依赖不透明
+  贴图；深度贴花不可用 —— Magic Pack 实测 35 个贴花材质跨 20/33 个 Effect）。
+- 查出关键约束：`PC_RPAsset` 深度/不透明贴图都开，`Mobile_RPAsset` 都关，
+  Android 默认走 Mobile 档 → 扭曲层、软粒子淡出、深度贴花在真机上全部失效，
+  "编辑器验收通过"对这三类不成立。立为决策项 D-VFX-1（移动端是否开不透明贴图）。
+- 文档含改造项 A~E（排序泛化 / 尺寸归一 VfxFitter / 生长+自发光配方 /
+  贴花 quad 降级 / 移动端扭曲取舍）含成本与验收、接件标准流程九步、分级方案
+  （层数走烘制期、强度走运行期，触发侧 GroundKeyOf 覆盖点已存在）、红线、V0~V7 阶段表。
+- pitfalls 追加 P-35（两套 RP asset 能力差异，及"先看 shader 采什么全屏纹理"的判定法）。
+
+## 2026-07-25 弹道裂痕带收口到命中裂地圆心
+- T1 落点不再取弹道正下方（那是卡心投影，比接地中心深一个 halfCardH·sin(俯角)，
+  裂痕带会停在 T2 圆心后方、与命中圆断成两截），改为按弹道实时进度映射到
+  `fromFoot→toFoot` 连线取点 → 带子终点正好收在 T2 圆心。
+- 新增 `DefaultPerformance.GroundProgress`：弹道地面投影在「出膛点→瞄准点」上的
+  投影分量（0~1）。仍完全由实弹位置驱动，保留缓动与错峰差异；<0.05 视为未起飞。
+- 实测一局：命中裂地 6 个圆心与 6 张卡接地中心逐一吻合（误差 ≤0.05）；
+  弹道裂痕带三点与两端接地中心共线、间距随缓动非均匀（如 z=1.36/0.48/-0.55 → 终点 -0.98）。
+
+## 2026-07-25 命中裂地圆心改取卡牌接地中心
+- 新增 `ArenaSlotLayout.GroundFoot(卡心)`：倾斜卡下缘中心的地面投影 =「卡在地板上
+  的中心点」。原先用 `GroundUnder(卡心)`，因卡按俯角倾斜、卡心比下缘深
+  halfCardH·sin(俯角)，55° 下实测偏远端 1.48 世界单位（≈一个卡宽），圆整体退到卡后。
+- T2 命中裂地圆心改用 `GroundFoot`；T1 的朝向端点（受击端与施法端）同步改用它，
+  出膛判定仍按卡心投影（弹道实例生在卡心）。
+- 实测六个站位偏差一致为 1.48 → 修正后裂纹沿卡下缘向四周放射，不再被卡身吞掉。
+- 文档同步 ground_crack_language §4（新增圆心红线，四条红线）。
+
+## 2026-07-25 弹道裂地跟随实弹 + 命中裂地按卡宽定径
+- T1 起裂点改取弹道实例的实时 `transform.position`（`LaunchProjectile` 现返回
+  实例，`PlayPathCracks` 接 `Transform[]`），不再用施法点→目标的插值猜点：
+  多目标错峰弹道各走各的落点，插值会让裂纹与眼睛看到的球错开；未起飞的弹道
+  跳过，免得在施法者脚下堆一坨。
+- T2 直径从写死 3.4 改为运行时 `StanceLayout.CardWidth × 1.15`：
+  `GroundCrackPalette.Tier.CardWidthFactor` 声明倍率，`GroundCrackComposer` 把
+  烘出尺寸与倍率写进 prefab，`GroundCrackDecal.ApplyCardWidth` 开播时折算缩放。
+- 实测验收：卡宽 2.041 → 裂地边长 2.347（误差 0）；一局战报生成 14 个裂地实例，
+  T1 三组各带独立 yaw（91/154/35）沿各自弹道递进，T2 精确落在 6 个站位点；
+  T3 实例仍停在预热坐标 x=30（该局未出势能全开加强出手），非缺陷。
+- 文档同步 ground_crack_language §4/§5（新增 T1/T2 两条红线的成因与调节旋钮）。
+
+## 2026-07-25 裂地统一语言落地（G3~G6）
+- 用户指定方案评估：命中用 Magic `Effect18_Collision` 可行（纯粒子），
+  但弹道用 RFX4 `Effect3` 的裂地部分**不可行**——它的裂地全部来自
+  `DecalCrackBorder`/`DecalBlackCore`/`DecalCore` 三个 Built-in Decal（P-33）。
+  用户裁定：回到原计划的统一三层配方。
+- G3 `GroundChunkBaker`：从 `arena_olympus.png` 竞技区中央现切 4×3 碎块图集
+  （随机凸多边形镂空 + 断口压暗，舞台名派生稳定种子）→ 碎块与地面天生同色。
+- G4 `GroundCrackPalette`（颜色/档位唯一真源）+ `GroundCrackComposer`：产出
+  `ground_crack_{path,hit,arena}`，各含 L1 裂缝 / L2 缝底 / L3 碎块（＋T3 尘雾）。
+  三张遮罩自烘统一极性（三张源图明暗各不相同）并做 alpha 膨胀加粗。
+- G5 接线：`PlayPathCracks` 传 `YawAlong` 弹道朝向（T1 线形沿弹道拉长）；
+  命中帧 T2 直径 2.2→3.4（2.2 会被卡牌立绘整块盖住）。
+- G6 T3：`ctx.EmpoweredStrike` 的物理群攻在场心起大裂地（相机抖动未接）。
+- `GroundCrackDecal` 改为驱动整组 SpriteRenderer；新增 `VfxGroundLayer` 让
+  `VFXManager` 不把地面层粒子排序抬到卡牌之上（尘雾曾把立绘压灰）。
+- 旧实现清除：`WireMagicPackZeusAthena` 不再写 `ground_*`，删 `ground_shatter`。
+- 文档同步 ground_crack_language（§3/§4/§5/§7 全面重写）、assets_upload_guide、
+  performance_mechanisms、client/index、pitfalls P-34（地面特效看不见的三个真凶）。
+
+## 2026-07-25 G1 地面改不透明网格 + G2 证否厂包贴花
+- `ArenaStageView` 地面由 `SpriteRenderer` 换成 Quad `MeshRenderer`：新增
+  `BuildGroundMaterial`（`URP/Unlit` Opaque、`ZWrite On`、`_Cull=0`、queue 2000），
+  贴图仍是同一张 `arena_<stage>`，UV 按 `sprite.textureRect` 归一化；
+  `FitToCamera` 因 Quad 为 1×1 单位而直接用世界尺寸。**观感像素级不变**，
+  且天空板/卡牌与地面的遮挡关系变正确。
+- G2 探针实测**证否**"厂包贴花会因此解锁"：`KriptoFX/RFX1/Decal` 等是 Built-in
+  管线 shader，URP 下不做深度重建，把投影盒渲成悬空品红亮块。三包的 Decal
+  组件列入红线永久禁用，只取粒子部分；地面投影改走 URP DecalProjector
+  （`PC_Renderer`/`Mobile_Renderer` 尚未挂 Decal Renderer Feature，列为 G2b）。
+- 同步 `docs/client/ground_crack_language.md`（§一.3/§二/§五/§七）与
+  `ai_workflow_pitfalls.md` P-33（必要条件≠充分条件；探针验收法）。
+
+## 2026-07-25 裂地表现语言方案定稿
+- 定位根因：两个已购包的裂地**全是深度投影贴花**（`RFX1_UberDecal` /
+  `RFX4/Decal`，`SAMPLE_DEPTH_TEXTURE`+`Cull Front`），舞台地面是不写深度的
+  透明 Sprite → 必然全空。逐条实测 RFX4 `DecalCrackBorder`、Magic
+  `Effect11/Decal` 均如此。结论：买包不解决问题，先改地面。
+- 新文档 `docs/client/ground_crack_language.md`：三档裂地（弹道/命中/全局大）
+  统一三层配方（裂缝/缝底/碎块）、**碎块贴图从 `arena_<stage>.png` 现切**
+  使其与底图构造上同色、地面改不透明写深度网格为前置（G1），阶段 G1~G7。
+- 采购结论：统一语言不需买包；遮罩形状不足时可选 Game VFX - Ground Crack &
+  Explosion（≈$11），但须先完成 G1 否则买了也不显示。
+- 过渡实现落地：自建平躺裂纹面片 `VFX/GroundCrackDecal.cs`（绕开深度投影）
+  + Magic `Effect11_Collision` 碎石；路径/命中同源、以缩放与发射量分档。
+
+## 2026-07-25 地面崩坏族风格统一
+- 路径与命中改**同源** Effect11_Collision，只以缩放分层级（1.0 / 0.5）；
+  弃用 Effect9_Collision（`Lava` 岩浆缝＝火系语义，与物理群攻不符，且与路径件割裂）。
+- 实测记录：Magic Pack 1 Collision 件里的 `Decal` 不是裂纹而是暗尘印，按命中法线
+  `LookRotation(up)` 摆正后在亮色大理石地面上仍几乎不可见 → 当前"裂地"实际只有
+  碎石抛飞，无地面持久裂纹。项目内唯一真裂纹＝RFX4 `Effect3` `DecalCrack`（受红线）。
+
+## 2026-07-25 裂地换真·地面崩坏件
+- 原 `ground_shatter` 误接 Effect18_Collision（内部只有 ShieldCollision/Fire/Trails，
+  护盾撞击火花，**无裂地贴花与碎石**）→ 观感几乎不可见。
+- 命中脚下改 **Effect9_Collision**（Decal/DecalCore 焦坑 + RocksBig/Small +
+  Lava×3 + SmokeExplosion），scale 0.35→1.0、生命期 0.6→1.6s；
+  路径新增 `ground_crack_path` ← **Effect11_Collision**（Rocks + Decal），scale 0.7，
+  去掉原 0.55× 二次缩放。`GroundKeyOf` 改为路径/命中各自回退。
+- 未采用 RFX4 Effect3（DecalCrack）/Effect5/24：RFX4 红线限舞台远景与神像大场面。
+- Play 内实拍验收通过（路径碎石横贯战场、脚下焦坑烟尘）。
+
+## 2026-07-25 修舞台图片消失（导入类型回退）
+- BattleReportTester 播放全黑无舞台：`arena_olympus.png` 导入类型被重建为
+  Default，`Resources.Load<Sprite>` 为 null → `ArenaStageView.TryBuild`
+  地天任一缺失即整体放弃。已改回 Sprite(Single) 并验证恢复。
+- 排查口径：舞台全黑先查 `Resources/ClientBattle/Arena/` 贴图 Texture Type。
+
+## 2026-07-25 物理群攻地面裂地特效
+- 物理群攻主动（AoeCenter）：弹道飞行期间沿「施法点→各受击者」地面投影分 3 段
+  播裂地（0.55× 小档）；命中帧在每个受击者脚下地面再播一发。
+- 新 profile 字段 `GroundPathKey`/`GroundHitKey`，默认回退 `ground_shatter`
+  ← Magic Effect18_Collision（接线菜单已加，scale=0.35，关点光）。
+- 仅近 3D 透视舞台生效：新增 `ArenaSlotLayout.GroundActive` / `GroundUnder`
+  （贴地 +0.05 防 z-fighting）；正交模式不播。文档同步 performance_mechanisms /
+  assets_upload_guide。
+
+## 2026-07-25 透视站位落地面 + manual 双方雁行阵
+- 修站位错乱：透视模式下卡牌原仍按 XY 平面 z=0 摆放，与地面板脱节悬空。
+- 新增 `ArenaStageView.MapSlotToGround`：布局 y→深度 z、卡下缘贴地抬升（cos45°×半卡高）；
+  `BattleBoardView.Build`/`Center` 在 `_arenaMode` 下走该映射，中线=地面 z≈0。
+- `test_manual_3v3` 双方已配 `yanxing` [1,2,6]，重跑生成 `manual_3v3_seed20260722.json`。
+- 修观感「整阵向玩家平移」：卡 45° 倾斜后下缘偏 -sin45°×半卡高，映射时推 z 补偿，
+  使接地点严格镜面对称于地面中线。
+- 站位点重规划：新增战斗圆概念（CircleCenterZ=1.5 / R=6.5，对准地面图中央法院），
+  `ArenaSlotCenter` 按半圆几何布点——前排 ±0.26R 贴中线、后排 0.62R 径向深入，
+  横向展开取弦长与 DesignHalfWidth×0.85 较小者；替代旧「布局 y 直映 z」。
+- 微透视（桌面扭转语义定稿）：`PilotYawDeg`=15° 试后定 **8°**。相机始终正面 45° 俯视——
+  真转相机（无论 pitch+yaw 合成、绕圆心竖直轴、还是旋转棋盘节点，三版均废弃）
+  都会让地台远边一头高一头低并露黑角。最终：仅 `ArenaSlotCenter` 站位逻辑圆
+  绕圆心旋转 8°，卡牌不自转；圆形竞技场旋转不变、地平线水平。
+- 逻辑圆放大对齐底图大圆：CircleRadius 6.5→8；站位更分散（横向展开钳制
+  0.85→0.95×半宽）；径向前 0.26/后 0.44×R（后排再大会被屏幕下缘裁掉，
+  0.60/0.72 两档试后回收）。Play 截图验收通过。
+- 取消势能四轨迷你条展示（UnitView 不再建条，SetMomentum 空转；火/金光环/
+  白闪保留）；站位横向钳制再放宽 0.95→1.1×半宽。
+- 卡牌浮空 1/5 卡高（GroundPoint 抬 y）；两队前排径向 0.26→0.31×R 拉开间距。
+- 逻辑圆倾斜最终取消：`PilotYawDeg` 8°→0°（旋转机制保留，改常量即可复开）。
+- 修「幽灵卡」双影：Play 中热重编译清空 _units 字典但卡 GameObject 残留，
+  `BattleBoardView.Clear` 改为 GetComponentsInChildren 兜底全删（P-31）。
+- 俯角 45°→55°（"站起来看"）：机位抬高，近远排透视大小差收敛；卡后仰、
+  贴地补偿同源 `PilotPitchDeg` 自动跟随。
+- 舞台表现模块化：站位逻辑从 ArenaStageView 拆出为 `Units/ArenaSlotLayout.cs`
+  （逻辑圆唯一权威），ArenaStageView 只管地/天底图；魔法数具名
+  （HoverRatio/SpreadCap/ChromeFactor 公开化）；GroundY/圆心 z 同源
+  CameraFitter（PilotGroundY/PilotPivotZ 唯一定义）。回归截图一致。
+- 新文档 `docs/client/arena_stage.md`（近 3D 舞台表现权威：桌面比喻、模块
+  职责表、定稿常量表、站位规则、已废弃方案清单），index/rendering_layout 登记。
+
+## 2026-07-25 Arena 资源协议 + 奥林匹斯地/天拼接落地
+- 协议：`Resources/ClientBattle/Arena/arena|sky|statue_<key>.png`；登记 assets_upload_guide §5b。
+- 新增 `Units/ArenaStageView.cs`：地面平躺板 ⊥ 天空竖板（45° 相机），两图齐备自动替换平面背景；
+  `BattleBoardView.BuildBackground` 接入，Clear 同步清理；已预写两张图 Sprite .meta（P-20）。
+- 已在 ClientBattleDemo Play 截图验收：地面圆环托卡、近大远小成立、接缝≈屏高 2/3（GroundFarZ 调 14→10）。
+- 修：天空只按「接缝→屏顶」需要高度取尺（蓝天入画，不再只见雾底）；地面宽度冗余 1.15→1.45 消透视黑角。
+- 修：天空宽度按 45° 斜向光路补偿（×2），消除两上角黑缺口（原「圆角」观感）。
+- 计划推进：见 near3d_evaluation §六b（下一步接缝雾带/神像淡入/其余两舞台）。
+
+## 2026-07-25 舞台全宽铺满 + 云/地天过渡/景深写入提示词
+- 防突兀=地天 16:9 横向全宽铺满，UI 半透叠两侧；卡仍只落中央竞技区。
+- 地面：中央≈50% 法院，左右翼同材质填满；上远下近大气景深。
+- 天空：垫地面；神/人必有云、妖暗雾；底边雾色接地面远缘。
+
+## 2026-07-25 天空出图：垫地面参考 + 时段定稿
+- 天空必须垫该舞台已定稿地面图（只借色板/材质/光感，不抄俯视构图）。
+- 时段：神=正午、人=黎明、妖=暗夜；§7.3–7.6 与分舞台 Negative 已写明。
+
+## 2026-07-25 地面竞技区比例修正（看台不得过半）
+- 出图失败模式：中心场太小、观众席纹理占多半；§7.1 改为法院≈70–75%、看台仅边缘 10–15% 窄圈。
+- 主题块与 Negative/验收同步：看台大于场地一律作废重出。
+
+## 2026-07-25 舞台地/天分图 + 竞技场感地面指令
+- 废止一体式与「纯材质 swatch」地面；天空竖板 ⊥ 地面水平 Quad。
+- `near3d_evaluation.md` §七重写：地面须含中心静区/内环/外环看台 footprint/轴线；天空不画地板。
+- 横屏布局目标：左右各≈1/4 UI；中间上1/3天、下2/3地+卡。
+
 ## 2026-07-25 近 3D 默认 45° + 地面 AI 出图指令
 - `CameraFitter.PilotPitchDeg=45`、`PilotDistance=12.5`；卡 FaceCamera 后与地面夹角≈45°。
-- `docs/dev/near3d_evaluation.md` §七：正俯视地面母版指令 + 神/人/妖主题块 + 负面词 + 验收清单。
-- 同步 `rendering_layout` / `vfx_playback_scheme` / `stage_plan` 进度行。
+- （§七 已被同分日「地/天分图」条目取代，勿再用旧正俯视材质板指令。）
 
 ## 2026-07-25 RFX4 粉红修复（导入官方 URP Patch）
 - 根因：未导 `Realistic Effects Pack v4/.../URP patch`；Effect22 `Fog.mat` 等为 Built-in Particles/Standard。

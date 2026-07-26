@@ -45,6 +45,16 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
 | `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
 | `aura_aegis` / `hit_shield_counter` | 圣盾挂身 / 反制命中 | 挂身＝**AllIn1 金描边**（无 Magic 粒子）；反制 ← **Magic Effect17_Collision** |
+| `ground_crack_path` / `_0`~`_3` | **弹道类骨架变体**：每套 2~4 条接力大缝；飞行途中每段各抽不同变体；档 1/2 无熔岩，档 3 与命中同亮度 | G4 生成；兼容 key `ground_crack_path`＝变体 0 |
+| `ground_crack_hit` | **命中类骨架**：受击者脚下分形放射裂地；场心大裂地也用它（配大面积+档 3） | 同上；直径＝运行时卡宽 ×1.5 ×面积倍率 |
+| `ground_lava_bloom` | 熔岩过曝层，**当前未接线**（熔岩走 shader 沿缝渐变+灭点，见 `ground_crack_language.md`），留库备用 | **Magic Pack v1 Effect8** 晋升，菜单 `GreekMyth/裂地/G12` |
+| `chunks_<stage>.png` | 碎块图集（4×3），工具保留、现行 ChunkCount=0 | 菜单 `GreekMyth/裂地/G3` 从 `arena_<stage>.png` 现切 |
+| `masks/mask_crack_{spine,radial}.png` | 弹道大小缝混排 / 命中分形放射（自烘） | G4 产出；旧 spur/arena 遮罩不再使用 |
+
+> 裂地族红线（详见 [ground_crack_language.md](ground_crack_language.md)）：
+> 模式×强度+面积正交；颜色唯一真源 `GroundCrackPalette`；触发唯一入口
+> `GroundCrackService`。**KriptoFX Decal 禁止接线**（URP 下品红盒面）。
+> 旧 key `ground_shatter` 已删除。
 | 石化 `petrify` | 美杜莎 | All In 1：立绘+卡框灰阶石色渐变（`UnitView.SetPetrified`） |
 | `lightning_strike` / `hit_lightning` | （旧）粒子落雷，触发已改程序化 | 命中闪仍可用 hit_lightning |
 | `aura_tide` | 波塞冬潮汐挂身（poseidon_tide） | **CFXR LightGlow A (Loop, Blue)** 蓝色呼吸光 |
@@ -145,6 +155,21 @@ Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。�
 | `UI/board_background.png` | ≥2048×1152（16:9 基准） | 棋盘背景，cover 铺满不变形；**未上传时为无色（纯黑）** |
 | `CardFrames/antique_frame.png` | 1024×1680（doc view 竖框） | 统一立绘边框；立绘等比塞入内窗，框盖在立绘上 |
 | `CardFrames/petrify.png` | 同外框比例 | 石化覆盖层回退（无 All In 1 时） |
+
+### 5b. 近 3D 舞台 `Resources/ClientBattle/Arena/`（2026-07-25 协议）
+
+所有 arena 相关图片一律放本目录；出图规范 `docs/dev/near3d_evaluation.md` §七。
+
+| 文件 | 规格 | 说明 |
+|---|---|---|
+| `Arena/arena_<stage>.png` | 16:9 全宽正俯视（≥2048 宽） | 地面：平躺水平板（顶边=远端）；`ArenaStageView` 加载 |
+| `Arena/sky_<stage>.png` | 16:9 横构图天穹 | 天空：竖板立于地面远端，底边接缝；cover 铺满 |
+| `Arena/statue_<name>.png`（预留） | 竖图透明底 | 神像浮现贴图，叠天空层 |
+
+`<stage>` ∈ `olympus` / `troy` / `abyss`（暂定；现已上传 olympus 两张）。
+两图齐备 + `CameraFitter.PerspectivePilot=true` 时自动启用近 3D 舞台
+（`Units/ArenaStageView.cs`），否则回退 `UI/board_background` 平面方案。
+Texture Type 必须 Sprite（P-20；已预写 .meta）。
 
 ## 二、成品化路线（把演出从占位配成成品）
 

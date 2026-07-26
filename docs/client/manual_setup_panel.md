@@ -9,9 +9,10 @@
    （**不需要** BattleReportTester）。
 2. Play 后自动加载武将目录（python 导出，约 1 秒）。
 3. 页面布局：**每队 6 站位槽**（1~3 前排、4~6 后排），B 在上 / A 在下镜面；
-   播放侧支持交错阵：方圆{1,5,6} / 却月{1,2,6} / 鹤翼{2,4,6}
-   （见 [rendering_layout.md](rendering_layout.md) §五）；配阵仍可点满 12 槽调试。
-   中缝「对战 1 次 / 对战 100 次」+ 种子。每队最多上阵 **3** 人。
+   播放侧六套预设：一字{1,2,3}/锥形{2,4,6}/箕形{1,5,6}/方圆{3,4,5}/
+   偃月{1,3,5}/雁行{1,2,6}（见 [battlefield_layout.md](battlefield_layout.md)）；
+   配阵仍可点满 12 槽调试。中缝「对战 1 次 / 对战 100 次」+ 种子。
+   每队最多上阵 **3** 人。
 4. 交互：
    - 点空位 → 武将备选池（32 将，同队同模板置灰；满 3 人置灰）；点即上阵。
    - 拖已上阵武将到另一位 → 换位/互换（同队重复或跨队超 3 人会拒绝）。
@@ -26,7 +27,7 @@
 - 槽位下标 → `position` 1~6 写入 config 每位英雄字段（空位跳过）。
 - 也可手写 JSON：队级 `positions: [1,4,2]` 与 `heroes` 等长，或每位
   `"position": N`；缺省按出现序 1..n（见 `client_battle_bridge.build_setup_from_config`）。
-- 战场播放落点见 `StanceLayout` / [rendering_layout.md](rendering_layout.md) §五。
+- 战场播放落点见 [battlefield_layout.md](battlefield_layout.md)。
 
 ## 三、数据流（HTTP 首选 · 子进程回退）
 

@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 65254f02113119c4d87d5115eebe910f
+timeCreated: 1496632648
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Scripts/RFX1_ParticleCollisionGameObject.cs
+  uploadId: 633025

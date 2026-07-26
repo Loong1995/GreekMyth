@@ -65,10 +65,9 @@ def parse_cli_hero(spec: str, position: int) -> dict:
 
 
 def build_team(team_id: str, heroes: list[dict],
-               positions: list[int] | None = None,
-               formation: str = "") -> TeamSetup:
-    """heroes 为 config 条目；可选 positions 与 heroes 等长（1~6）；
-    可选 formation（阵型 id，battle/formations.py 注册表）。
+               positions: list[int] | None = None) -> TeamSetup:
+    """heroes 为 config 条目；可选 positions 与 heroes 等长（1~6）。
+    阵型由站位集合自动识别，禁止传 formation 字符串。
     缺省每位用 h['position']，再缺省按序 1..n（前排起）。"""
     if positions is not None and len(positions) != len(heroes):
         raise ValueError(
@@ -93,7 +92,7 @@ def build_team(team_id: str, heroes: list[dict],
             initial_troops=h.get("initial_troops"),
         ))
     return TeamSetup(team_id=team_id, main_hero_id=setups[0].hero_id,
-                     heroes=tuple(setups), formation=formation)
+                     heroes=tuple(setups))
 
 
 def build_setup(config: dict) -> BattleSetup:
@@ -102,7 +101,6 @@ def build_setup(config: dict) -> BattleSetup:
             t.get("team_id", "AB"[i]),
             t["heroes"],
             positions=t.get("positions"),
-            formation=t.get("formation", ""),
         )
         for i, t in enumerate(config["teams"])
     )

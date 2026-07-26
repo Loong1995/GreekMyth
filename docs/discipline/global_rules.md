@@ -52,6 +52,11 @@
 6. 特效缩放只做相对乘法（`*=`），禁止覆盖 localScale；回池由
    `VfxOriginalScale` 复位。
 7. 中文名表 `Names/ChineseNames.cs` 与后端 `battle/names.py` 必须同步。
+8. **厂包特效一律走标准化协议**（`docs/client/vfx_standardization.md`）：
+   人点名某件厂包表现要接线，**或**只是要求「参考／做到接近某 EffectN 的观感」，
+   都必须先定件、逐层判定可迁移/需替代，再落 Resources 标准件并登记接线。
+   禁止凭印象手搓近似、禁止 Profile 直引 `Assets/KriptoFX/**`。
+   `EffectN` 与 `EffectN_Collision` 是不同件，不得互相替代。
 
 ## 五、目录权限
 

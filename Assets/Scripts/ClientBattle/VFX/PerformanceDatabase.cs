@@ -108,9 +108,12 @@ namespace ClientBattle.VFX
                         HitKey = "hit_lightning",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
                 // 赫克托尔：走主动默认 Auto（群攻≥2→AoeCenter）；勿写死 AoeCenter，
-                // 否则 prepare（无伤害）也会空跑进中心，像没放技能
+                // 否则 prepare（无伤害）也会空跑进中心，像没放技能。
+                // 裂地：自带准备型物理群攻＝档 3；拆解瞬发＝档 1（不配）；
+                // 势能加强出手由服务强制档 3 + 命中面积 1.5（见 ground_crack_config）。
                 new() { SkillOrStatusId = "hector_warcry", Template = PerformanceTemplate.Auto,
-                        CameraShakeOnHit = true, SfxKey = "sfx_active_default" },
+                        CameraShakeOnHit = true, SfxKey = "sfx_active_default",
+                        GroundStrengthTier = 3 },
                 new() { SkillOrStatusId = "hector_assault", Template = PerformanceTemplate.Auto,
                         CameraShakeOnHit = true },
                 // 神：埃癸斯圣盾——挂身 AllIn1 金描边；反弹命中=Magic Effect17_Collision

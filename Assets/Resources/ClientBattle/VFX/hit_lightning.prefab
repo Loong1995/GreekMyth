@@ -68,16 +68,31 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 108689825063144544, guid: 260f399c3ea71934bbf9a913d99f9d6c, type: 3}
-      propertyPath: m_Intensity
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 114852863253868710, guid: 260f399c3ea71934bbf9a913d99f9d6c, type: 3}
-      propertyPath: canUpdate
-      value: 1
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1978339525470840, guid: 260f399c3ea71934bbf9a913d99f9d6c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6184551749086647148}
   m_SourcePrefab: {fileID: 100100000, guid: 260f399c3ea71934bbf9a913d99f9d6c, type: 3}
+--- !u!1 &2203010263244783488 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1978339525470840, guid: 260f399c3ea71934bbf9a913d99f9d6c, type: 3}
+  m_PrefabInstance: {fileID: 2203858235555288568}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6184551749086647148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2203010263244783488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95e6cf0fd8508a84f82b3ea5f7177716, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxFitter
+  Reference: 0
+  Factor: 1
+  BakedBasis: 1.7298138

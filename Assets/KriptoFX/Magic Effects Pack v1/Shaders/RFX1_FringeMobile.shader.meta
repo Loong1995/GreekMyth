@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 57b630b2f0d633745b3e5f0db6ab62aa
+timeCreated: 1498499251
+licenseType: Free
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 99856
+  packageName: Magic Effects Pack 1
+  packageVersion: 1.3.01
+  assetPath: Assets/KriptoFX/Magic Effects Pack v1/Shaders/RFX1_FringeMobile.shader
+  uploadId: 633025
