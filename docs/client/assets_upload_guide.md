@@ -44,7 +44,7 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
 | `aura_fire_foot` / `aura_fire_head` | 阿瑞斯血战（脚） | 仅卡框红呼吸 `SetAresRage`（弱）；`aura_fire_head` 备用 |
 | `aura_ares_might` | （旧）阿瑞斯战神之勇 Effect18 | 已由 `shroud_ares_might` 取代，可留库 |
-| `shroud_ares_might` | 阿瑞斯战神之勇罩身 | 画廊 2/8·**10/61**＝Magic Effect18 **完整件**；`VfxShroudFollower` + `VfxShroudPresence`（OddRounds） |
+| `shroud_ares_might` | 阿瑞斯战神之勇罩身 | 画廊 2/8·**10/61**＝Magic Effect18；落盘 `VfxUsage.Shroud`（摘 Distortion/贴花/PerPlatformSettings，P-77）；挂载 `VfxShroudFollower` + `VfxShroudPresence`（OddRounds） |
 | `cast_duel_launch` | 单挑出阵：双方**定位圆**地面（Effect28） | **RFX4 Effect28**（画廊 3/8 包 19/54 件）；RFX4 深度贴花层 URP 画不出、标准化时摘除（P-33） |
 | `aura_duel_victory` | 单挑加冕：胜者**卡面**；亦作出阵双方**卡面追加**（画廊 1/8 件 8/60） | 原料 **RFX4 Effect23** → 碰撞子件 **Effect23_Explosion**（P-68） |
 | `ground_duel_defeat` | 单挑溃败：败者**定位圆地面** | 原料 **Magic Pack v1 Effect8** → **Effect8_Collision**；挂 `VfxGroundLayer`；贴花 → 自研裂地补 |

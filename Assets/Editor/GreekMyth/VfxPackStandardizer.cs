@@ -13,6 +13,12 @@ namespace GreekMyth.EditorTools
         Anchor,
         /// <summary>地面定点件：同 Anchor，另挂 VfxGroundLayer（排序豁免+埋地救援）。</summary>
         Ground,
+        /// <summary>罩身件（`shroud_` 前缀）：常驻包裹卡身。尺寸归挂载期
+        /// `VfxShroudFitter`（不挂 VfxCircleFit）；**摘全部屏幕折射层**——
+        /// Distortion shader 是屏幕空间抓帧折射，罩在卡前把整张卡面折糊
+        /// （P-77），而它在低频舞台上本就贡献不了可见的罩形（P-74 定论）；
+        /// 另摘 CollisionTrigger（舞台无碰撞体，纯死重）。</summary>
+        Shroud,
     }
 
     // =========================================================================
@@ -76,7 +82,10 @@ namespace GreekMyth.EditorTools
                 return false;
             }
 
-            string resolved = ResolveAnchorSource(srcPath, out string redirect);
+            // 罩身不做运载器改选：罩身原料是常驻壳件，不存在"飞到碰撞点"语义
+            string redirect = null;
+            string resolved = usage == VfxUsage.Shroud
+                ? srcPath : ResolveAnchorSource(srcPath, out redirect);
             string dest = $"{VfxDir}/{key}.prefab";
             System.IO.Directory.CreateDirectory(VfxDir);
             if (AssetDatabase.LoadAssetAtPath<Object>(dest) != null)
@@ -105,6 +114,7 @@ namespace GreekMyth.EditorTools
                 TrimAudio(root, log);
                 TrimLights(root, log);
                 StripDeadLayers(root, log);
+                if (usage == VfxUsage.Shroud) StripShroudUnfit(root, log);
                 float shifted = NormalizeStartDelay(root);
                 if (shifted > 0.001f) log.AppendLine($"  前移起播 -{shifted:F2}s");
                 AttachUsageComponents(root, usage, log);
@@ -283,6 +293,40 @@ namespace GreekMyth.EditorTools
             }
         }
 
+        /// <summary>罩身专属清洗（P-77）：
+        ///   · **摘全部折射层**（shader 名含 Distortion 的粒子层节点）。折射 shader
+        ///     是屏幕空间抓帧：罩在卡面前会把背后的立绘/卡框整块折糊，观感就是
+        ///     「卡面模糊」；而 P-74 已实测它在我们低频舞台上贡献不了可见罩形。
+        ///     可见的罩形语言由 Particle/Fringe 加色层承担（ShieldAdd 等）。
+        ///   · 摘 RFX*_CollisionTrigger：靠场景碰撞体触发子件，舞台上没有碰撞体，
+        ///     留着只是每帧白跑的死重。</summary>
+        static void StripShroudUnfit(GameObject root, StringBuilder log)
+        {
+            var refractive = new List<GameObject>();
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var shader = r.sharedMaterial != null ? r.sharedMaterial.shader : null;
+                if (shader == null || r.gameObject == root) continue;
+                if (shader.name.IndexOf("Distortion", System.StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                refractive.Add(r.gameObject);
+            }
+            foreach (var go in refractive)
+            {
+                log.AppendLine($"  摘折射层 {go.name}（屏幕抓帧折糊卡面，P-77）");
+                Object.DestroyImmediate(go, true);
+            }
+
+            foreach (var mb in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb == null) continue;
+                string n = mb.GetType().Name;
+                if (!n.StartsWith("RFX") || !n.Contains("CollisionTrigger")) continue;
+                log.AppendLine($"  摘 {n} @ {mb.gameObject.name}");
+                Object.DestroyImmediate(mb, true);
+            }
+        }
+
         /// <summary>掐空转前摇：把所有层 startDelay **同时前移**，使最早会出图的层
         /// 从 0 起播（层间先后＝表演结构，故整体平移而非各自归零）。
         /// 判"会出图"只认 burst / rateOverTime——定点件永远静止，
@@ -317,7 +361,9 @@ namespace GreekMyth.EditorTools
 
             // 定径：复刻画廊「C 键定径」。厂包件按 3D 世界尺度做（动辄 5~10 米），
             // 不定径接进来就是糊满全屏。基准取投影圆，与画廊一致。
-            if (root.GetComponent<VfxCircleFit>() == null)
+            // 罩身例外：尺寸唯一归挂载期 VfxShroudFitter（量壳定径 + 钉地环），
+            // 再挂 CircleFit 就是两个写方打架（尺寸组件三选一原则）。
+            if (usage != VfxUsage.Shroud && root.GetComponent<VfxCircleFit>() == null)
             {
                 var fit = root.AddComponent<VfxCircleFit>();
                 fit.Reference = VfxCircleFit.Circle.Projection;
@@ -331,7 +377,7 @@ namespace GreekMyth.EditorTools
                 if (mb != null && mb.GetType().Name.StartsWith("RFX")) { driven = true; break; }
             if (driven && root.GetComponent<VfxFreshInstance>() == null)
                 root.AddComponent<VfxFreshInstance>();
-            log.AppendLine("  [VfxCircleFit=投影圆]"
+            log.AppendLine((usage == VfxUsage.Shroud ? "  [尺寸归 VfxShroudFitter]" : "  [VfxCircleFit=投影圆]")
                            + (usage == VfxUsage.Ground ? " [VfxGroundLayer+埋地救援]" : string.Empty)
                            + (driven ? " [VfxFreshInstance 不池化]" : string.Empty));
         }

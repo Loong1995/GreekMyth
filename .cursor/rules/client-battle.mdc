@@ -10,16 +10,18 @@ alwaysApply: false
 
 - **零结算**：兵力只写事件 `troops_after`；落账唯一入口 `EventApplyService`
 - **生命周期**：公开入口只走 `PerformanceRunner`；主循环在 `PlaybackDirector`；
-  建世界在 `PlaybackWorldBuilder`；cut-in 阈值在 `CutInPolicy`
+  建世界在 `PlaybackWorldBuilder`；cut-in 判定在编译期 `Events/CutInPlanner`
+  （运行期只读 `EventGroup.CutIn`）
 - **HardStop（R-1.2）**：必须清协程/tween/VFX/飘字/气泡/cut-in/**横幅**/BGM；
   重播不得叠影或残留「系列结束」文案
 - **tween**：单位/特效位移必须 `SetLink(宿主GO)`；`DOTween.KillAll` 仅 HardStop
-- **扩展**：新分组逻辑进 `Events/Processors/`；新演出进 `SkillPerformance` 派生，
+- **扩展**：新分组逻辑进 `Events/Processors/`（链序登记在
+  `PlaybackCompiler.BuildPipeline`）；新演出进 `SkillPerformance` 派生，
   禁止在 Runner/Director 主循环塞特例
 - 中文名与 `battle/names.py` 同步（`Names/ChineseNames.cs`）
-- **特效点名（强制）**：用户指出画廊/厂包某件、或改默认命中/弹道/光环/单挑 VFX 时，
-  **第一条工具调用必须 Read** `docs/client/vfx_standardization.md`，并按清单：
-  `_gallery_index_dump.py` 定件 → `VfxPackStandardizer` 落盘 → guide 登记 →
-  Profile/`StagePerformanceConfig` 填 key → 验收。禁止 Profile 直指包目录；
-  禁止只改字符串不落盘；**不做**晋升 GUI。细节见
+- **特效点名（强制）**：用户指出画廊/厂包某件、或改默认命中/弹道/光环/**罩身**/
+  单挑/地面 VFX 时，**第一条工具调用必须 Read** `docs/client/vfx_standardization.md`，
+  按清单：定件 → `VfxPackStandardizer`（罩身＝`Shroud`）→ guide → Profile/配置 →
+  验收。禁止 Profile 直指包目录；禁止只改字符串不落盘；**禁止平行落盘旁路**
+  （CopyFull/手拷/完整件跳过流水线，P-77）；**不做**晋升 GUI。细节见
   `.cursor/rules/vfx-standardization.mdc`。

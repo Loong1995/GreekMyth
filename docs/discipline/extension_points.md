@@ -56,9 +56,9 @@
 | 中文名 | `Names/ChineseNames.cs`（与 `battle/names.py` 同步红线） |
 | 事件流改写（拆组/合并/重排） | `EventPipeline.Register` 新 `IEventProcessor`（红线见 [playback_units.md §二](../client/playback_units.md)） |
 | 真实资源 | `Resources/ClientBattle/<类别>/<key>`（占位回退，零代码） |
-| 罩身件挂载（定径+跟随**投影圆**） | `VfxShroudFollower.FitAndFollow`（定径 `VfxShroudFitter.Fit`）；**默认不裁层** |
+| 罩身件挂载（定径+跟随**投影圆**） | `VfxShroudFollower.FitAndFollow`（定径 `VfxShroudFitter.Fit`）；挂载期**不裁层**（定径职责）；落盘清洗归 `VfxUsage.Shroud` |
+| 罩身厂包落盘 | **`VfxPackStandardizer.Standardize(src, key, VfxUsage.Shroud)`**（示例 `WireAresMightShroud`）；**禁止** CopyFull / 手拷旁路（P-77） |
 | 任何要落在「某张卡脚下 / 身上」的**地面圆**定位定径 | **先选对圆**：脚下痕迹（裂地/法阵/地面件）用**定位圆** `ArenaSlotLayout.AnchorCircle*`（心＝接地点，直径＝卡宽）；把整张卡包进去的罩身件用**投影圆** `ProjectionCircle*`（心＝卡心正下方，半径＝影子半对角线，约 1.4 倍且**不同心**）。定义见 `docs/client/arena_stage.md` §四c。旧名 `CardCircle*` 已废止，**禁止再引入不带 Anchor/Projection 前缀的"圆"** |
-| 罩身厂包完整拷贝 | `WireShroudEffect.CopyFull`（strip 参数默认 null） |
 | 绕身显隐（出现/渐隐） | **`VfxShroudPresence`** + 注册表 `ShroudVisibility`（Always/OddRounds/EvenRounds/Manual）；任意时机 `UnitAuraService.SetShroudVisible`；`HasShroud`＝`IsPresent`（渐隐后恢复受击抖动） |
 | ~~某罩身个案显隐~~ | ~~`AresMightShroudPulse`~~ → 已收进通用 Presence（2026-07-26） |
 

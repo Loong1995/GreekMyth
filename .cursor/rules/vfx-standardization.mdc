@@ -1,15 +1,15 @@
 ---
-description: 厂包/画廊特效接入——强制先读标准化纪律，禁止裸奔接线
-globs: Assets/Editor/GreekMyth/**/*Vfx*.cs,Assets/Editor/GreekMyth/Wire*.cs,Assets/Editor/GreekMyth/Standardize*.cs,Assets/Scripts/ClientBattle/VFX/**/*.cs,docs/client/vfx_*.md
+description: 厂包/画廊特效接入——强制先读标准化纪律，禁止裸奔与旁路落盘
+globs: Assets/Editor/GreekMyth/**/*Vfx*.cs,Assets/Editor/GreekMyth/Wire*.cs,Assets/Editor/GreekMyth/Standardize*.cs,Assets/Scripts/ClientBattle/VFX/**/*.cs,Assets/Scripts/ClientBattle/Units/**/*Aura*.cs,Assets/Scripts/ClientBattle/Units/**/*Shroud*.cs,Assets/Scripts/ClientBattle/**/*Shroud*.cs,docs/client/vfx_*.md,docs/client/assets_upload_guide.md
 alwaysApply: false
 ---
 
-# 特效接入工作流（不可裸奔）
+# 特效接入工作流（不可裸奔、不可旁路）
 
-用户**点名画廊序号 / 厂包 EffectN /「参考某件观感」**要接到武将、命中、
-单挑、地面等任一演出时，**动手前必须 Read**：
+用户**点名画廊序号 / 厂包 EffectN /「参考某件观感」**，或改**命中 / 弹道 /
+光环 / 罩身 / 单挑 / 地面**任一 VFX key 时，**动手前必须 Read**：
 
-1. `docs/client/vfx_standardization.md`（清单权威；无 GUI 晋升）
+1. `docs/client/vfx_standardization.md`（清单权威；无 GUI 晋升；§〇.1 旁路禁令）
 2. 按需：`docs/client/assets_upload_guide.md`（key 登记）、
    `docs/discipline/extension_points.md`（挂载点）、
    相关机制文档（如 `docs/mechanics/duel.md`）
@@ -20,17 +20,23 @@ alwaysApply: false
    （包号以人点名的为准；**[1/8]=我方标准件**，其后才是厂包。
    **禁止**用「分母 61→Magic=2/8」这类启发式覆盖口头包号——标准件目录
    现亦约 61 件，会把 1/8 件 41 错接到 Effect19（P-71））
-2. **落盘**：若点的是 **1/8 我方标准件**，key 已在 Resources，**只改接线**
-   （ResolveHitKey / Profile），禁止再从厂包 Standardize 覆盖同名 key；
-   厂包原料才走 `VfxPackStandardizer.Standardize`；接线脚本=清单+AutoHeal+菜单
+2. **落盘（唯一入口）**：`VfxPackStandardizer.Standardize(src, key, usage)`
+   - 定点/卡面 → `VfxUsage.Anchor`；地面 → `Ground`；**罩身 → `Shroud`**
+   - 若点的是 **1/8 我方标准件**，key 已在 Resources → **只改接线**，禁止再
+     Standardize 覆盖同名 key
+   - 接线脚本＝清单 + AutoHeal + 菜单（参考 `WireDuelStageVfx` /
+     `WireAresMightShroud`）
 3. **禁止 Play 模式接线**；运载器定点用途直接点 `*_Collision`/`*_Explosion`
-   （ShieldCollisionTrigger 类母件自动改选可能抓不到）
 4. **登记** `assets_upload_guide.md` + Profile / `StagePerformanceConfig` key
 5. **验收** Verify / 控制台无 MissingComponent；changelog 一行
 
-## 禁止
+## 禁止（P-70 / P-77）
 
 - Profile/演出代码直指 `Assets/KriptoFX/**` 等包目录
 - 凭印象手搓「像 EffectN」的粒子
 - 做人点的晋升 GUI / 队列
 - 只改 key 字符串却不落盘 Resources 标准件
+- **任何平行落盘旁路**：`CopyFull` / `InstantiatePrefab`+`SaveAsPrefabAsset` /
+  手拷 Resources / 「完整件原样拷贝不走流水线」——一律违规（P-77）。
+  「接近画廊」靠流水线用途分支（如 `Shroud` 摘折射），不靠跳过清洗
+- 罩身成品残留 Distortion / PerPlatformSettings / 死贴花 / 多余音源灯

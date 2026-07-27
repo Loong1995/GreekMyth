@@ -9,10 +9,11 @@
 > key 登记：[assets_upload_guide.md](assets_upload_guide.md)；
 > 注册点：[extension_points.md](../discipline/extension_points.md)；
 > 坑的完整叙述：[ai_workflow_pitfalls.md](../discipline/ai_workflow_pitfalls.md)
-> P-33 / P-38 / P-64 / P-65 / P-66 / P-67 / P-68 / P-71。
+> P-33 / P-38 / P-64 / P-65 / P-66 / P-67 / P-68 / P-70 / P-71 / P-74 / P-77。
 >
 > 2026-07-26 定稿；2026-07-27 依单挑三件实战全面修订，并将落盘统一收口到
-> `VfxPackStandardizer` 流水线（本版）。本文件 ≤500 行。
+> `VfxPackStandardizer` 流水线（本版）。同日 P-77：罩身旁路「完整件拷贝」作废，
+> 收进 `VfxUsage.Shroud`。本文件 ≤500 行。
 
 ## 〇、第一原则：先证明资产在盘上，再谈观感
 
@@ -26,24 +27,40 @@
    `[InitializeOnLoadMethod]` **自愈检查**：缺件即自动补齐（幂等），
    不允许依赖人点菜单。参考实现：`WireDuelStageVfx.AutoHeal`。
 
-## 一、画廊 ≠ 运行期：七条已知差异（每接一件都要对一遍）
+### 〇.1 唯一落盘入口（旁路＝违规，P-77）
+
+`VfxPackStandardizer.Standardize(src, key, usage)` 是厂包→Resources **唯一**
+合法落盘入口。下列全部禁止（历史曾写成「罩身正确做法」，已废止）：
+
+- `CopyFull` / 「完整件原样拷贝不走流水线」
+- `InstantiatePrefab` + `SaveAsPrefabAsset` 手写拷贝脚本
+- 资源管理器手拷厂包进 `Resources/ClientBattle/VFX/`
+- 为「接近画廊」而跳过清洗（折射/贴花/PerPlatformSettings/音源灯）
+
+「接近画廊」只能靠**用途分支**扩流水线（`Anchor` / `Ground` / `Shroud`），
+禁止再开平行入口。挂载期 `VfxShroudFitter` **不裁层**（定径/钉地环）≠
+落盘期可以跳过标准化——两层职责勿混。
+
+## 一、画廊 ≠ 运行期：已知差异（每接一件都要对一遍）
 
 「画廊里挺好、接进去差一大截」不是素材问题，是**两条链路本来就不同**。
 2026-07-27 逐行对齐后固化。前五条已在框架层修平（前提是按 §四 挂对组件），
-后两条是必须承认的预算差。
+中间两条是必须承认的预算差；末条是罩身专属（P-77）。
 
 | # | 画廊 | 运行期 | 现状 |
 |---|---|---|---|
 | 1 | 播**原料**（脚本/贴花/灯/音源全在） | 播**标准件**（摘 Projector、摘 RFX Decal、限灯删音源） | 贴花**不可逆**（URP 画不出，P-33）；灯是主动砍的 |
 | 2 | 每次 `Destroy`+`Instantiate`，驱动脚本 `Awake/Start` 每次跑 | 池化复用**不重跑 Awake/Start**；且 `Prewarm` 让**第一次**播就已是复用态 | 已修：带 `RFX*` 驱动脚本的件挂 `VfxFreshInstance` 绕过池 |
-| 3 | 按了「C 键定径」缩到圆直径 | `VfxFitter` 只做随卡宽浮动，**不改原生尺寸** | 已修：`VfxCircleFit` |
+| 3 | 按了「C 键定径」缩到圆直径 | `VfxFitter` 只做随卡宽浮动，**不改原生尺寸** | 已修：`VfxCircleFit`；罩身走 `VfxShroudFitter` |
 | 4 | 播完自然收尾，中途不砍 | `RecycleAfter` 曾到点直接 `SetActive(false)`＝拦腰砍断 | 已修：先 `StopEmitting` 再等余烬散尽（上限 1.2 s） |
 | 5 | 起播只在根级 `Play(withChildren)` | 曾对**每层**都 Play，子发射器相位被打乱 | 已修：只在「最上层」粒子系统起播 |
 | 6 | `RescueIfBuried` / `LiftPackSpawns` / 弹道 Target-Speed 反射接线 | 部分 | 埋地救援已进 `VfxCircleFit.RescueIfBuried`；后两条接厂包**弹道主件**时仍需补 |
 | 7 | K 键 **0.25× 慢放**（厂包出手件整段仅 0.9 s，审核基本必开） | 1× | **预算差，不可修**。要接近就得给足真实时间（如单挑顺序播）或局部慢放 |
+| 8 | 高频 3D 背景上折射壳「看得见」 | 低频大理石舞台 + 罩在卡前 | **罩身必须摘 Distortion**（`VfxUsage.Shroud`）；留着＝卡面折糊且罩形仍不可见（P-74/P-77）。另：`PerPlatformSettings` 真机偷降发射率，旁路拷贝必中招 |
 
 **验收时先自问第 7 条**：你在画廊里拍板的那个印象，是不是慢放下的？
 是的话，1× 下永远达不到，得用「给足时间」或「降低期待」解决，不是继续调参数。
+罩身另问第 8 条：成品还有没有 Distortion / PerPlatformSettings。
 
 ## 二、两层货架（勿混淆）
 
@@ -116,7 +133,11 @@
     `ResolveAnchorSource` 会沿位移脚本的 `EffectsOnCollision`/`EffectOnCollision`
     字段自动改选，无须人工判断。
   - **弹道用途** → 用母件全套，保留位移驱动，走 Target/Distance/Speed 反射接线。
-- 罩身件走 `VfxShroudFitter` 规格。
+  - **罩身用途**（`VfxUsage.Shroud`）→ 原料是常驻壳件本身（不做运载器改选），
+    但**摘全部屏幕折射层**（shader 名含 Distortion）：折射是屏幕空间抓帧，
+    罩在卡前把卡面整块折糊（P-77）；且低频舞台上它本就贡献不了可见罩形（P-74）。
+    罩形语言由 Particle/Fringe 加色层承担。另摘 `RFX*_CollisionTrigger`（舞台无碰撞体）。
+- 罩身件尺寸走 `VfxShroudFitter` 规格（流水线**不挂** `VfxCircleFit`，两写方互斥）。
 
 ### 4.2 起 key
 
@@ -154,7 +175,7 @@
    自研裂地 `GroundCrackService.PlayHit`）。
 8. **掐空转前摇**（`NormalizeStartDelay`）：所有层 startDelay **同时前移**到最早
    会出图的层从 0 起播（整体平移保层间结构）。判"会出图"只认 burst/rateOverTime。
-9. **用途组件**：`Ground` → `VfxGroundLayer`；一律挂 `VfxCircleFit`
+9. **用途组件**：`Ground` → `VfxGroundLayer`；除 `Shroud` 外一律挂 `VfxCircleFit`
    （基准=投影圆，地面件开 `RescueIfBuried`）；残留 `RFX*` 脚本 → `VfxFreshInstance`。
    尺寸组件互斥原则不变：`VfxCircleFit` / `VfxGroundLayer`（尺寸归裂地档位时摘
    CircleFit，见 `StandardizeLavaBurst`）/ `VfxFitter` 三选一。
@@ -173,8 +194,10 @@
 
 1. `assets_upload_guide.md` §特效表加一行（来源包 + 逐层去向备注）。
 2. key 写入 Profile 字段或演出配置（§三 交付物 3 的区分）。
-3. 罩身：`VfxShroudFitter.Fit` + `VfxShroudFollower`；通用类禁止裁层，
-   个性裁层进各技能 Wire 名单。
+3. 罩身：落盘走 `Standardize(src, key, VfxUsage.Shroud)`（示例
+   `WireAresMightShroud`）；挂载 `VfxShroudFitter.Fit` + `VfxShroudFollower`
+   （挂载期**不裁层**——定径/钉地环职责）。流水线已按用途摘折射等；
+   个性裁层（去石块等）仍只进各技能 Wire 名单，禁止写进 Fitter/Follower。
 4. 加载只经 `VFXManager.PlayAt/PlayOn(key)`。顺序演出要「播完再走」的，
    等待时长用 `VFXManager.EmitWindow(key, cap)` 运行期探（真实秒，
    **不过 `ctx.Scaled`**，必须配上限），不写死。两种形态自动区分：
@@ -196,7 +219,8 @@
 - [ ] 实时灯 ≤1 盏无阴影、`AudioSource=0`、无 `WindZone`
 - [ ] 定点用途的件：原料是碰撞子件而不是钉住的运载器（§四.1）
 - [ ] 摘掉的观感层有替代方案且已记录
-- [ ] 对 §一 七条差异逐条过，尤其第 7 条（是不是慢放下拍的板）
+- [ ] 对 §一 差异表逐条过，尤其第 7 条（慢放）与第 8 条（罩身折射/平台降配）
+- [ ] 罩身成品：无 Distortion 层、无 PerPlatformSettings、无死贴花
 - [ ] guide 已登记；key 已接线（或写明「先入库」）；changelog 已写
 
 ## 五、标准件运行期属性（实现约束）
@@ -229,6 +253,8 @@
 | 探到的时长离谱地大 | 件里有循环层，`duration` 是周期不是时长 | — |
 | 特效不在落点、粒子乱跑后才炸 | 定点用途却用了运载器母件——改选碰撞子件，别去删位移驱动 | P-68 |
 | 别的特效被莫名吹歪 | 某件里带 `WindZone`（场景级力场） | — |
+| 卡面被罩身糊掉 / 罩身真机比画廊瘦一截 | 成品是否走了 `Shroud` 流水线；是否残留 Distortion / PerPlatformSettings | P-77 |
+| 罩身「没罩住」但几何算够了 | 定径是否按可见壳（跳过折射/Decal） | P-74 |
 | 第二次播放形状不对 | 子发射器是否被逐层 Play 打乱；池化残留 | — |
 | 地面圆对不准 / 溢出一圈 | 用的是定位圆还是投影圆（不同心不同径） | P-65 |
 | 尺寸随机型漂移 | `BakedBasis` 是否按非交错设计卡宽回填 | P-38 |
@@ -251,3 +277,29 @@
 | 画廊序号复算 | `battle/tools/_gallery_index_dump.py` |
 | 层构成报告 | `battle/tools/_prefab_layer_dump.py` |
 | 加载 | `VFXManager` + Profile key / 演出配置 |
+| 罩身接线（清单参考） | `GreekMyth/Magic Pack/接线战神之勇罩身…`（`VfxUsage.Shroud` + AutoHeal） |
+
+## 八、纪律是否「自动加载、足以防再犯」
+
+**能自动加载的**：
+
+| 层 | 机制 | 覆盖面 |
+|---|---|---|
+| Cursor alwaysApply | `00-session-start.mdc` | 任何会话：表行要求点名/改 VFX key 时 Read 本文；显式禁旁路 |
+| Cursor glob | `vfx-standardization.mdc` | 改 Wire*/Vfx*/Units 光环罩身/docs `vfx_*` 时叠加完整禁令 |
+| Cursor glob | `client-battle.mdc` | 改 `ClientBattle/**` 时再强调罩身＝`Shroud`、禁 CopyFull |
+| 文档总纲 | `discipline/index.md` → 客户端行 | 画廊点名 → 本文 |
+| 代码硬约束 | `VfxPackStandardizer` + `Verify` | 走流水线则摘折射/平台降配；旁路在代码层**拦不住** |
+
+**仍靠纪律、拦不住的**（必须写进规则与坑录，不能假装「架构自动防呆」）：
+
+1. 再发明平行落盘脚本（历史上 CopyFull 就是这样进权威文档的）——发现即删，
+   扩 `VfxUsage` 而不是开旁路。
+2. 会话只聊「卡面模糊」却不打开匹配 glob 的文件时，只靠 alwaysApply 表行触发；
+   若 AI 未把任务归类为 VFX 接入，可能漏读——故表行关键词含**罩身/光环/地面**。
+3. 弹道用途尚未收进流水线（§四.3 末）——接第一件时补分支，勿另起脚本。
+
+**充分性结论**：标准化流程本身是良定的（唯一入口 + 用途分支 + 验收四项）；
+自动加载对「改相关文件 / 点名接件」足够。**不足以**防止「文档把旁路写成正确做法」
+——那要用 §〇.1 + P-77 + extension_points 禁行一起堵；新例外只能加法进
+`VfxUsage`，禁止登记第二条落盘路径。

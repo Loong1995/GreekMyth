@@ -1,6 +1,54 @@
 
 # Changelog
 
+## 2026-07-27 特效纪律防旁路：P-77 根因收口 + 自动加载补强
+- **为何踩坑**：不是「没读标准化」，而是权威文档把 `CopyFull`「完整件旁路」
+  登记成罩身正确做法，与「只走 VfxPackStandardizer」并存——按文档做仍系统性
+  绕过清洗（折射折糊卡面 + PerPlatformSettings 真机降配）。
+- **纪律补强**：`vfx_standardization` 增 §〇.1 唯一落盘禁令、§一第 8 条、§八
+  「自动加载充分性」；pitfalls P-77 扩写工作流层根因；`extension_points` 删
+  CopyFull 行改为 `VfxUsage.Shroud`；guide/olympus/pack_integration/index 清
+  「完整件」残留。
+- **Cursor 自动加载**：`00-session-start` 表行显式含罩身+禁旁路；
+  `vfx-standardization.mdc` 扩 glob 到 Units 光环/罩身 + 禁止 CopyFull 清单；
+  `client-battle.mdc` 同步（顺带 CutInPolicy→CutInPlanner）。
+- 踩坑录超 500 行：P-01～P-49 拆入两份 archive，现行文件保留 P-50 起。
+
+## 2026-07-27 罩身收编流水线：修卡面折糊（P-77）
+- 战神之勇罩身模糊根因：原「完整件原样拷贝」（WireShroudEffect.CopyFull）残留
+  两层 `RFX1/Distortion` 屏幕折射，罩在卡前把卡面整块折糊；`PerPlatformSettings`
+  残留还会真机偷降发射率（「与画廊不一样」的第二来源）。
+- `VfxPackStandardizer` 新增 `VfxUsage.Shroud`：不做运载器改选、不挂
+  VfxCircleFit（尺寸归 VfxShroudFitter），专属清洗摘折射层 + CollisionTrigger；
+  `WireAresMightShroud` 改走流水线，CopyFull 删除。重接线后四项验证通过
+  （成品仅 ShieldAdd/Fringe/Bottom/FireBack 四可见层 + 1 灯）。
+- 文档：vfx_standardization §四.1/4.3/4.4 补 Shroud 用途；pitfalls 追记 P-77。
+
+## 2026-07-27 播放编译重整（schema 1.5.0 + PlaybackCompiler）
+- **服务端**：`Skill` 新增定义期标签 `damage_type`（register 强校验）/`tags`/
+  `category`（推导 property），32 将 + 标定/测试战法全量补标；新增
+  `battle/skill_catalog.py`，战报头出 `skill_catalog`（出场战法标签目录，
+  含固定条目 basic_attack），bridge 配阵页复用同一真源。
+  schema **1.5.0** / core **battle-0.4.2**，golden 11 份全量重生成，
+  新增 `test_skill_catalog.py`（267 测全绿）。
+- **客户端 asmdef 拆分**：`ClientBattle.Names`（纯表）与 `ClientBattle.Core`
+  （Events+Processors+Compiler）独立编译单元，L1/L2 禁反向依赖由编译器强制
+  （清掉 architecture §七第一条遗留债）。
+- **播放编译**：新增 `Events/PlaybackCompiler`——开播前一次「管线+决策」编译为
+  `CompiledPlayback`，主循环/高光读同一份产物；processor 链序唯一登记处从
+  WorldBuilder 收编至 `BuildPipeline`。分类读 `skill_catalog`
+  （追击 vs 主动直判，删 parent_seq 启发式；旧战报回落+告警）。
+- **cut-in 判定下沉**：`VFX/CutInPolicy` 删除，改 `Events/CutInPlanner`
+  编译期逐组注记（`EventGroup.CutIn`）；满档判据用**势能预演**（按组序重放
+  momentum value，读落账前值，与运行期镜像逐组等价）；Director 只读注记，
+  Session 删 PursuitCountInWindow。
+- **排查入口**：Editor 菜单「GreekMyth→播放→导出 PlaybackScript」把战报编译为
+  `.playback.json`（逐组 kind/key/事件/cut-in 注记），与运行期同源。
+- StreamingAssets 示例战报全量刷成 1.5.0；manual_3v3 冒烟断言随站位改
+  zhui 修正。文档：新增权威 `docs/client/playback_script.md`；architecture/
+  playback_requirements（R-2.7）/playback_units/cutin_stage/
+  performance_mechanisms/text_system/framework 同步；schema md+json 加 §2.2b。
+
 ## 2026-07-27 罩身定径修正（P-74）+ 弹道逐条解析
 - 罩身「没罩住」根因：`VfxShroudFitter.Measure` 把 **Decal**（随后必被 Pin 钉死）
   与**纯折射层**算进定径。Effect18 的 Decal2 宽 8.97、Distortion 6.34 宽，

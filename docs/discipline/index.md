@@ -12,7 +12,8 @@
 | 2 | [global_rules.md](global_rules.md) | 机制全局规则（确定性/契约/事件流红线） | 改 `battle/` 或契约前 |
 | 3 | [coding_standards.md](coding_standards.md) | 代码规范（后端 Python + 客户端 Unity） | 写任何代码前 |
 | 4 | [doc_standards.md](doc_standards.md) | 文档规范（目录职责/行数/同步义务） | 写任何文档前 |
-| 5 | [ai_workflow_pitfalls.md](ai_workflow_pitfalls.md) | 历史 AI 工作流踩坑录 | 永远；踩新坑必须追记 |
+| 5 | [ai_workflow_pitfalls.md](ai_workflow_pitfalls.md) | 历史 AI 工作流踩坑录（P-50 起；早号见归档） | 永远；踩新坑必须追记 |
+| 5a | [ai_workflow_pitfalls_archive_p01_p39.md](ai_workflow_pitfalls_archive_p01_p39.md) / [p40_p49](ai_workflow_pitfalls_archive_p40_p49.md) | 踩坑录归档（仍有效） | 查早期坑号 |
 | 6 | [extension_points.md](extension_points.md) | 通用机制（注册表/钩子）与特殊机制（特例登记）总账本 | 新增战法/状态/性格/演出前 |
 
 ## 与其他文档的关系
@@ -23,7 +24,8 @@
 - **战法语义**：`docs/skills/`（三段式：效果/实现/事件流）。
 - **客户端**：`docs/client/index.md` 起步；核心机制 `performance_mechanisms.md`；
   画廊点名厂包特效并接线 → **`docs/client/vfx_standardization.md`**（无 GUI 晋升，
-  AI 默认标准化并加载）；Cursor 另有 `vfx-standardization.mdc` 按 glob 强制叠加。
+  AI 默认标准化并加载；**唯一落盘入口** `VfxPackStandardizer`，禁 CopyFull 旁路）；
+  Cursor：`00-session-start` 表行 + `vfx-standardization.mdc`（改 Wire/VFX/光环罩身时叠加）。
 - **历史存档**（只读参考，不代表现状）：`docs/prompts/`（任务书）、
   `docs/dev/v0_analysis.md`、`phase3_plan.md`、`decisions_client_phase2.md`、
   `performance.md`（旧基准，0.2.0 时采集，现 core 0.4.1，如需现值重跑）。

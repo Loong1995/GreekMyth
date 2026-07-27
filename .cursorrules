@@ -19,18 +19,17 @@ doc_standards / ai_workflow_pitfalls 踩坑录）。任何工作先读该目录 
 ClientBattle / battle / docs / **vfx-standardization** 按 glob 叠加）。
 规则要求开工第一条工具调用用 Read 打开权威文档——比「口头必读」更可靠。
 **画廊/厂包点名接特效**：必须先读 `docs/client/vfx_standardization.md`，
-走 `VfxPackStandardizer` 落盘，禁止裸改 key 或凭印象手搓（P-70）。
+落盘**只**走 `VfxPackStandardizer`（罩身＝`VfxUsage.Shroud`）；禁止 CopyFull/
+手拷旁路、裸改 key、凭印象手搓（P-70/P-77）。
 
 ## 当前阶段
 - Phase 3（机制大修 + 武将池 v3.1 + 性格系统）**已完成**；
   v3.2 追加（减免施加序逐实例判定、圣盾反弹）已落地。
-  schema **1.4.1** / core **battle-0.4.1**（`battle/version.py`）。
-- Phase 4（势能/连发协击/BGM 分层/经理人战术等，`docs/prompts/phase4_coreupgrade.md`）
-  **已执行完毕**（2026-07-19~20 落地，见 changelog），武将池 32 将。
-- 客户端 **ClientBattle** 框架（2026-07-09 建立，占位可跑）已于 2026-07-23
-  完成播放核心架构重构（控制器/建造器/导演/策略拆分），主文档
-  `docs/client/index.md`；行为规格 `playback_requirements.md`、
-  架构权威 `architecture.md`。
+- Phase 4（势能/连发协击/BGM 分层/经理人战术等）**已执行完毕**，武将池 32 将。
+- schema **1.5.0** / core **battle-0.4.2**（`battle/version.py`；含 `skill_catalog`）。
+- 客户端 **ClientBattle**：播放编译重整已落地（`PlaybackCompiler` /
+  `CutInPlanner`）；主文档 `docs/client/index.md`；特效纪律
+  `vfx_standardization.md`。
 
 ## 契约文件（唯一前后端共同依赖）
 - `docs/schema/battle_events.md`（总纲）+ `battle_events_payloads.md`（明细）
