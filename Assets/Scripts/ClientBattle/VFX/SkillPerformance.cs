@@ -24,6 +24,20 @@ namespace ClientBattle.VFX
         /// <summary>结算一条伤害的命中拍：裂地 + 命中特效 + 受击抖动（及震屏）同一拍起。
         /// 格挡/反弹/闪避（amount 可为 0）仍播出击命中反馈；仅减弱受击顿挫与震屏。
         /// 绕身视觉仍在场时不受击抖动；渐隐后恢复。</summary>
+        /// <summary>命中特效存活上限（真实秒）。厂包件窗口不可控，实例不能无限活着
+        /// 占池；当前最长件 hit_lightning=2.0s，上限须 ≥ 实测窗口。</summary>
+        const float HitVfxWindowCap = 2.5f;
+
+        /// <summary>巨额伤害（触发「重创」横幅，>CutInPolicy.HighDamageThreshold）
+        /// 的卡面命中件：RFX4 Effect15_Collision（画廊 3/8 件 7/54 的碰撞子件）。
+        /// 解析最高优先级，覆盖一切 Profile 专配（见 ResolveHitKey）。</summary>
+        const string MassiveHitKey = "hit_massive";
+
+        /// <summary>巨伤同帧震屏。strength 按「期望世界偏移」计（CameraShaker
+        /// 除以 MaxOffset 折 trauma）；须明显高于暴击 0.2，且 MaxOffset 已抬到
+        /// 0.75——否则远机位上巨伤与暴击都读作「没震」（P-73）。</summary>
+        const float MassiveShakeAmp = 0.55f, MassiveShakeSeconds = 0.48f;
+
         protected static void SettleDamage(DamageEvent damage, PerformanceProfile profile,
                                            VFXContext ctx, string floatSkillName)
         {
@@ -31,21 +45,38 @@ namespace ClientBattle.VFX
             if (target == null) return;
 
             bool mitigated = !string.IsNullOrEmpty(damage.Mitigation);
+            bool massive = CutInPolicy.IsHighDamage(damage); // 与「重创」横幅同判据同帧
             // —— 命中拍（同帧）：裂地 / HitKey / HitReact(+震屏) 不得拆到模板或错峰 ——
             if (GroundCrackService.ShouldPlayHit(damage))
-                GroundCrackService.PlayHit(ctx, profile, target);
+                GroundCrackService.PlayHit(ctx, profile, target, massive);
             string hitKey = ResolveHitKey(profile, damage);
             if (!string.IsNullOrEmpty(hitKey))
-                ctx.Vfx.PlayAt(hitKey, target.transform.position, ctx.Scaled(0.5f));
+            {
+                // 回收时长按件的**发射窗口**给足（真实秒），不再写死 0.5s：
+                // Magic 碰撞子件的层要发射 1~2s，0.5s 就收势等于砍掉大半表演，
+                // 观感远逊画廊（2026-07-27 实翻车：hit_lightning 窗口 2.0s）。
+                // 命中不阻塞时间轴，只是让实例活到自然放完，节拍不受影响。
+                float hitLife = Mathf.Max(ctx.Scaled(0.5f),
+                    ctx.Vfx.EmitWindow(hitKey, HitVfxWindowCap));
+                ctx.Vfx.PlayAt(hitKey, target.transform.position, hitLife);
+            }
+            // 受击方向取伤害来源的**站位中心**，不是 transform.position——攻击方
+            // 突进后就贴在身边，用实时位置算出的击退方向会乱跳甚至反向。
+            // 来源不在场（环境/状态伤）时为 null ＝不击退，只给立绘挤压。
+            var source = ctx.Unit(damage.SourceId);
+            Vector3? fromHome = source != null ? source.HomePosition : null;
+            // 巨伤震屏与命中拍同帧，且不吃 CameraShakeOnHit 开关（横幅级反馈）
+            if (massive)
+                ctx.Shake(MassiveShakeAmp, MassiveShakeSeconds);
             if (!mitigated)
             {
-                target.HitReact(damage.IsCrit);
-                if (profile.CameraShakeOnHit)
+                target.HitReact(damage.IsCrit, fromHome);
+                if (!massive && profile.CameraShakeOnHit)
                     ctx.Shake(damage.IsCrit ? 0.2f : 0.08f, 0.22f);
             }
             else
             {
-                target.HitReact(isCrit: false);
+                target.HitReact(isCrit: false, fromHome);
                 if (damage.Mitigation == "block")
                     target.FlashOverlayIcon("icon_block",
                         tint: new Color(0.75f, 0.82f, 0.95f), duration: ctx.Scaled(0.65f));
@@ -77,12 +108,20 @@ namespace ClientBattle.VFX
         protected static void SettleSideEvent(BattleEvent ev, VFXContext ctx) =>
             EventApplyService.Apply(ev, ctx, animated: true);
 
-        /// <summary>命中特效：profile.HitKey 优先；否则物理 Radial_Spiky / 魔法 Electric_Impact_02。</summary>
+        /// <summary>命中特效解析（唯一入口，四级；文档 vfx_config_index.md §一）：
+        /// ① 巨伤覆盖——触发「重创」横幅的伤害一律 <c>hit_massive</c>
+        ///   （RFX4 Effect15_Collision），压过一切专配；
+        /// ② Profile.HitKey 非空（专配战法 / 组默认，如普攻 hit_generic、
+        ///   神谕伤害 hit_wave）；
+        /// ③ 按 damage_type：魔法 <c>hit_petrify</c>（画廊 1/8 件 41/61）、
+        ///   其余 <c>hit_sword</c>（件 45/61）——主动与追击默认都落到这里；
+        /// ④ damage 缺失 → <c>hit_generic</c> 兜底。</summary>
         protected static string ResolveHitKey(PerformanceProfile profile, DamageEvent damage)
         {
+            if (CutInPolicy.IsHighDamage(damage)) return MassiveHitKey;
             if (profile != null && !string.IsNullOrEmpty(profile.HitKey)) return profile.HitKey;
             if (damage == null) return "hit_generic";
-            return damage.DamageType == "magic" ? "hit_lightning" : "hit_clash";
+            return damage.DamageType == "magic" ? "hit_petrify" : "hit_sword";
         }
 
         /// <summary>取组内飘字用的战法名：状态触发飘"状态来源的战法名"（用状态中文名等价表达）。</summary>

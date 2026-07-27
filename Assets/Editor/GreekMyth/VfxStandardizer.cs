@@ -73,9 +73,12 @@ namespace GreekMyth.EditorTools
                 }
 
                 if (root.GetComponent<VfxGroundLayer>() != null
+                    || root.GetComponent<VfxCircleFit>() != null
                     || root.name.StartsWith("shroud_"))
                 {
-                    skipped++; // 地面件 / 罩身件尺寸自管（ShroudFitter）
+                    // 地面件 / 罩身件（ShroudFitter）/ 圆定径件（VfxCircleFit）尺寸自管。
+                    // 尤其 VfxCircleFit 与 VfxFitter 都写 localScale，同挂必打架。
+                    skipped++;
                 }
                 else
                 {

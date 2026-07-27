@@ -1,4 +1,415 @@
+
 # Changelog
+
+## 2026-07-27 战神之勇罩身改接画廊 2/8·10/61（Effect18）
+- `shroud_ares_might` 原料由 Magic Effect31 改为 **Effect18**（画廊 Ordinal 10/61）；
+  `WireAresMightShroud` 完整件重拷 + AutoHeal；挂载 key / OddRounds 不变。
+- 勿与「件 18/61＝Effect25」混淆。assets_upload_guide / olympus /
+  performance_mechanisms / vfx_playback_scheme 同步。
+
+## 2026-07-27 轨迹裂地 T4 + 巨伤整组拉满
+- 新增 T4 轨迹裂地：**拉满出手**（势能加强或巨伤）时出击者突进途中踩出档 3
+  裂缝。入口 `GroundCrackService.MoveTrailDriver` / `MoveTrail`（判据与档位全在
+  裂地服务，演出层只递 damages）；`StrikeBeats.Advance` 按**实际位移占比**
+  逐帧驱动（突进 InQuint 加速，按时间等分会让裂缝跑到脚前面），抵近同帧 `Finish`。
+- 起点取蓄力**之后**的站点，否则裂缝从空处开始。
+- 新增 `VFXContext.MassiveStrike`（PlaybackDirector 一组一置一复位）：巨伤组
+  裂地整段拉满＝轨迹 T4 + 弹道 T1 + 命中 T2 全档 3（命中另 ×1.5）。
+  场心大裂地仍只跟势能加强（那是「势能全开」的专属语言）。
+- 文档：ground_crack_config §一优先级表加轨迹列与巨伤整组说明；
+  ground_crack_language 场景表加 T4 行。
+
+## 2026-07-27 cut-in 统一取景：推镜→横幅→出手命中→撤镜
+- 定论：一切 cut-in 与单挑同构，**整段独占播放单元**；单挑是唯一在横幅拍
+  额外飞立绘的特例。新增 `VFX/CutInStage.cs`（借 `StageCameraRig`、finally 还位）。
+- 判据前移：新增 `CutInPolicy.Resolve(group, pursuitCount)` 一处定满档/巨伤/
+  追击第 5 次（优先级同序），播组**之前**判——客户端本就持有整组事件。
+  `FindHighDamage` 排除 mitigation 非空的 0 伤（格挡/反弹不算重创）。
+- 事后回调式作废：`PerformanceRunner.NotifyDamageSettled` 空实现，
+  删 `HighDamageCutInDelay` 与挂起协程；P-72 由延迟缓解升级为结构性修复。
+- 追击第 5 次横幅由非阻塞升为取景独占单元，与巨伤/满档同形。
+- 运镜参数入 `StagePerformanceConfig`：`CutInCamera{PitchDeg=42,Distance=46,
+  PushSeconds=0.3,HoldSeconds=0.08}`（比单挑 45/40 浅，留出突进/弹道/裂地取景）。
+- 文档：新增权威 `docs/client/cutin_stage.md` 并登记 client/index；
+  playback_requirements 加 R-5.2b、改 R-5.2；performance_mechanisms §一b 改写。
+
+## 2026-07-27 巨伤震屏加强 + 档3×1.5 命中裂地
+- 震屏：`CameraShaker.MaxOffset` 0.3→0.75（远机位原封顶等于没震，P-73）；
+  巨伤 Shake 0.55/0.48s。
+- 裂地：`PlayHit(..., massive)` 与重创同判据 → 强制档 3 + 面积 ×1.5
+  （同势能加强规格，不叠场心大裂地）。ground_crack_config / vfx_config_index 同步。
+
+## 2026-07-27 重创 cut-in 延后，露出 hit_massive（P-72）
+- 根因：manual 0722 r3 怒火突刺 3048 已正确解析 `hit_massive`，但
+  `NotifyDamageSettled` 同帧起播 solo 暗幕（sorting 80）盖住卡面特效（≥45）。
+- 修：`HighDamageCutInDelay=0.45`×DurationMul 后再请求重创 cut-in；
+  HardStop 清挂起协程。vfx_config_index / pitfalls P-72 同步。
+
+## 2026-07-27 命中解析四级：巨伤/追击/神谕默认
+- `ResolveHitKey` 改四级：①巨伤（>3000＝重创横幅同判据）→ `hit_massive`
+  （RFX4 Effect15_Collision，画廊 3/8 件 7 的碰撞子件）覆盖一切专配，
+  `SettleDamage` 同帧强制震屏 0.34/0.3s；②专配/组默认；③伤害类型；④兜底。
+- 追击 `PursuitDefault.HitKey` 置空＝受击同步主动逻辑；神谕伤害默认
+  `OracleDefault.HitKey=hit_wave`（画廊 1/8 件 47 定件）。
+- `WireDefaultHitVfx` 增 hit_massive 标准化+AutoHeal；vfx_config_index /
+  performance_mechanisms / assets_upload_guide 同步（序号漂移改以 key 为准）。
+
+## 2026-07-27 特效配置总索引；澄清普攻命中
+- 新建 `docs/client/vfx_config_index.md`：命中解析顺序、默认表、查配置入口；
+  `client/index` + `performance_mechanisms` 挂链。
+- 明确：普攻卡面受击＝`hit_generic`（Vefects Hit_05；`MeleeDefault`），
+  与主动默认 `hit_sword`/`hit_petrify` 分流。
+
+## 2026-07-27 默认命中改回画廊 [1/8] 我方标准件（P-71）
+- 魔法默认＝件 **41/61** `hit_petrify`；物理默认＝件 **45/61** `hit_sword`
+  （`ResolveHitKey`）。此前误用「分母61→Magic」接到 Effect19/22。
+- `_gallery_index_dump.py` 补齐包 1 Resources Ordinal；废止分母纠偏启发式；
+  `WireDefaultHitVfx` 改为存在性体检，不再厂包覆盖。
+
+## 2026-07-27 命中件回收窗口按 EmitWindow 给足（修「不如画廊」）
+- 排查：`hit_lightning` 一次性发射窗口实测 **2.0s**、`hit_clash` 1.0s，
+  而 `SettleDamage` 写死 `ctx.Scaled(0.5f)` 就收势——魔法件后 3/4 层
+  没发射完就被掐，观感远逊画廊预览。
+- 修：命中回收时长＝`max(Scaled(0.5), EmitWindow(key, 2.5))`（真实秒），
+  不阻塞时间轴，只让实例活到自然放完；`performance_mechanisms.md` 同步。
+
+## 2026-07-27 魔法命中→Effect19；单挑出阵不藏立绘；特效规则加固
+- 魔法默认命中改画廊 Magic **2/8** 件 **41/61**＝`Effect19_Collision`→`hit_lightning`；
+  物理仍件 45＝`Effect22_Collision`→`hit_clash`（`WireDefaultHitVfx`）。
+- **P-69**：单挑 `Fighter.Make` 不再提前藏真立绘；替身先熄灭，出框瞬间
+  `ConcealCardsForFlyOut` 再切换——修出阵卡面特效阶段「立绘没了」。
+- **P-70** + `.cursor/rules/vfx-standardization.mdc`：点名接件强制先读
+  `vfx_standardization.md`，禁止裸改 key / 手搓；`00-session-start` 表行加严。
+
+## 2026-07-27 默认命中：物理 Effect22_Collision / 魔法 Effect30_Collision
+- 画廊 Magic Pack **2/8**（人说 1/8，按分母 **61** 纠偏）：件 45→`hit_clash`，
+  件 24→`hit_lightning`。走 `VfxPackStandardizer` + `WireDefaultHitVfx`（AutoHeal）。
+- **Effect30 特例**：母件无 TransformMotion（ShieldCollisionTrigger 出子件），
+  流水线自动改选抓不到 → 清单直接点 `Effect30_Collision`。Effect22_Collision 直接用。
+- ResolveHitKey 仍按 damage_type；Profile.HitKey 优先。assets / playback / mechanisms 同步。
+
+## 2026-07-27 单挑特效：恢复原胜负 + 开场/败者卡面追加
+- **撤销**「胜负都改卡面」：恢复 `ground_duel_defeat` 定位圆地面 + 裂地；
+  胜者仍 `aura_duel_victory` 卡面加冕。
+- **出阵追加**：地上 Effect28 不变，双方卡面再挂画廊 1/8 件 8/60
+  （`DuelLaunchCardVfxKey`＝`aura_duel_victory`）。
+- **败者卡面追加**：画廊 1/8 件 32/60 观感 → `aura_duel_defeat`（同 Effect8
+  原料的 Anchor 件，避免 GroundLayer 压到卡下）；与地面溃败同时播。
+- `WireDuelStageVfx` 四件清单；duel.md / assets_upload 同步。
+
+## 2026-07-27 单挑胜负特效改为双方卡面（画廊 1/8 件 8+32）
+- （已撤销，见上条）曾把败者改为纯卡面并改名 `aura_duel_defeat`。
+
+## 2026-07-27 单挑推镜距离 28→38（保全阵在框）
+- `DuelCameraDistance` 28→**38**（55→38 ≈ 1.45×）。28（1.96×）把全阵容
+  卡面裁出画面；推镜已是独立一拍+定格，1.45× 仍可读，硬约束是六张牌在框内。
+- `duel.md` 运镜段同步。
+
+## 2026-07-27 单挑拍序：回框→撤镜→胜负特效
+- 全序改为：出阵地面特效 → 推镜 → 飞入 cut-in → 回框 → **撤镜还位** →
+  **胜负地面/卡面特效**。旧版胜负特效夹在回框与撤镜之间，近景里加冕/溃败读不清。
+- `DuelStage.Run` 对调 `PullOut` / `FireResultVfx`；`duel.md` 分幕表与运镜段同步。
+
+## 2026-07-27 击退钉线 + 抖动改沿线前后颤 + "击打圆"更名"微调圆"
+- **击退不沿线的元凶**：旧版推开点在受击线上、回弹却奔 `RerollRestPosition`
+  的圆盘随机点去——第二段位移斜出受击线。现落定点＝Home 沿线随机距离、
+  推开点＝同线过冲（`KnockOvershoot`=1.25），**两段全钉在受击线上**，
+  越微调圆即截断；落定点即新定位点（`RestPosition`）。
+- **旋转式抖动废除**（当日两次调参仍读不出：面内自旋不改轮廓、俯仰被投影吃）。
+  改为**击退落定后**（`seq.OnComplete`）围绕落点**沿同线前后颤**的纯动画：
+  10 Hz（安卓 30fps 下限 ≈3 帧/周期）、振幅＝微调圆半径×0.22/0.13、
+  幂衰减 1.1、结束回落点；任何 tween 接管 transform 即让位。
+  绕身在场＝禁一切卡根位移（击退+颤动，P-58），只留挤压+红闪。
+- "击打圆"更名**微调圆**：`TuneCircleRadius`/`ClampToTuneCircle`/
+  `TuneCircleScale`（旧 `HitCircleScale`）。performance_mechanisms /
+  battlefield_layout / extension_points / client_battle_framework 同步。
+
+## 2026-07-27 受击抖动按安卓 30fps 重定 + 改可读轴
+- **帧率事实**：独立版 vSync 锁屏刷（多为 60），但中端安卓战斗负载常掉到
+  **30~45 fps**。频率必须按 30 下限定，不能按编辑器满帧 60。
+- 频率 18 → **10 Hz**（30fps ≈ 3 帧/周期；旧 18 Hz @30fps 只剩 1.7 帧＝噪点）。
+- **轴权重才是"只见击退不见抖"的主因**：近正面卡面内自旋（Z）几乎不改轮廓；
+  改成 Pitch/Yaw/Roll = **0.90/0.60/0.30**（俯仰/偏航改透视）。
+- 峰值角 12°/8°，时长 0.36/0.28（略长于击退回弹），衰减 1.1。
+  `performance_mechanisms.md` 同步。
+
+## 2026-07-27 受击抖动重标（"几乎看不见"）
+- 峰值角 3.4/1.9° → **9/5.5°**（暴击/普通）。卡牌后倾 45°，绕自身 Z 轴滚 2°
+  投影到屏上不足 1.5°，旧值在近 3D 俯视下等于没抖。
+- 频率 24 → **18 Hz**。**这条上限由帧率定、不由手感定**：60 fps 下 24 Hz ＝
+  2.5 帧一个来回，已逼近采样极限，摆动被采成随机噪点——振幅调多大都读不出
+  「震」。18 Hz ＝ 3.3 帧一周期。
+- 衰减由硬编码平方改为可配 `HitShakeDecayPower`=1.4：平方使平均可见振幅只剩
+  峰值三成（起手一帧最猛、之后塌掉）；1.4 保留起手形状但中段仍看得见在摆。
+- 时长 0.26/0.18 → 0.30/0.22 s。三通道分工不变（击退＝位移、抖动＝纯角度、
+  挤压＝立绘形变）。`performance_mechanisms.md` 受击表现行补定标依据。
+
+## 2026-07-27 厂包标准化收口为统一流水线（单挑三件连环事故复盘与重构）
+- **根因三连**（P-68）：①胜负两件点名的 Effect23/Effect8 是**投射物运载器**
+  （粒子按移动距离发射，定点＝零粒子；画廊里的爆炸是其碰撞子件），此前
+  "钉死原地"删位移驱动等于拔掉发射器→完全不演出；②上次接线在 **Play 模式**
+  下跑，`RFX*_PerPlatformSettings.Awake` 的降配（发射率 ×0.75）被烤进
+  `cast_duel_launch` 成品→缩水；③删 Light/Audio 留下同节点曲线脚本→运行期
+  Awake 抛异常经 Instantiate 传出，**整段演出协程死掉**→"所有特效全消失"。
+- **新增 `VfxPackStandardizer`（唯一落盘入口，pack 无关，兼容 RFX1/RFX4）**：
+  拒绝 Play 模式；定点用途自动改选碰撞子件（`ResolveAnchorSource` 沿
+  `EffectsOnCollision`/`EffectOnCollision` 字段）；`CopyAsset`+`LoadPrefabContents`
+  纯资产编辑；按类型名**配对**裁剪驱动脚本；摘 WindZone/CameraShake/
+  PerPlatformSettings；落盘后四项静态验证（missing/可见性/驱动配对/可实例化）。
+  `WireDuelStageVfx` 瘦身为三行清单；`StandardizeLavaBurst` 改走流水线
+  （旧版搬的全是运载器层，实际零粒子，全量体检抓出）。
+- **运行期加固**：`VFXManager.Build/Prewarm` 捕获实例化异常，坏件降级占位
+  **不打断演出协程**（客户端"任何情况必能播出"的兜底层）。
+- 新体检菜单「体检 标准件流水线四项」（报告落 `Temp/vfx_audit.txt`）：
+  60/60 通过。三件重接：`aura_duel_victory`←Effect23_Explosion、
+  `ground_duel_defeat`←Effect8_Collision、`cast_duel_launch` 发射率复原。
+- 文档：`vfx_standardization.md` §四.1/§四.3/§四.5/§六/§七 按流水线重写；
+  `duel.md` 来源表/逐层去向/EmitWindow 形态更新；`assets_upload_guide.md`
+  三行更新；pitfalls 新增 **P-68**。
+
+## 2026-07-27 单挑重排节拍：运镜独立成拍 + 全程无空等 + 特效钉死原地
+- **顺序改为** 出阵爆发 → 推镜 → 出框 → 交错 → 回框 → 胜负特效 → 撤镜。
+  运镜不再与出框并拍：并拍时注意力全在飞出去的人身上，镜头等于白推。
+  撤镜移到最后，此时胜负余烬还在烧，屏上不空。
+- **推镜给足量**：距离 34→**28**（常规 55，即卡面放大 **1.96 倍**；旧值仅 1.6 倍
+  且被并拍淹没，实测读不出镜头动过），到位后**定格 0.3 s**
+  （`DuelCameraHoldSeconds`）——运动结束时的静止才让人确认"到位了"。
+  新增 `DuelCameraPushSeconds`=0.42。
+- **消除空等**：出阵那 1.5 s 原是 `WaitForSeconds` 干等，脚下在炸而两张立绘
+  纹丝不动，整段被读成背景动画。改为立绘**持续下沉 + 11 Hz 憋力发抖**
+  （`DuelCoilTrembleHz/Amp`）。确立**零死帧的时间版**：每一拍都必须有
+  **主体**在动，不能只靠 Chrome 自走撑场。duel.md 补逐拍"谁在动"表。
+- **`StripMotionDrivers`（新）**：三件里两件带厂包位移驱动（胜者
+  `RFX4_PhysicsMotion`、败者 `RFX1_TransformMotion`+`RFX1_Target`）——厂包主件
+  设计上是**投射物**，起播后飞出去再炸，当定点特效用就是"粒子乱跑到别处才爆炸"；
+  且粒子全是 `simulationSpace=World`，transform 一动还拖尾。接线时摘位移并把
+  节点归零，顺带摘 `WindZone`（场景级力场会吹歪**别的**特效，已确认自身粒子
+  未开 External Forces）。实测摘除：败者 3 个、胜者 1 个。
+- 文档：`duel.md` 运镜章重写 + 新增「全程无空等」逐拍表 + 钉死原地条目；
+  `vfx_standardization.md` 落盘第 8 步 + 验收两项 + 坑谱两条。
+
+## 2026-07-27 单挑出阵特效时机校正（"没跑完就飞出去"）
+根因是三个叠加问题，全部照实测素材而非拍脑袋修：
+- **空转前摇**：`Effect28` 唯一的一次性爆发层 `startDelay=1.00 s`（厂包按 demo
+  场景排的节奏），即前一整秒屏上什么都没有，我们只等 1.2 s ⇒ 正好在爆发炸开的
+  瞬间起飞。接线新增 `NormalizeStartDelay`：所有层**同时前移**到最早的可出图层
+  从 0 起播（同时前移而非各自归零，层间先后是这件的表演结构）。实测前移 -1.00 s。
+- **`EmitWindow` 误算循环层**：`main.duration` 对 `loop=true` 层是**循环周期**，
+  当结束时刻用得到两不像的数（该件因此报 4.0 s，真实爆发仅 1.5 s）。改为
+  一次性层取 `delay+duration`；全循环层（胜负两件）取 `delay+startLifetime`
+  ＝成形时长，比退到通用保底 0.45 s 贴合得多。
+- **切拍不收势**：出阵件有 5 个循环层不会自停，等待结束后仍全速发射。新增
+  `VFXManager.StopEmitting`，交拍时只掐新粒子留余烬 ⇒ "在余烬中被拽走"。
+  **顺序感靠收势，不是把等待拉长。**
+- `DuelVfxWaitCap` 1.2→**1.7 s**（须高于实测窗口 1.5 s，否则又被上限截断）。
+  实测终值：出阵 1.50 / 加冕 1.70 / 溃败 1.70 s，三件均未截断。
+- 文档：`duel.md` 顺序播规则重写、`vfx_standardization.md` 落盘步骤加"掐前摇"
+  与"交拍收势"、坑谱速查加两条。
+
+## 2026-07-27 标准化协议全面修订（把三天踩的坑固化成流程）
+- `docs/client/vfx_standardization.md` 重排为七节：**§〇 第一原则**（先证明资产
+  在盘上再谈观感 + 接线脚本必须带 AutoHeal 自愈）、§一 画廊≠运行期七条差异表、
+  §四 落盘八步按单挑三件实战校正（解嵌套→清失效脚本槽→摘死层并记录替代→
+  尺寸组件三选一→池化判定 VfxFreshInstance→移动端裁剪→StandardizeAll→AutoHeal）、
+  **§六 坑谱速查**（9 条「症状→先查什么」映射 P-33/38/65/66/67）。
+- 验收改为「用 unityMCP 逐项验**成品**而不是看接线 log」，新增两条硬项：
+  成品 missing script=0（组件可能在保存环节丢）、标记组件实际在成品上。
+- 运行期约束新增：会序列化进 prefab 的 MonoBehaviour 必须独立成文件（P-67）。
+
+
+## 2026-07-27 单挑三件实际落盘（此前从未接线）+ 接线流程自愈化
+- **「完全没效果」的真相**：三件标准件从未落盘——接线脚本写好了但菜单没人点过，
+  运行期一直在播占位小方块。经 unityMCP 执行菜单落盘 3/3 并逐项验证
+  （missing=0 / RFX 驱动脚本 16/4/8 保留 / 灯 1 盏 / 音源 0 / CircleFit+Fresh+Ground 全在）。
+- **`WireDuelStageVfx.AutoHeal`（新）**：`[InitializeOnLoadMethod]` 检测三件缺失
+  即自动接线。凡"代码引用了必须由编辑器脚本生成的资产"，生成一步不允许依赖人手。
+- **`VfxFreshInstance` 挪独立文件**：原先塞在 VFXManager.cs 里，Unity 只按
+  「类名＝文件名」解析 prefab 里的 MonoBehaviour，存盘即变 missing script——
+  绕池标记静默丢失、整套不池化逻辑失效（见 pitfalls P-67）。
+- 接线脚本补「清失效脚本空槽」（GameObjectUtility，GetComponentsInChildren
+  拿不到 missing 槽）。
+- 实测三件发射窗口 4~5 s（持续发射型），`DuelVfxWaitCap`=1.2 s 生效：
+  顺序播三拍共增加约 2.4 s，可控。
+
+## 2026-07-27 补平「画廊预览 vs 运行期」的四条工程债
+逐行对齐两条链路，固化七条差异表于 `vfx_standardization.md` §〇。修平前四条：
+- **`VfxFreshInstance`（新）+ `VFXManager` 绕池**：厂包件的观感很大一部分由自带
+  `RFX*` 驱动脚本在 `Awake/Start` 初始化后逐帧驱动，而**池化复用不重跑
+  `Awake/Start`**；又因 `Prewarm` 开局入池，战斗里**第一次播就已是复用态**，
+  那套初始化整局只在离屏预热区跑过一次 → 脚本驱动的层全是残留状态。
+  症状「能看见但就是不如预览」，最易被误判为素材不行。带驱动脚本的件改为
+  每次 Instantiate、播完 Destroy（接线脚本按 `RFX*` 前缀自动判定，白名单制）。
+- **回收不再硬切**：`RecycleAfter` 到点先 `Stop(StopEmitting)`，再等余烬自然
+  消亡（上限 1.2 s）后入池。原先直接 `SetActive(false)`，屏上正飘的火星一帧消失。
+- **`RestartParticles` 只在"最上层"粒子系统起播**：`Play(true)` 本就级联到子孙，
+  逐层再 Play 会重复触发子发射器、打乱相位（画廊只在根级播，故两边不一样）。
+  `Clear` 仍逐层（幂等且必须清深层残留）。`VfxCircleFit` 量测后重启同规则。
+- **埋地救援搬进 `VfxCircleFit.RescueIfBuried`**：与定径**共用同一次 Simulate**，
+  零额外开销；抬升在 `LateUpdate` 施加——`PlayAt` 是先激活后写 position，
+  在 `OnEnable` 里改位置会被静默抹掉。接线脚本给地面件自动打开。
+- 承认且不修的预算差：画廊审核惯用 **0.25× 慢放**（厂包出手件整段仅 0.9 s），
+  1× 下不可能等同；RFX Decal 层 URP 画不出（P-33）不可逆。
+- 文档：`vfx_standardization.md` §〇 七条差异表 + 验收清单扩项、pitfalls P-66 续。
+
+## 2026-07-27 单挑三件改顺序播 + 定径复刻画廊观感 + 移动端裁剪
+- **顺序播（原为重叠）**：出阵件在两人**定位圆**放完**才起飞**；立绘**落回卡框后**
+  才起胜负两件，**放完单挑才结束**。重叠播读作"两件不相干的事同时发生"而非因果。
+- **等待时长不写死**：新增 `VFXManager.EmitWindow(key, cap)`，运行期从 prefab 探
+  **发射窗口**（各 `main.duration` 最大值，**不含 startLifetime**）——厂包件多是
+  「0.4 s 爆发 + 3 s 烟尾」，等烟尾散完观众看到的是发呆。回收另加
+  `DuelVfxTailSeconds` 让余烬飘完。等的是**真实秒**（粒子不吃 `ctx.Scaled`，
+  乘倍速＝把特效拦腰截断），故 `DuelVfxWaitCap`=1.2 s 兜底；探不到时退
+  `DuelVfxFallbackSeconds`=0.45 s 保底节拍，**不因缺素材丢节奏**。
+- **`VFX/VfxCircleFit.cs`（新）**：修"画廊里挺好、接进去糊满全屏"。`VfxFitter`
+  只做"随卡宽等比浮动"，**不改厂包原生尺寸**；画廊观感是另按了一次定径。本组件把
+  画廊那一步搬到运行期（`Simulate(0.12s)` 量起手核心 → 缩到**投影圆**直径），
+  按 prefab 名 **+ 圆直径**缓存。与 `VfxFitter` **互斥**，`VfxStandardizer` 见到即跳过。
+- **移动端裁剪**（`WireDuelStageVfx.TrimForMobile`）：每件实时灯留 1 盏且关阴影
+  （`Effect28` 原有 5 盏，两人同播＝10 盏，前向渲染逐光一 pass）、删 `AudioSource`
+  （绕过 SFX 总线且与 `sfx_duel_*` 撞车）。粒子层不动，主体观感与画廊一致。
+- 回框落定后 `Fighter.Hide()` **先于** `Restore()`：替身与真立绘此刻完全重合，
+  顺序反了有一帧重影。
+- 文档：`duel.md`（顺序播规则 + 为何画廊接不进去）、`vfx_standardization.md`
+  （新增定径与移动端裁剪两条交付项+验收）、pitfalls **P-66**。
+
+## 2026-07-27 定位圆/投影圆拆名 + 单挑推镜与四个情感爆点 + 三件厂包接线
+- **术语拆名（破坏性重命名）**：`ArenaSlotLayout.CardCircle*` → `ProjectionCircle*`
+  （**投影圆**＝整卡竖直投影外接圆，心在卡心正下方，罩身件用），新增
+  `AnchorCircle*`（**定位圆**＝下边缘端点绕下边缘中点转一周，心＝接地点、
+  **直径＝卡宽**，地面痕迹/裂地/法阵用）。两圆约差 1.4 倍且**不同心**。
+  改 `VfxShroudFitter/Follower`、`VfxGalleryRunner`（画廊同屏画**青=投影/黄=定位**
+  两环）。名实不符是历史混用根源，见 P-65。
+- **`VFX/StageCameraRig.cs`（新）**：演出性运镜。单挑出框时把俯角 35→**45**
+  （＝`CardPitchDeg`，光轴**垂直卡面**）、距离 55→**34**，回框还位。
+  **只动俯角与距离不动 FOV**（FOV 是安全区反算的取景基准）。接管期间它是相机
+  位姿唯一写方，`CameraShaker` 切「只算不写」（`Suspended` + `CurrentOffset`）
+  由 rig 叠加——两个 `LateUpdate` 顺序不定，否则"抖一下不抖一下"。
+  归还三条路径：`finally` / `CutInService.CancelAll` / `PerformanceRunner.HardStop`。
+- **cut-in 挂点改为相机子物体**（`CutInService.NewRoot`），否则一运镜整块屏
+  滑出视野；`ScreenRect` 退化为只返回半宽半高。飞行立绘的"卡上那一端"随之改为
+  **每帧重算**（`Fighter.SyncCardPose`）——挂点在动、卡不动，缓存会让回框落偏。
+- **单挑四个情感爆点**：⓪蓄（立绘先往卡里陷，`Pose` 走负值＝预备动作）→
+  ★1 放（定位圆炸开+震屏+白闪，OutBack 过冲出框）→ ★2 末轮前静滞（后撤+图标
+  收紧，运动量骤降制造预期）→ ★3 定胜负 → ★4 回框落进自己的特效里。
+  **暗幕延迟压下 / 提前散**（`DuelVeilDelay`）：出阵与胜负特效炸在世界里，
+  不留这段窗口会被 sorting 80 的暗幕整个盖住，等于白播。
+- **三件厂包特效接线**（画廊点名 → 标准化，协议 §三全走完）：
+  RFX4 `Effect28`→`cast_duel_launch`（两人定位圆·出阵）、
+  RFX4 `Effect23`→`aura_duel_victory`（胜者卡面·加冕）、
+  Magic v1 `Effect8`→`ground_duel_defeat`（败者定位圆地面·溃败，挂
+  `VfxGroundLayer`）。落盘脚本 `Assets/Editor/GreekMyth/WireDuelStageVfx.cs`
+  （菜单 `GreekMyth/特效/接线 单挑三件`，可重跑）。逐层判定：`Effect23` 无贴花层
+  整件可迁移；另两件的 RFX1/RFX4 UberDecal 层 URP 画不出被摘（P-33），
+  `Effect8` 丢的正是地面焦痕 → 既定替代品自研裂地 `GroundCrackService.PlayHit`
+  （落点同为 `GroundFoot`），已一并触发。key 在 `StagePerformanceConfig.Duel*VfxKey`
+  （这三件与"谁参战"无关，无 Profile 行可查）。
+- 新增 `battle/tools/_gallery_index_dump.py`：把画廊「包 i/N 件 j/M」离线复算成
+  prefab 路径（照抄 `VfxGalleryLauncher` 的排序/过滤规则，件数自检 61/54）。
+  **点名厂包件不要靠肉眼数序号**——组内做过碎件后置与 Ordinal 排序。
+  另 `_prefab_layer_dump.py` 离线看层构成（供标准化 §3.1 定件）。
+- 文档：`arena_stage` §四c 重写为两圆对照表 + 新增 §四d 运镜；`duel.md` §5b
+  补分幕爆点表/运镜三约束/三件去向表/暗幕延迟原因；`portrait_cutin_assets.md`
+  §5b 提示词**全改中文** + 新增 §5d **cut-in 屏底图 AI 生成规格**（2048×1024、
+  左右留人位、整体压暗、正反向中文提示词）；`assets_upload_guide` 登记三 key；
+  `extension_points` 加「选哪个圆」「怎么推镜」两行；`ground_crack_language`
+  改指 `AnchorCircle*`；`rendering_layout` 更新挂点与俯角说明。P-65 入坑录。
+- **待人工执行**：Unity MCP 桥当前不可用，三件标准件尚未落盘——
+  进编辑器点一次 `GreekMyth/特效/接线 单挑三件` 即可（脚本幂等）。
+
+## 2026-07-27 单挑展示屏华饰层 + flipbook AI 生成流程入文
+- 新增 `VFX/DuelStageChrome.cs`（MonoBehaviour，**自走 Update**）：影院黑边、
+  左右阵营辉光、放射光芒慢转（左右反向）、浮尘余烬（立绘前后各一半）、
+  四角纹饰、屏边框呼吸、整屏极缓推进、中央冲击环+白闪。四种周期**互质**——
+  这是治「呆板」的药方：静态底+静态立绘=贴纸，人眼判活靠多速率运动叠加。
+  贴图全程序化合成（纯色/渐变/环/软点），零预制资源；同名真图自动顶替
+  （`UI/duel_screen_bg` `duel_rays` `duel_corner` `duel_icon`，全部可选）。
+- `DuelStage` 收缩为纯编排；飞行立绘加**背光**（同图放大染阵营色＝无 shader
+  描边发光）与**错相位待机呼吸**，挂 Chrome 的 `OnTick` 共用自走时钟 →
+  插值/等待/放帧期间屏上恒有运动（R-4.1 零死帧）。
+- **重排 cut-in sorting 80~93**（原新增装饰与立绘撞号会随机闪）：
+  80 暗幕/81 屏边框/82 屏底/83 辉光/84 放射/85 纹饰/86 后浮尘/87 背光/
+  88 立绘/89 前浮尘/90 图标/91 冲击环/92 白闪/93 黑边。屏边框必须低于屏底。
+- `portrait_cutin_assets.md` 补 §5b/§5c：flipbook 的**唯一正确做法是 i2v 抽帧**
+  （逐张生成必身份漂移），提示词四条必写（锁镜头/主体不出画/纯绿背景/
+  写一次完整动作）、ffmpeg chromakey+抽帧命令、绿边与断号三坑。
+
+## 2026-07-27 单挑舞台 cut-in 重做（立绘出框 + 虚空展示屏 + flipbook）
+- 新增 `VFX/DuelStage.cs`：立绘从卡框**出框**飞入中央虚空展示屏 → 交错+动作
+  ×`clash_cutins` → 定胜负 → 飞回卡框。取代旧「两张半屏卡掠过中央裂缝」。
+  出框期间卡面立绘藏起（`UnitView.SetPortraitHidden`），正常收尾与
+  `CutInService.CancelAll` 两条路径都还原。`DuelPerformance` 起传 `winner_id`。
+- 动作素材＝**flipbook** `Resources/ClientBattle/DuelAction/{id}_{strike|react}_{NN}`
+  （连号，断号即停）。缺帧退静态立绘占满时长，故资源可逐个补。选逐帧不选
+  VideoPlayer：两人同屏双路解码有风险，且 flipbook 天然吃 `ctx.Scaled` 倍速。
+- **修 P-64**：`CutInService.ScreenRect` 原按 `(cam.x, cam.y, 0)` 无旋转摆放，
+  相机俯角 35° 后整个 cut-in 离光轴 35°（FOV≈12°）飞出视锥。改为挂在相机
+  正前方 12 单位、随相机旋转的平面上；单人 cut-in 同时受益。
+- 参数入 `StagePerformanceConfig.Duel*` 段（时长/几何全部可调，几何写成半宽
+  半高倍数）。`docs/mechanics/duel.md` 扩为**单挑前后端总索引**（§5b 演出分幕
+  ＋§7 服务端/契约/客户端/素材四张索引表），mechanics/client 双 index 登记；
+  `portrait_cutin_assets.md` 由「cut-in 视频」改写为 flipbook 规格。
+
+## 2026-07-27 立绘与 cut-in 视频制作规格书
+- 新增 `docs/client/portrait_cutin_assets.md`：定方案＝卡面浮动立绘（静态 PNG）
+  ＋ 全屏 cut-in 播短视频；**卡内攻击视频不做**（0.54s 窗口最拥挤、视频不吃
+  `ctx.Scaled` 会脱拍，论证入文 §八，后续想动卡内用序列帧）。
+- 规格含：cut-in 构图安全区（按 `CutInService` 实测换算——单人立绘槽 55%×75%
+  屏、主体偏右、左下留标题；决斗槽 45%×80% 屏、下部 15% 被名字压），
+  时长 ≥2s 且**必须无缝循环**（窗口随 DurationMul 变）、首帧须等于静态立绘
+  （故须图生视频）、须带 alpha、单片 ≤1.5MB。
+- 回退契约：`CutIn/<id>` 无 → 回退静态立绘 → 回退色块，两类资源可分批上。
+  代码侧待办（VideoPlayer 接入/alpha 方案/Prepare 预热/HardStop 释放）列入 §七。
+- index.md 与 assets_upload_guide.md §3 登记交叉引用。
+
+## 2026-07-27 俯角入 StagePerformanceConfig=35°；院区×1.5
+- 相机俯角数值迁入 `StagePerformanceConfig.PilotPitchDeg`（现行 **35**）；
+  `CameraFitter.PilotPitchDeg` 改为只转发。卡后倾仍 45°。
+- `BattlefieldLayoutConfig.CourtyardDepthFraction`：0.2 → **0.3**（院区扩大 1.5 倍）。
+- 文档同步 arena_stage / battlefield_layout / rendering_layout /
+  vfx_playback_scheme / performance_mechanisms / extension_points。
+
+## 2026-07-27 相机俯角 → 30°（与卡后倾解耦）
+- `CameraFitter.PilotPitchDeg`：**30**（当日曾试 60，再改回更近平视的 30），
+  不再 `= CardPitchDeg`。卡后倾仍 45°（几何/影子/定位圆不变）。
+- 文档同步：arena_stage §一/§三/§四b、rendering_layout、vfx_playback_scheme。
+
+## 2026-07-27 击打圆约束 + 受击纯角度抖动 + 卡姿随机 + 演出参数收口
+- 新增 `Units/StagePerformanceConfig.cs`：舞台演出参数**唯一收口**（卡姿抖动/
+  击打圆/击退/受击抖动/三拍/残影/接地阴影），各表现类的调参 const 全部迁入。
+- **击打圆**：受击击退与出击后的落点都截断在站位微抖圆内（`HitCircleScale`）。
+  裁剪统一走 `OffsetFromHome`/`AnchorAtOffset`/`ClampToActionCircle` 地面二维三件套。
+- 受击加**纯角度抖动**（`TickHitShake`，高频阻尼摆，零位移）：位移归击退、
+  顿挫归抖动、肉感归立绘挤压，三通道互不代偿。绕身在场时只禁击退。
+- 卡牌后倾角每卡在**基准 ± `CardPitchJitterDeg`(5°)** 内随机＝ **40°~50°**
+  （只抖视觉，几何仍按基准角）；出击收势落点沿行动方向前移
+  （`RerollRestPositionToward`）。
+- 击退距离改为**沿受击线的随机距离**（`KnockbackXxxMin/Max`，单位＝击打圆半径
+  倍数）：后退点以 Home 为起点落在受击线上，不从当前位置累加（累加会让连击
+  把卡牌斜着漂出受击线）。抖动与击退完全独立，各自触发。
+- 勘误：基准后倾角**是 45° 不是 30°**（07-25 changelog 标题与
+  vfx_playback_scheme 残留 30，已订正；`arena_stage.md` 与代码一直是 45）。
+
+## 2026-07-27 动作感一期：出手三拍 / 定向击退 / 突进残影 / 接地阴影
+- 新增 `VFX/StrikeBeats.cs`：出手三拍（预备后仰 → InQuint 加速突进 → OutBack
+  收势）唯一实现，`PlayMelee` 与 `PlayAoeCenter` 改为调用它，不再各自拼 `DOMove`。
+- 受击 `DOShakePosition` 全向随机抖动**废除**，改为定向击退：方向取
+  「攻击方站位中心 → 本卡站位中心」连线（`HomePosition`，非实时 transform——
+  突进后攻击方就贴在身边，实时位置算出的方向会乱跳）；推开后 OutBack 弹回。
+- 新增 `Units/AfterImageService.cs`（残影，order −2，自带环形池，`HardStop` 收）
+  与 `Units/CardGroundShadow.cs`（接地阴影，order −3，仅近 3D 舞台，随卡尺自适应）。
+- `SettleDamage` 改传 `fromHome`；文档同步 performance_mechanisms /
+  rendering_layout（层级表补 −2/−3）/ client_battle_framework / extension_points。
+
+## 2026-07-27 卡面生动性一期：呼吸/惯性视差/受击挤压/命中顿帧
+- 新增 `Units/CardIdleMotion.cs`：立绘三通道合成器（唯一写入者，零 alloc）。
+  呼吸改为浮动+侧摆+胸腔缩放+微倾三频叠加、每卡相位与频率失谐；残血更慢更重。
+- `HitReact(isCrit, fromWorld)`：卡根位移与立绘挤压拆成两条通道——
+  绕身罩在场时禁位移但挤压照给（原来只红闪，命中没有肉感）。
+- 立绘加景深 `PortraitDepth`；踩坑记 P-63（多方 tween 抢同一 Transform）。
+- 命中顿帧（`HitStopService`/`VFXContext.HitStop`）当次实现后**人工否决并删除**，
+  文档留档禁止再引入；勘误：上一条曾误判 `antique_frame.png` 缺失，实际存在。
+- `project_overview.md` §一 增「产品定位：三支柱」（动作游戏感／策略深度／
+  下一代卡牌感），定论当前短板为动作感与下一代感；`.cursorrules` 同步注入。
 
 ## 2026-07-27 出手同步器 StrikeSync：飞行段 → 抵达 → 命中拍
 - 新增 `VFX/StrikeSync.cs` + `IFlightDriven`：一次出手的时间轴唯一真源，
@@ -355,9 +766,12 @@
   警告文案改为层风险（可贴花摘掉 / 扭曲已开不透明贴图待真机），避免误读成整件废件。
 - 文档：`arena_stage` 心智模型与关键几何表同步到 45°/55 焦段与原站位。
 
-## 2026-07-25 角度链定稿（卡后倾 30° / 相机垂直卡面）+ 定位圆重定义 + 罩身特效
+## 2026-07-25 角度链定稿（卡后倾 45° / 相机垂直卡面）+ 定位圆重定义 + 罩身特效
+> 勘误（2026-07-27）：本条原标题与下一行写作 30°，与当日最终落地的代码不符。
+> 当日在 30 与 45 之间反复后**定稿 45**（`CameraFitter.CardPitchDeg = 45`），
+> `arena_stage.md` 是权威值。此处已改正，勿再按 30 引用。
 - **术语定论**：「后倾 θ 度」一律指**离竖直** θ 度，实现即 `Euler(θ)`。
-  唯一真源 `CameraFitter.CardPitchDeg = 30`，派生 `CardLeanDeg = 60`（与地面夹角），
+  唯一真源 `CameraFitter.CardPitchDeg = 45`，派生 `CardLeanDeg = 45`（与地面夹角），
   `PilotPitchDeg = CardPitchDeg`（光轴垂直卡面）。当日先按"与地面 30°"
   （Euler 60 + 俯角 60）实现过，试废：影子纵深 3.13 > 卡宽 2.04 把定位圆撑到
   1.8 倍卡宽（读作"圆被相机拉歪"），且 8.7 米高的竖立件在陡俯角下收敛成

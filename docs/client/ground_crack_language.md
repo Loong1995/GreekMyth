@@ -135,10 +135,15 @@ HLSL smoothstep，见 P-54）。写出前断言 maxA≥0.5。
 | 弹道裂地 | Path | 档见 config | — | 挂 `StrikeSync` 飞行段：第 i 段在进度区间 [(i-1)/3, i/3] 内起裂并**推满生长**，末段推满＝弹道抵达 |
 | 命中裂地 | Impact | 同弹道档 | 默认 ×1；势能加强 ×1.5 | `SettleDamage` 命中拍：与 HitKey / HitReact **同帧**；受击者 `GroundFoot`；无 `_startDelay` |
 | 场心大裂地 | Impact | 档 3 | **3.2** | `EmpoweredStrike` 额外叠一层 |
+| **轨迹裂地** | Path | 档 3（恒定） | — | **拉满出手专属**（`EmpoweredStrike` 或巨伤 `MassiveStrike`）：出击者突进途中自己踩出，按**实际位移占比**分 3 段起裂生长，抵近同帧收满。入口 `MoveTrailDriver`，驱动方 `StrikeBeats.Advance` |
 
 ### 定位红线
 
-- **卡牌定位圆**：`ArenaSlotLayout.CardCircleCenter / Diameter`；略大只加系数。
+- **卡牌定位圆**（脚下那一圈，直径＝卡宽）：
+  `ArenaSlotLayout.AnchorCircleCenter / AnchorCircleDiameter`；略大只加系数。
+  **别拿投影圆**（`ProjectionCircle*`，整卡影子的外接圆、大约 1.4 倍且不同心）
+  ——那是罩身件的定径基准，用在地面痕迹上会散出一圈虚边。两圆定义见
+  [arena_stage.md](arena_stage.md) §四c。
 - 圆心用 `GroundFoot`，禁止 `GroundUnder(卡心)`（俯角下会偏到卡后）。
 - 弹道必须 `YawAlong`；**起裂与生长都由 `StrikeSync` 的弹道实时进度驱动**
   （禁止 `flight * s/N` 墙钟等分，也禁止贴花自走生长——末段会拖过命中拍，

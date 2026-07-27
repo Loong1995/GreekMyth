@@ -23,7 +23,7 @@
 | `athena_aegis` | OracleAura | — | — | **AllIn1 金描边**（无 Magic 粒子） | Aura=`aura_aegis` |
 | `aegis_shield` | Melee | — | Magic `Effect17_Collision` | 持盾者突进反弹 | Cast/Hit=`hit_shield_counter` |
 | `aegis_ward` | StatusTrigger | — | 同上闪光 | — | 同上 |
-| `ares_might` | OracleAura | — | — | Magic `Effect31` 罩身（画廊同件）；奇显偶隐 | Aura=`shroud_ares_might` |
+| `ares_might` | OracleAura | — | — | 画廊 2/8·10/61 Magic `Effect18` 罩身；奇显偶隐 | Aura=`shroud_ares_might` |
 | `blood_battle` | OracleAura | — | — | 卡框红呼吸（弱） | Aura=`aura_fire_foot` |
 
 代码：`PerformanceDatabase.CreateBuiltin`；落雷节拍 `DefaultPerformance.PlayRemoteStrike`；
@@ -33,8 +33,8 @@
 
 | 伤害类型 | 弹道 | 命中 |
 |---|---|---|
-| 物理 | `proj_bolt200` | `hit_clash` |
-| 魔法 | `magic_bolt` | `hit_lightning`（与宙斯命中同 key，已 Magic） |
+| 物理 | `proj_bolt200` | `hit_sword`（画廊 [1/8] 件 45/61） |
+| 魔法 | `magic_bolt` | `hit_petrify`（画廊 [1/8] 件 41/61） |
 
 **默认不播 Cast**。群攻 `Auto`→目标≥2 升 `AoeCenter`。
 
@@ -59,9 +59,10 @@
 
 ## 七、透视默认（近 3D）
 
-- `PerspectivePilot`；卡牌后倾 `CardPitchDeg=30`（离竖直）、相机俯角
-  `PilotPitchDeg=30`（＝后倾角，光轴垂直卡面）。理由与废案见
-  `arena_stage.md` §四b；脚下/罩身件的定位定径基准见 §四c。
+- `PerspectivePilot`；卡牌后倾 `CardPitchDeg=45`（离竖直）、相机俯角
+  `StagePerformanceConfig.PilotPitchDeg=35`（与卡解耦；`CameraFitter.PilotPitchDeg`
+  只转发）；每卡再随机 ±5°（＝40~50°，`CardPitchJitterDeg`，只抖视觉）。
+  理由与废案见 `arena_stage.md` §四b；脚下/罩身件的定位定径基准见 §四c。
 - 地/天 **16:9 横向全宽铺满**（UI 半透叠两侧）；卡只在中央竞技区。
 - 神/人天空含云，妖用暗雾；地天底边同色雾过渡。详见 `near3d_evaluation.md` §七。
 - 关正交：`PerspectivePilot=false`。

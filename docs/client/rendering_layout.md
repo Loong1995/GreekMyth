@@ -15,7 +15,7 @@
 
 | 机制 | 做法 | 代码 |
 |---|---|---|
-| 取景权威 | 按当前宽高比取景：正交调 orthoSize；**近 3D 默认**调 FOV（`CameraFitter.PerspectivePilot`，卡牌后倾 `CardPitchDeg`=**45°**、相机俯角 `PilotPitchDeg`=**45°**（＝后倾角，光轴垂直卡面）、焦段 `PilotDistance`=**55**；细则见 arena_stage；「桌面扭转」`PilotYawDeg`=**0°**：机制保留（绕地面中心旋转、卡牌不自转），真转相机会让地台远边斜掉+露黑角，禁止），保证安全区（半宽 4.6 / 半高 5.2）完整可见 | `VFX/CameraFitter.cs` |
+| 取景权威 | 按当前宽高比取景：正交调 orthoSize；**近 3D 默认**调 FOV（`CameraFitter.PerspectivePilot`，卡牌后倾 `CardPitchDeg`=**45°**、相机俯角 `StagePerformanceConfig.PilotPitchDeg`=**35°**（与卡解耦，`CameraFitter` 转发）、焦段 `PilotDistance`=**55**；单挑期间由 `StageCameraRig` 临时推到俯角 45（垂直卡面）／距离 34 并还位，见 arena_stage §四d；细则见 arena_stage；「桌面扭转」`PilotYawDeg`=**0°**：机制保留（绕地面中心旋转、卡牌不自转），真转相机会让地台远边斜掉+露黑角，禁止），保证安全区（半宽 4.6 / 半高 5.2）完整可见 | `VFX/CameraFitter.cs` + `Units/StagePerformanceConfig.cs` |
 | 近 3D 站位落地 | Arena 生效时站位由 `ArenaSlotLayout.SlotCenter`（矩形六等分格心 + 下缘贴地）；**权威** [battlefield_layout.md](battlefield_layout.md) | `BattlefieldLayout` / `ArenaSlotLayout` / `BattleBoardView` |
 | 背景铺满 | cover 模式：等比放大到两边都盖住（超出裁切），跟随相机每帧算 | `BattleBoardView.BackgroundFitter` |
 | OnGUI 缩放 | 横幅/按钮/结算表按 `Screen.height/800` 缩放字号与矩形 | `BannerService.OnGUI` / `SettlementPanel.OnGUI` 等 |
@@ -29,7 +29,7 @@
 
 | 元素 | 模式 | 槽位 |
 |---|---|---|
-| 立绘 Portrait | **contain 等比** | 相对框宽高保持 0.96/1.55、1.47/2.54 比例 |
+| 立绘 Portrait | **contain 等比** | 相对框宽高保持 0.96/1.55、1.47/2.54 比例；沿卡面法线抬离卡框 `PortraitDepth`=0.05×LayoutScale（景深，配合惯性视差）。**运行期 pos/scale/rot 由 `CardIdleMotion` 唯一写入**，勿在别处 tween |
 | 头像标 PortraitMark | contain 等比 | `0.72 × LayoutScale` |
 | 卡框 Frame / 石化 / 白闪 | **stretch** | `StanceLayout.CardWidth × CardHeight` |
 | 满档外溢光环 | CFXR 挂卡后 | LightGlow A 去星点，scale 1.18~1.65；与火同渐灭 |
@@ -45,6 +45,8 @@
 |---|---|---|
 | -100 | 棋盘背景 | `BattleBoardView` |
 | -50 | 整盘滤镜 | `BoardFilterOverlay` |
+| -3 | 卡牌接地阴影（近 3D 舞台才有） | `Units/CardGroundShadow.cs` |
+| -2 | 突进残影 | `Units/AfterImageService.cs` |
 | -1 | 势能满档卡后光环 | `UnitAuraService.MountMomentumGlow` |
 | 0 / 1 | 卡框 / 立绘 | `UnitView` |
 | 2~4 | 血条/势能条（文字类 +10 → 12/14） | `UnitView` |
@@ -55,7 +57,17 @@
 | 55 | 头像标（必须盖过落雷） | `UnitView.ShowPortraitMark` |
 | 60 | 飘字 | `FloatingTextService` |
 | 70 / 71 | 台词气泡底板 / 文字 | `ChatBubbleService` |
-| 80~90 | 全屏 cut-in（80 暗幕 / 82 斜带·半屏卡 / 83 巨幅立绘 / 85 裂缝 / 88 交错白闪 / 90 大字） | `CutInService` |
+| 80~93 | 全屏 cut-in。**单人**：80 暗幕 / 82 斜带 / 83 巨幅立绘 / 90 大字。**单挑舞台**：80 暗幕 / 81 屏边框 / 82 屏底 / 83 阵营辉光 / 84 放射光芒 / 85 四角纹饰 / 86 后景浮尘 / 87 立绘背光 / 88 飞行立绘 / 89 前景浮尘 / 90 中央图标 / 91 冲击环 / 92 交错白闪 / 93 影院黑边 | `CutInService`；单挑 `DuelStage`（88/87）+ `DuelStageChrome`（其余，类头有总表） |
+
+> **加单挑装饰先去 `DuelStageChrome` 层号总表占号**。同号元素之间的先后由
+> 距离/建序决定，会随机闪。屏边框必须**低于**屏底（它是整块实心，只靠屏底
+> 略小一圈露出边），撞反了整块屏就被边框糊死。
+
+> **cut-in 的挂点是相机的子物体**：整套构件挂在相机正前方 12 单位那块平面的
+> 局部坐标里（`CutInService.NewRoot`，半宽半高取 `ScreenRect`），所以
+> 「屏幕左右上下」在任何相机俯角下都成立，**且运镜时整块屏跟着相机走**。
+> 曾按 `(cam.x, cam.y, 0)` 无旋转摆放，俯角改成 35° 后整个 cut-in 飞出视锥
+> （P-64）；改成算一次世界坐标仍会在单挑推镜时滑出视野（P-65）。
 
 ## 五、棋盘布局与卡牌结构
 

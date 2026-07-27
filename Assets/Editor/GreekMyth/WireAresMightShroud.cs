@@ -73,16 +73,36 @@ namespace GreekMyth.EditorTools
         }
     }
 
-    /// <summary>战神之勇：Effect31 → shroud_ares_might，**完整件不裁层**。</summary>
+    /// <summary>战神之勇罩身：画廊 2/8 · 10/61 ＝ Magic Effect18 完整件
+    /// → <c>shroud_ares_might</c>（不裁层）。勿与「件 18/61＝Effect25」混淆。
+    /// 挂载仍走 MountShroud + VfxShroudFollower（投影圆定径）。</summary>
     public static class WireAresMightShroud
     {
         const string Src =
-            "Assets/KriptoFX/Magic Effects Pack v1/Prefabs/Effects/Effect31.prefab";
+            "Assets/KriptoFX/Magic Effects Pack v1/Prefabs/Effects/Effect18.prefab";
         const string Dest = "Assets/Resources/ClientBattle/VFX/shroud_ares_might.prefab";
 
-        [MenuItem("GreekMyth/Magic Pack/接线战神之勇罩身（Effect31→shroud_ares_might）")]
+        [InitializeOnLoadMethod]
+        static void AutoHeal()
+        {
+            // 只在缺件时补；原料换件须点菜单强制重拷（避免每次域重载盖掉本地微调）。
+            EditorApplication.delayCall += () =>
+            {
+                if (Application.isPlaying) return;
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(Dest) != null) return;
+                Debug.LogWarning("[AresShroud] shroud_ares_might 缺失，自动 Effect18 完整件补齐…");
+                Wire();
+            };
+        }
+
+        [MenuItem("GreekMyth/Magic Pack/接线战神之勇罩身（画廊2/8·10/61 Effect18→shroud_ares_might）")]
         public static void Wire()
         {
+            if (Application.isPlaying)
+            {
+                Debug.LogError("[AresShroud] 拒绝在 Play 模式下接线。请先退出 Play 再点本菜单。");
+                return;
+            }
             if (!WireShroudEffect.CopyFull(Src, Dest, "shroud_ares_might", stripNameContains: null))
                 Debug.LogError("[AresShroud] 落盘失败");
         }

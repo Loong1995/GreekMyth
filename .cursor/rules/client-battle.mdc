@@ -17,7 +17,9 @@ alwaysApply: false
 - **扩展**：新分组逻辑进 `Events/Processors/`；新演出进 `SkillPerformance` 派生，
   禁止在 Runner/Director 主循环塞特例
 - 中文名与 `battle/names.py` 同步（`Names/ChineseNames.cs`）
-- **特效点名**：用户指出画廊/厂包某件要用于武将或事件时，先读
-  `docs/client/vfx_standardization.md`，默认复制进 Resources、清洗、挂
-  `VfxFitter`/`VfxGroundLayer`、登记 guide、填 Profile key；禁止 Profile 直指包目录；
-  **不做**给人点的晋升 GUI/队列
+- **特效点名（强制）**：用户指出画廊/厂包某件、或改默认命中/弹道/光环/单挑 VFX 时，
+  **第一条工具调用必须 Read** `docs/client/vfx_standardization.md`，并按清单：
+  `_gallery_index_dump.py` 定件 → `VfxPackStandardizer` 落盘 → guide 登记 →
+  Profile/`StagePerformanceConfig` 填 key → 验收。禁止 Profile 直指包目录；
+  禁止只改字符串不落盘；**不做**晋升 GUI。细节见
+  `.cursor/rules/vfx-standardization.mdc`。

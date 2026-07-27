@@ -73,14 +73,17 @@ namespace ClientBattle.VFX
         }
 
         /// <summary>命中裂地：受击者「卡在地板上的中心点」起放射圆裂纹。
-        /// 默认直径＝卡宽 ×1.5，可由 profile / 势能加强倍率放大。</summary>
-        public static void PlayHit(VFXContext ctx, PerformanceProfile profile, Units.UnitView target)
+        /// 默认直径＝卡宽 ×1.5，可由 profile / 势能加强 / **巨伤**倍率放大。
+        /// <paramref name="massive"/>＝重创横幅同判据 → 强制档 3 + 面积 ×1.5
+        /// （与势能加强同规格，见 ground_crack_config.md）。</summary>
+        public static void PlayHit(VFXContext ctx, PerformanceProfile profile,
+                                   Units.UnitView target, bool massive = false)
         {
             if (target == null) return;
             var mode = GroundCrackPalette.ImpactMode;
             Play(ctx, mode, KeyOf(profile?.GroundHitKey, mode.Key),
                  Units.ArenaSlotLayout.GroundFoot(target.RestPosition), yaw: null,
-                 ResolveStrength(profile, ctx), AreaOf(profile, ctx));
+                 ResolveStrength(profile, ctx, massive), AreaOf(profile, ctx, massive));
         }
 
         /// <summary>T1 弹道裂地驱动器：挂到 <see cref="StrikeSync"/> 的飞行段上，
@@ -97,6 +100,73 @@ namespace ClientBattle.VFX
         {
             if (ctx == null || !Active(damages)) return null;
             return new FlightPathCracks(ctx, profile, from, damages);
+        }
+
+        /// <summary>T4 移动轨迹裂地：**出击者自己踩出来的一条 3 档裂缝**。
+        /// 只在「拉满出手」时给——势能全开（<c>EmpoweredStrike</c>）或巨伤
+        /// （<c>MassiveStrike</c>，重创横幅同判据）。语义是「这一步踏得地面开裂」，
+        /// 与弹道裂地同骨架（PathMode）但起点是脚下、终点是他冲向的地方。
+        ///
+        /// 例：赫克托尔准备技能满势能又打出巨伤 → 突进到场心一路大裂缝，
+        /// 弹道再从场心拉满到目标，命中处再炸一发档 3 ×1.5。
+        ///
+        /// 不该出时返回 null（调用方对 null 免疫）。物理判据与
+        /// <see cref="Active"/> 同源：魔法伤害不裂地。</summary>
+        public static MoveTrail MoveTrailDriver(VFXContext ctx, Units.UnitView mover,
+                                                Vector3 destination, List<DamageEvent> damages)
+        {
+            if (ctx == null || mover == null || mover.Defeated) return null;
+            if (!ctx.EmpoweredStrike && !ctx.MassiveStrike) return null;
+            if (!Active(damages)) return null;
+            return new MoveTrail(ctx, mover.transform.position, destination);
+        }
+
+        /// <summary>一条正在被踩出来的移动裂缝：按**实际位移进度**分段起裂并生长
+        /// （不按墙钟——突进是 InQuint 加速，等分时间会让裂缝与脚步脱节）。</summary>
+        public sealed class MoveTrail
+        {
+            readonly VFXContext _ctx;
+            readonly Vector3 _fromFoot, _toFoot;
+            readonly string[] _stepKeys;
+            readonly GroundCrackPalette.Strength _strength;
+            readonly Stamp[] _stamps;
+
+            internal MoveTrail(VFXContext ctx, Vector3 from, Vector3 to)
+            {
+                _ctx = ctx;
+                _stepKeys = GroundCrackPalette.PickPathKeys(null, PathSteps);
+                _strength = ResolveStrength(null, ctx); // 门槛已保证＝档 3
+                _fromFoot = Units.ArenaSlotLayout.GroundFoot(from);
+                _toFoot = Units.ArenaSlotLayout.GroundFoot(to);
+                _stamps = new Stamp[PathSteps];
+            }
+
+            /// <summary>按位移进度推进（每帧调；progress01 单调不回退）。</summary>
+            public void Drive(float progress01)
+            {
+                for (int step = 0; step < PathSteps; step++)
+                {
+                    float start = step / (float)PathSteps;
+                    if (progress01 < start) break;
+                    _stamps[step] ??= Spawn(step);
+                    _stamps[step].Drive(Mathf.InverseLerp(start, (step + 1) / (float)PathSteps,
+                                                          progress01));
+                }
+            }
+
+            /// <summary>抵近那一刻补齐并收满：禁止留半截裂痕（同 P-57/P-62 教训）。</summary>
+            public void Finish() => Drive(1f);
+
+            Stamp Spawn(int step)
+            {
+                Vector3 at = Vector3.Lerp(_fromFoot, _toFoot, (step + 1) / (float)PathSteps);
+                var instance = Play(_ctx, GroundCrackPalette.PathMode,
+                                    _stepKeys[Mathf.Clamp(step, 0, _stepKeys.Length - 1)],
+                                    at, YawAlong(_fromFoot, _toFoot), _strength, area: 1f);
+                return new Stamp(instance != null
+                    ? instance.GetComponentsInChildren<GroundCrackDecal>(true)
+                    : System.Array.Empty<GroundCrackDecal>());
+            }
         }
 
         /// <summary>一段已出场的弹道裂地：出场时缓存贴花，供逐帧驱动生长
@@ -204,15 +274,17 @@ namespace ClientBattle.VFX
             string.IsNullOrEmpty(configured) ? fallback : configured;
 
         /// <summary>强度档解析（权威规则见 docs/client/ground_crack_config.md）：
-        /// 1. 势能加强出手（`ctx.EmpoweredStrike`）→ 强制档 3；
-        /// 2. 否则技能专配 `GroundStrengthTier`（0＝未配 → 档 1）；
+        /// 1. 巨伤（重创横幅同判据，<c>ctx.MassiveStrike</c>）或势能加强出手
+        ///    → 强制档 3；两者都是「这一组整段拉满」，弹道/轨迹/命中同档；
+        /// 2. 否则技能专配 <c>GroundStrengthTier</c>（0＝未配 → 档 1）；
         /// 3. 专配只升不降 —— 低于档 1 仍按档 1。
         ///
         /// 配置约定：准备型物理主动群攻配 2，瞬发物理主动群攻留 0（＝1）。</summary>
         static GroundCrackPalette.Strength ResolveStrength(PerformanceProfile profile,
-                                                           VFXContext ctx)
+                                                           VFXContext ctx,
+                                                           bool massive = false)
         {
-            if (ctx != null && ctx.EmpoweredStrike)
+            if (massive || (ctx != null && (ctx.EmpoweredStrike || ctx.MassiveStrike)))
                 return GroundCrackPalette.Strength.Blaze;
             const GroundCrackPalette.Strength baseline = GroundCrackPalette.Strength.Light;
             int configured = profile != null ? profile.GroundStrengthTier : 0;
@@ -221,11 +293,11 @@ namespace ClientBattle.VFX
                 Mathf.Min(configured, (int)GroundCrackPalette.Strength.Blaze);
         }
 
-        /// <summary>命中类面积倍率：势能加强出手强制 1.5；否则未配取 1
+        /// <summary>命中类面积倍率：巨伤或势能加强强制 1.5；否则未配取 1
         /// （＝卡宽 ×1.5 的默认大小）。</summary>
-        static float AreaOf(PerformanceProfile profile, VFXContext ctx)
+        static float AreaOf(PerformanceProfile profile, VFXContext ctx, bool massive = false)
         {
-            if (ctx != null && ctx.EmpoweredStrike)
+            if (massive || (ctx != null && (ctx.EmpoweredStrike || ctx.MassiveStrike)))
                 return EmpoweredHitArea;
             float area = profile != null ? profile.GroundHitArea : 0f;
             return area > 0.01f ? area : 1f;

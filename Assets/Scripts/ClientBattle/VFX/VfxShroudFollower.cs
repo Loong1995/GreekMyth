@@ -5,8 +5,8 @@ namespace ClientBattle.VFX
 {
     // =========================================================================
     // 罩身运行期通用驱动（所有罩身件共用）：
-    //   · 平时 / melee：整件钉在持有者卡牌定位圆心（CardCircleCenter），世界竖直；
-    //   · 地面 Decal 在 Fit 时已严格＝定位圆直径，跟随只改位姿不重乘 Pin；
+    //   · 平时 / melee：整件钉在持有者卡牌投影圆心（ProjectionCircleCenter），世界竖直；
+    //   · 地面 Decal 在 Fit 时已严格＝投影圆直径，跟随只改位姿不重乘 Pin；
     //   · 粒子强制 Local，melee 时不甩在身后。
     // **禁止在本类裁层/删节点**：厂包同构件默认完整加载；去石块/关 Trigger 等
     // 一律由各技能挂载处单独名单配置（见 MountShroud / Wire）。
@@ -80,14 +80,14 @@ namespace ClientBattle.VFX
 
         void LateUpdate() => Snap();
 
-        /// <summary>钉定位圆：melee 时跟 transform，平时亦同（严格锚定定位圆）。</summary>
+        /// <summary>钉投影圆：melee 时跟 transform，平时亦同（严格锚定投影圆）。</summary>
         public void Snap()
         {
             if (_cell == null) return;
             Vector3 cardAnchor = _unit != null
                 ? _unit.transform.position
                 : _cell.position;
-            var center = ArenaSlotLayout.CardCircleCenter(cardAnchor);
+            var center = ArenaSlotLayout.ProjectionCircleCenter(cardAnchor);
             _cell.SetPositionAndRotation(center, Quaternion.identity);
             _cell.localScale = _fitScale;
         }

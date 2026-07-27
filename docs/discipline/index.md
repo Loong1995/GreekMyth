@@ -23,7 +23,7 @@
 - **战法语义**：`docs/skills/`（三段式：效果/实现/事件流）。
 - **客户端**：`docs/client/index.md` 起步；核心机制 `performance_mechanisms.md`；
   画廊点名厂包特效并接线 → **`docs/client/vfx_standardization.md`**（无 GUI 晋升，
-  AI 默认标准化并加载）。
+  AI 默认标准化并加载）；Cursor 另有 `vfx-standardization.mdc` 按 glob 强制叠加。
 - **历史存档**（只读参考，不代表现状）：`docs/prompts/`（任务书）、
   `docs/dev/v0_analysis.md`、`phase3_plan.md`、`decisions_client_phase2.md`、
   `performance.md`（旧基准，0.2.0 时采集，现 core 0.4.1，如需现值重跑）。

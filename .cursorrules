@@ -4,6 +4,11 @@
 希腊神话题材 2D 卡牌对战手游；服务器权威结算（Python `battle/`），
 客户端(Unity `Assets/Scripts/ClientBattle/`)只按事件流播放、零结算。
 
+**产品定位三支柱**（权威 `docs/discipline/project_overview.md` §一）：
+动作游戏感 + 策略游戏深度 + 下一代卡牌感（羁绊/演出/交互）。
+策略深度走战法组合与平衡标定既有路径；**动作感与下一代感是当前短板**，
+客户端演出工时优先投这两项。
+
 ## 根本上下文（开工必读）
 **`docs/discipline/`**：全项目不可违背的规范与全局规则总纲
 （project_overview 世界观术语 / global_rules 机制红线 / coding_standards /
@@ -11,8 +16,10 @@ doc_standards / ai_workflow_pitfalls 踩坑录）。任何工作先读该目录 
 踩新坑当次会话追记 pitfalls。
 
 **自动注入规则**：`.cursor/rules/`（`00-session-start.mdc` 始终生效；
-ClientBattle / battle / docs 按 glob 叠加）。规则要求开工第一条工具调用
-用 Read 打开权威文档——比「口头必读」更可靠。
+ClientBattle / battle / docs / **vfx-standardization** 按 glob 叠加）。
+规则要求开工第一条工具调用用 Read 打开权威文档——比「口头必读」更可靠。
+**画廊/厂包点名接特效**：必须先读 `docs/client/vfx_standardization.md`，
+走 `VfxPackStandardizer` 落盘，禁止裸改 key 或凭印象手搓（P-70）。
 
 ## 当前阶段
 - Phase 3（机制大修 + 武将池 v3.1 + 性格系统）**已完成**；

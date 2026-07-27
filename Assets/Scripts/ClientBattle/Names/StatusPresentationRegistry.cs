@@ -83,7 +83,7 @@ namespace ClientBattle.Names
             ["aegis_ward"] = new(statsSkillId: "athena_aegis"),
             ["snake_staff_protection"] = new(statsSkillId: "asclepius_oracle"),
             ["snake_staff_tender"] = new(statsSkillId: "asclepius_oracle"),
-            // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect31 罩身（奇数回合显）
+            // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect18 罩身（奇数回合显）
             ["blood_battle"] = new(auraKey: "aura_fire_foot", statsSkillId: "ares_warfury",
                                    auraOffset: StatusPresentation.FireFootOffset),
             ["ares_might"] = new(auraKey: "shroud_ares_might", statsSkillId: "ares_warfury",

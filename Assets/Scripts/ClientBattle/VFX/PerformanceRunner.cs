@@ -170,14 +170,13 @@ namespace ClientBattle.VFX
                 _session.Ctx.OnCutInRequested?.Invoke(heroId, text, groupId);
         }
 
-        /// <summary>高伤补充门槛判定（SkillPerformance.SettleDamage 回调）；
-        /// 阈值集中在 CutInPolicy。</summary>
-        public void NotifyDamageSettled(DamageEvent damage, string floatName)
-        {
-            if (CutInPolicy.IsHighDamage(damage))
-                RequestCutIn(damage.SourceId,
-                    $"{floatName} 重创 {damage.TargetId}！-{damage.Amount}", damage.GroupId);
-        }
+        /// <summary>伤害落定回调（<c>SkillPerformance.SettleDamage</c>）。
+        ///
+        /// **巨伤 cut-in 不在这里请求**：它由 <c>CutInPolicy.Resolve</c> 在播组
+        /// 之前预判，走 <c>CutInStage</c> 的「推镜→横幅→出手命中→撤镜」独占单元
+        /// （2026-07-27 统一）。事后请求既做不到伤害前推镜，暗幕还会盖住刚起播的
+        /// 命中特效（P-72）。本回调保留给高光选窗等纯观测方，勿再挂表现。</summary>
+        public void NotifyDamageSettled(DamageEvent damage, string floatName) { }
 
         // ---------------------------------------------------------- 生命周期内部
 
@@ -189,6 +188,8 @@ namespace ClientBattle.VFX
             // 全局服务即使会话已拆也要停（Teardown / 重播竞态）
             if (CutInService.Instance != null) CutInService.Instance.CancelAll();
             CameraShaker.Cancel();
+            StageCameraRig.ReleaseAll(); // 硬停止在推镜途中：不还位就一直卡在近机位
+            AfterImageService.ClearAll();
             UnitAuraService.ClearAll();
             BannerService.Instance?.Clear(); // 系列结束「胜者 X 队」等常驻横幅必须清（R-1.2③）
             var ctx = _session?.Ctx;

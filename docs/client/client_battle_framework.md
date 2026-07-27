@@ -71,6 +71,7 @@
 | `VFX/PerformanceDatabase.cs` | 配置库 SO；缺资产时代码内置全部特殊战法配置 |
 | `VFX/SkillPerformance.cs` | 演出抽象基类 + 结算事件→表现公共原语；跨层通知走 `VFXContext.OnDamageSettled/OnCutInRequested` 回调（禁止反向引用 Runner 单例） |
 | `VFX/Performances/DefaultPerformance.cs` | 默认策略族（AOE 中心/逐段/近身/状态触发） |
+| `VFX/StrikeBeats.cs` | **出手三拍唯一实现**：预备（反向蓄力）→ 发力（加速突进 + 残影）→ 收势（过冲回位）。`PlayMelee` / `PlayAoeCenter` 共用；模板禁止自拼 `DOMove` 节奏 |
 | `VFX/StrikeSync.cs` | **出手时间轴唯一真源**：飞行段按弹道真实位置广播进度给 `IFlightDriven`，`Run()` 返回＝抵达＝调用方同帧开命中拍。裂地经 `GroundCrackService.PathDriver` 挂上；细则见 ground_crack_language / performance_mechanisms |
 | `VFX/Performances/OracleAuraPerformance.cs` | 神谕整单元宣告 + 程序化整盘滤镜 BoardFilterOverlay（Intensity 可调；光环本体由 UnitAuraService 按状态挂） |
 | `VFX/Performances/DuelPerformance.cs` | 单挑播放单元（压暗/号角/duel_* 台词/裂缝交错 cut-in/胜负横幅/败者惩罚落账），2026-07-22 自 Runner 拆出 |
@@ -88,6 +89,10 @@
 | `VFX/PerformanceRunner.cs` | **播放控制器**（2026-07-23 瘦身）：PlaybackState 状态机、Play/Replay/Skip/Teardown/Highlight/Stop 全部入口、唯一协程宿主、HardStop 硬停止单一实现；主循环/建世界/策略已拆出 |
 | `VFX/VFXManager.cs` | 特效池 + 离屏实渲预热（Prewarm：全部 prefab 在离屏 RT 相机前实渲 3 帧，shader 编译/贴图上传压进加载期，PlayLoop 等 PrewarmComplete 再开播） |
 | `VFX/CameraShaker.cs` | trauma 噪声模型震动：连抖累加封顶、Perlin 偏移、衰减自动复位（升级点：Cinemachine Impulse） |
+| `Units/StagePerformanceConfig.cs` | **舞台演出参数唯一收口**：机位俯角 / 卡姿抖动 / 微调圆 / 击退 / 受击颤动 / 三拍 / 残影 / 接地阴影。改数字即调参；表现类禁止另写调参 const |
+| `Units/AfterImageService.cs` | 突进残影：卡面运行期快照的环形池（order −2），`HardStop` 统一收。非 prefab，故不入 VFXManager 池 |
+| `Units/CardGroundShadow.cs` | 卡牌接地阴影（order −3，近 3D 舞台才建）：软椭圆随卡尺自适应，抬离地面越高越小越淡。挂卡牌父级，`LateUpdate` 取位 |
+| `Units/CardIdleMotion.cs` | **卡面生动性唯一写入者**：待机呼吸 / 惯性视差 / 受击挤压三通道合成为立绘的 pos+scale+rot，每帧一次写入、零 alloc。要动立绘 Transform 的新表现一律走它，禁止另起 tween 抢同一组件 |
 | `VFX/CutInService.cs` | **全屏 cut-in**：请求入口 Request（组去重+主体分发+duck）；单人斜带+巨幅立绘（PlaySolo，非阻塞）；决斗裂缝交错（DuelClashRoutine，阻塞，两半屏卡对向滑过裂缝线×clash_cutins） |
 | `VFX/CameraFitter.cs` | **机型兼容唯一权威**：按宽高比动态调 orthoSize 保安全区（半宽 4.6/半高 5.2），分辨率热切换每帧跟随；表现层禁止写死 orthoSize/像素坐标 |
 | `Units/BattleBoardView.cs` | 建棋盘（A 下 B 上、阵型落点）、unitId→UnitView、背景（默认无色纯黑，上传底图则 BackgroundFitter cover 铺满）、整盘滤镜挂点 |

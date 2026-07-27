@@ -10,13 +10,13 @@ namespace ClientBattle.VFX
     //
     // 1. 单人 cut-in（PlaySolo，非阻塞）：暗幕 + 阵营色斜带甩入 + 巨幅立绘
     //    反向滑入 + 大字标题，停留后整体甩出。触发源不变（满势能/高伤/追击5）。
-    // 2. 决斗 cut-in（DuelClashRoutine，阻塞）：中央斜裂缝线把屏幕分成两半，
-    //    两张半屏武将卡一张自上而下、一张自下而上对向滑过裂缝算一次交错；
-    //    clash_cutins 次数越多（武力越接近）交错越多、一次比一次快，
-    //    最后一次停在中线两侧对峙 → 裂缝闪白 →弹开。
+    // 2. 单挑 cut-in（DuelClashRoutine，阻塞）：立绘出框 → 虚空展示屏 → 交错与
+    //    动作 ×clash_cutins → 定胜负 → 飞回卡框。实现在 DuelStage.cs，本类只
+    //    负责独占仲裁（顶掉进行中的 solo）、建/毁挂点、以及中断时的还原。
     //
-    // 渲染：世界坐标 Sprite 挂相机中心，sorting 80~90（登记于
-    // docs/client/rendering_layout.md §四）；占位三级回退与全局一致。
+    // 渲染：世界坐标 Sprite 挂在**相机正前方**一块随相机旋转的平面上
+    // （见 ScreenRect），sorting 80~93（登记于 docs/client/rendering_layout.md §四）；
+    // 占位三级回退与全局一致。
     // =========================================================================
 
     public class CutInService : MonoBehaviour
@@ -26,8 +26,6 @@ namespace ClientBattle.VFX
         const int OrderVeil = 80;
         const int OrderPanel = 82;
         const int OrderPortrait = 83;
-        const int OrderCrack = 85;
-        const int OrderFlash = 88; // 交错全屏白闪（盖住面板、低于 VS 字）
         const int OrderText = 90; // TextMesh 实际 order（NewText 内直接赋值）
 
         Transform _root;          // 每次演出的一次性挂点（相机中心）
@@ -51,6 +49,12 @@ namespace ClientBattle.VFX
         {
             StopAllCoroutines();
             _solo = null;
+            // 单挑期间卡面立绘被藏起、由飞行替身代演；中断路径必须还原，
+            // 否则停播/重播后战场上会留下两张没有立绘的空卡框。
+            _duel?.Restore();
+            _duel = null;
+            // 同理：推镜也必须还，否则战斗剩余部分会一直卡在推近的机位上。
+            StageCameraRig.ReleaseAll();
             ClearRoot();
         }
 
@@ -60,6 +64,10 @@ namespace ClientBattle.VFX
 
         /// <summary>重置组去重（高光回放等二次剪辑前调用，避免整场残留挡住 cut-in）。</summary>
         public void ResetDedup() => _lastGroupId = -1;
+
+        /// <summary>该组是否已切过 cut-in。<see cref="CutInStage"/> 用它避免
+        /// 「已去重却仍推了一次镜头」的空运镜。</summary>
+        public bool AlreadyPlayed(int groupId) => groupId == _lastGroupId;
 
         /// <summary>cut-in 统一请求入口。heroId 非空 → 全屏单人 cut-in（暗幕+斜带+
         /// 巨幅立绘，非阻塞不占时间轴）；heroId 空（战术变更等无主体）→ BannerService
@@ -110,8 +118,8 @@ namespace ClientBattle.VFX
 
         IEnumerator SoloRoutine(VFXContext ctx, string templateId, string title)
         {
-            var (halfW, halfH, center) = ScreenRect();
-            _root = NewRoot(center);
+            var (halfW, halfH) = ScreenRect();
+            _root = NewRoot();
             Color faction = BattleBoardView.FactionColorOf(templateId);
 
             var veil = NewQuad("veil", new Color(0f, 0f, 0f, 0.55f), OrderVeil,
@@ -175,160 +183,65 @@ namespace ClientBattle.VFX
 
         // ------------------------------------------------------------ 决斗 cut-in
 
-        /// <summary>阻塞式决斗交错 cut-in：passes 次对向滑过中央裂缝，
-        /// 一次比一次快；末次两卡停在裂缝两侧对峙后弹开。onClash 每次交错回调
-        /// （编排层放音效/震屏）。</summary>
+        DuelStage _duel;
+
+        /// <summary>阻塞式单挑舞台 cut-in（2026-07-27 重做）：两名参战武将的立绘
+        /// **从各自卡框飞出**，落进中央虚空展示屏，交错 passes 轮、每轮打一段动作
+        /// （flipbook；缺帧则静态立绘占满该段），分出胜负后飞回卡框。
+        ///
+        /// 分幕与素材约定见 <see cref="DuelStage"/> 类头；数值在 StagePerformanceConfig。
+        /// onClash 每次交错回调一次（编排层放音效/震屏）。</summary>
         public IEnumerator DuelClashRoutine(
             VFXContext ctx, UnitView left, UnitView right, int passes,
-            System.Action onClash)
+            string winnerId, System.Action onClash)
         {
             if (_solo != null) { StopCoroutine(_solo); _solo = null; }
             ClearRoot();
-            var (halfW, halfH, center) = ScreenRect();
-            _root = NewRoot(center);
-            passes = Mathf.Clamp(passes, 1, 3);
-
-            Color colorL = BattleBoardView.FactionColorOf(left.Hero.TemplateId);
-            Color colorR = BattleBoardView.FactionColorOf(right.Hero.TemplateId);
-
-            NewQuad("veil", new Color(0f, 0f, 0f, 0.7f), OrderVeil,
-                halfW * 2.2f, halfH * 2.2f, Vector3.zero, 0f);
-
-            // 中央裂缝线：偏竖直 8°，贯穿全屏
-            var crack = NewQuad("crack", Fade(Color.white, 0.9f), OrderCrack,
-                0.07f, halfH * 2.4f, Vector3.zero, 8f);
-            var crackGlow = NewQuad("crack_glow", Fade(Color.white, 0.25f), OrderCrack - 1,
-                0.3f, halfH * 2.4f, Vector3.zero, 8f);
-            // 交错白闪（与 cut-in 同层几何，不用 RFX 粒子）
-            var flash = NewQuad("clash_flash", Fade(Color.white, 0f), OrderFlash,
-                halfW * 2.2f, halfH * 2.2f, Vector3.zero, 0f);
-
-            // 两张半屏卡：阵营色底板 + 巨幅立绘 + 名字
-            var panelL = BuildDuelPanel("panel_L", left, colorL, halfW, halfH, -1);
-            var panelR = BuildDuelPanel("panel_R", right, colorR, halfW, halfH, +1);
-
-            float travel = halfH * 2.6f;                  // 越屏行程
-            float duration = ctx.Scaled(0.34f);           // 首次交错时长
-            for (int i = 0; i < passes; i++)
-            {
-                bool last = i == passes - 1;
-                // 交替方向：偶数次左卡从上往下，奇数次反向（来回交错感）
-                float dir = i % 2 == 0 ? 1f : -1f;
-                bool clashed = false;
-                for (float t = 0f; t < duration; t += Time.deltaTime)
-                {
-                    float p = t / duration; // 线性滑过（高速掠过感）
-                    float yL = Mathf.Lerp(travel * dir, -travel * dir, p);
-                    panelL.localPosition = new Vector3(-halfW * 0.5f, yL, 0f);
-                    panelR.localPosition = new Vector3(halfW * 0.5f, -yL, 0f);
-                    if (!clashed && p >= 0.5f)
-                    {
-                        clashed = true;
-                        onClash?.Invoke();
-                        StartCoroutine(FlashClash(crack, crackGlow, flash));
-                    }
-                    yield return null;
-                }
-                duration *= 0.72f; // 一次比一次快（武力接近 → 多次高速交错）
-                if (last)
-                {
-                    // 末次：拉回中线两侧对峙
-                    float dHold = ctx.Scaled(0.12f);
-                    Vector3 fromL = panelL.localPosition, fromR = panelR.localPosition;
-                    Vector3 toL = new(-halfW * 0.5f, halfH * 0.06f, 0f);
-                    Vector3 toR = new(halfW * 0.5f, -halfH * 0.06f, 0f);
-                    for (float t = 0f; t < dHold; t += Time.deltaTime)
-                    {
-                        float p = OutCubic(t / dHold);
-                        panelL.localPosition = Vector3.LerpUnclamped(fromL, toL, p);
-                        panelR.localPosition = Vector3.LerpUnclamped(fromR, toR, p);
-                        yield return null;
-                    }
-                    var vs = NewText("vs", "VS", 88, Color.white);
-                    vs.transform.localPosition = Vector3.zero;
-                    onClash?.Invoke();
-                    yield return FlashClash(crack, crackGlow, flash);
-                    yield return new WaitForSeconds(ctx.Scaled(0.45f));
-                }
-            }
-
-            // 弹开退场
-            float dOut = ctx.Scaled(0.16f);
-            Vector3 outL0 = panelL.localPosition, outR0 = panelR.localPosition;
-            for (float t = 0f; t < dOut; t += Time.deltaTime)
-            {
-                float p = InCubic(t / dOut);
-                panelL.localPosition = outL0 + new Vector3(-halfW * 1.6f * p, 0f, 0f);
-                panelR.localPosition = outR0 + new Vector3(halfW * 1.6f * p, 0f, 0f);
-                yield return null;
-            }
+            _root = NewRoot();
+            _duel = new DuelStage();
+            yield return _duel.Run(ctx, _root, left, right, passes, winnerId, onClash);
+            _duel = null;
             ClearRoot();
-        }
-
-        Transform BuildDuelPanel(
-            string name, UnitView unit, Color faction, float halfW, float halfH, int side)
-        {
-            var panel = new GameObject(name).transform;
-            panel.SetParent(_root, false);
-            var back = NewQuad($"{name}_back", Fade(Color.Lerp(faction, Color.black, 0.25f), 0.92f),
-                OrderPanel, halfW * 1.04f, halfH * 2.4f, Vector3.zero, 0f);
-            back.transform.SetParent(panel, false);
-            var portrait = NewPortrait($"{name}_portrait", unit.Hero.TemplateId, faction,
-                OrderPortrait, halfW * 0.9f, halfH * 1.6f);
-            portrait.transform.SetParent(panel, false);
-            portrait.transform.localPosition = new Vector3(0f, halfH * 0.08f, 0f);
-            var label = NewText($"{name}_name", unit.Hero.HeroId, 44, Color.white);
-            label.transform.SetParent(panel, false);
-            label.transform.localPosition = new Vector3(0f, -halfH * 0.62f, 0f);
-            panel.localPosition = new Vector3(halfW * 0.5f * side, 0f, 0f);
-            return panel;
-        }
-
-        IEnumerator FlashClash(SpriteRenderer crack, SpriteRenderer glow, SpriteRenderer flash)
-        {
-            for (float t = 0f; t < 0.22f; t += Time.deltaTime)
-            {
-                float u = t / 0.22f;
-                float a = 1f - u;
-                if (crack != null) SetAlpha(crack, 0.9f + a * 0.1f);
-                if (glow != null)
-                {
-                    SetAlpha(glow, 0.25f + a * 0.6f);
-                    glow.transform.localScale = new Vector3(
-                        0.3f * (1f + a * 2.2f), glow.transform.localScale.y, 1f);
-                }
-                // 前半段冲到 0.55 白，后半段淡出——干净的撞击感，无粒子
-                if (flash != null)
-                    SetAlpha(flash, u < 0.35f ? Mathf.Lerp(0f, 0.55f, u / 0.35f)
-                                             : Mathf.Lerp(0.55f, 0f, (u - 0.35f) / 0.65f));
-                yield return null;
-            }
-            if (flash != null) SetAlpha(flash, 0f);
-        }
-
-        IEnumerator FlashCrack(SpriteRenderer crack, SpriteRenderer glow)
-        {
-            yield return FlashClash(crack, glow, null);
         }
 
         // ------------------------------------------------------------ 构件
 
-        (float halfW, float halfH, Vector3 center) ScreenRect()
+        /// <summary>全屏 cut-in 的取景基准：**相机正前方固定距离**那块平面的半宽半高。
+        /// 所有 cut-in 构件都挂在这块平面的局部坐标里，于是「屏幕左/右/上/下」
+        /// 在任何相机俯角下都成立。
+        ///
+        /// 【勿退回旧写法】旧实现取 `(cam.x, cam.y, 0)` 且不带旋转，隐含假设
+        /// 「相机平视、看向 −Z」。相机俯角一改（现 35°，位置约 (0,31.5,−45)、
+        /// FOV≈12°），该点离光轴 35° → 整个 cut-in 飞出视锥不可见（P-64）。</summary>
+        internal static (float halfW, float halfH) ScreenRect()
         {
             var cam = Camera.main;
-            float halfH = CameraFitter.VisibleHalfHeightAt(cam, 0f);
-            float halfW = halfH * (cam != null ? cam.aspect : 1.78f);
-            Vector3 center = cam != null
-                ? new Vector3(cam.transform.position.x, cam.transform.position.y, 0f)
-                : Vector3.zero;
-            return (halfW, halfH, center);
+            if (cam == null) return (9.2f, 5.2f);
+            float halfH = cam.orthographic
+                ? cam.orthographicSize
+                : CutInDistance * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            return (halfH * cam.aspect, halfH);
         }
 
-        Transform NewRoot(Vector3 center)
+        /// <summary>cut-in 平面到相机的距离。取值无观感影响（半高按同一距离反算，
+        /// 且 sorting 80~93 保证盖住一切），只需落在 near/far 之间。</summary>
+        internal const float CutInDistance = 12f;
+
+        /// <summary>建挂点：**挂到相机身上**，而不是摆一个世界坐标。
+        ///
+        /// 为什么必须是父子关系而不是"算一次位置"：单挑期间 <see cref="StageCameraRig"/>
+        /// 会把相机推近、抬俯角。挂点若是世界坐标，相机一动整块屏就滑出视野；
+        /// 作为相机子物体则天然跟随，运镜与 cut-in 彻底解耦。
+        /// 顺带：相机抖动（Shake 动的是相机 localPosition）不会传到屏上——
+        /// 全屏构件本来就该稳在屏幕上、由世界去抖。</summary>
+        Transform NewRoot()
         {
+            var cam = Camera.main;
             var root = new GameObject("cutin_root").transform;
-            root.SetParent(transform, false);
-            root.position = center;
+            root.SetParent(cam != null ? cam.transform : transform, false);
+            root.localPosition = new Vector3(0f, 0f, CutInDistance);
+            root.localRotation = Quaternion.identity;
+            root.localScale = Vector3.one;
             return root;
         }
 

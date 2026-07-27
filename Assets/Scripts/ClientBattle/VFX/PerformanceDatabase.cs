@@ -66,7 +66,9 @@ namespace ClientBattle.VFX
                 SfxKey = "sfx_active_default", HitSfxKey = "sfx_hit_default",
             };
             // 主动默认：弹道/命中按伤害类型在 DefaultPerformance 解析（不再默认 Cast）
-            // 物理＝proj_bolt200 + hit_clash；魔法＝magic_bolt + hit_lightning
+            // 物理＝proj_bolt200 + hit_sword（画廊 1/8 件 45/61）；
+            // 魔法＝magic_bolt + hit_petrify（画廊 1/8 件 41/61）
+            // HitKey 留空：SettleDamage → ResolveHitKey 按 damage_type 选。
             db.ActiveDefault = db.GlobalDefault.Clone();
             db.ActiveDefault.HitKey = "";
             db.ActiveDefault.ProjectileKey = "";
@@ -80,7 +82,8 @@ namespace ClientBattle.VFX
             db.PursuitDefault = new PerformanceProfile
             {
                 Template = PerformanceTemplate.Auto,   // 群攻走主动、单体走普攻逻辑（模板内判断）
-                HitKey = "hit_generic", SfxKey = "sfx_pursuit_default",
+                // HitKey 留空＝受击同步主动逻辑：按 damage_type 走 hit_sword / hit_petrify
+                HitKey = "", SfxKey = "sfx_pursuit_default",
             };
             db.StatusTriggerDefault = new PerformanceProfile
             {
@@ -92,6 +95,8 @@ namespace ClientBattle.VFX
             {
                 Template = PerformanceTemplate.OracleAura,
                 AuraKey = "aura_generic", SfxKey = "sfx_oracle_default",
+                // 神谕产生的伤害默认命中：hit_wave（画廊 1/8 件 47/61）
+                HitKey = "hit_wave",
             };
 
             // ---------------- 特殊配置（client_perform §二~五）----------------
@@ -126,7 +131,7 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "aegis_ward", Template = PerformanceTemplate.StatusTrigger,
                         CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
                         SfxKey = "sfx_aegis_counter" },
-                // 神：战神怒火（自带）——血战卡框红呼吸；战神之勇 Effect31 罩身（奇偶显隐）
+                // 神：战神怒火（自带）——血战卡框红呼吸；战神之勇 Effect18 罩身（奇偶显隐）
                 new() { SkillOrStatusId = "ares_warfury", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_fire_foot", BoardFilterKey = "filter_bloodlust",
                         Intensity = 0.4f, SfxKey = "sfx_oracle_ares" },

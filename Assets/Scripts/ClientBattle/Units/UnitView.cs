@@ -35,10 +35,33 @@ namespace ClientBattle.Units
         public bool Defeated { get; private set; }
 
         SpriteRenderer _frame, _portrait, _hpFill, _petrifyOverlay;
+
+        /// <summary>残影快照源：卡框与立绘。只读，供 <see cref="AfterImageService"/>
+        /// 拷贝**当前**姿态与颜色（含压暗/石化/染色），故不能预制成 prefab。</summary>
+        internal SpriteRenderer FrameRenderer => _frame;
+        internal SpriteRenderer PortraitRenderer => _portrait;
+
+        /// <summary>藏起/还原卡面立绘。单挑 cut-in 期间立绘由飞行替身代演，
+        /// 卡上不能同时还留着同一张图（否则出框读作"复制"而不是"拽出来"）。
+        ///
+        /// 只动可见性，不碰颜色/位置——压暗、石化、待机浮动这些状态在藏起期间
+        /// 照常写入，还原时立绘直接接上当时的状态，不会闪一下旧样子。
+        /// **谁藏谁还**：藏起方必须在正常收尾与中断两条路径上都还原
+        /// （见 CutInService.CancelAll）。</summary>
+        public void SetPortraitHidden(bool hidden)
+        {
+            if (_portrait != null) _portrait.gameObject.SetActive(!hidden);
+        }
         TextMesh _nameLabel, _hpLabel;
         Color _frameColor;
-        float _idlePhase; // 待机呼吸相位（按卡错开，不同步摆动）
+        float _idlePhase; // 待机相位（按卡错开，六张卡不同步摆动）
         float _portraitBaseY;
+        /// <summary>卡面生动性（呼吸/惯性视差/受击挤压）唯一写入者，见 CardIdleMotion。
+        /// 任何要动立绘 Transform 的新表现都必须走它，别再另起 tween 抢同一个组件。</summary>
+        readonly CardIdleMotion _idleMotion = new();
+
+        /// <summary>本卡的卡姿基准（含每卡随机后倾角）。受击摆动叠在它之上。</summary>
+        Quaternion _baseLean = Quaternion.identity;
         bool _ornateFrame; // Antique 等真框图：不染色；立绘叠内窗
         bool _aresRage;
         float _aresRageStrength = 1f;
@@ -84,14 +107,72 @@ namespace ClientBattle.Units
 
         float S(float v) => v * _layoutScale;
 
-        /// <summary>近 3D 卡姿：绕 X 固定旋转 CameraFitter.CardPitchDeg
-        /// （＝与地面夹角 CardLeanDeg 的补角）。**不读相机** —— 角度链与
-        /// 相机垂直卡面的关系统一在 CameraFitter 里定义，见该处注释。</summary>
+        /// <summary>近 3D 卡姿：绕 X 后倾。基准角＝`CameraFitter.CardPitchDeg`
+        /// （唯一真源，**不读相机**——角度链见该处注释），每卡再在
+        /// **基准 ± `StagePerformanceConfig.CardPitchJitterDeg`** 内随机一个
+        /// 自己的角度（现 45±5 ＝ 40°~50°）：六张卡的倾角略有参差，
+        /// 整排才不像同一块板刷出来的。
+        ///
+        /// **只抖视觉**：`GroundPoint` / `GroundFoot` / `CardShadowDepth` 等几何
+        /// 一律仍按基准角算，否则站位落点与影子会跟着每卡的随机角一起漂
+        /// （几度之内目视无差，故此近似成立；抖动幅度别开太大）。</summary>
         void ApplyCardLean()
         {
-            transform.rotation = CameraFitter.PerspectivePilot
-                ? Quaternion.Euler(CameraFitter.CardPitchDeg, 0f, 0f)
-                : Quaternion.identity;
+            if (!CameraFitter.PerspectivePilot)
+            {
+                _baseLean = Quaternion.identity;
+            }
+            else
+            {
+                float jitter = Mathf.Max(0f, StagePerformanceConfig.CardPitchJitterDeg);
+                _baseLean = Quaternion.Euler(
+                    CameraFitter.CardPitchDeg + Random.Range(-jitter, jitter), 0f, 0f);
+            }
+            CancelHitTremble();
+            transform.rotation = _baseLean;
+        }
+
+        // ------------------------------------------------- 微调圆（站位活动上限）
+        //
+        // 受击击退与出击后的前进休息点**共用**这一个圆：卡牌只在自己的圆盘里
+        // 一进一退地游走，永不会越打越偏。半径默认与原站位微抖圆重合。
+        // （旧名"击打圆"，2026-07-27 更名：它管的是站位微调区域，不只受击。）
+
+        static bool Grounded => CameraFitter.PerspectivePilot && ArenaSlotLayout.GroundActive;
+
+        static float TuneCircleRadius =>
+            StanceLayout.SlotJitterRadius * Mathf.Max(0f, StagePerformanceConfig.TuneCircleScale);
+
+        /// <summary>卡牌锚点 → 相对 Home 的**地面平面**偏移（透视取地面 XZ，正交取世界 XY）。
+        /// 微调圆的一切裁剪都在这套二维坐标里做——近 3D 下直接用世界向量
+        /// 会把纵深错算成高度。</summary>
+        Vector2 OffsetFromHome(Vector3 cardAnchor)
+        {
+            if (Grounded)
+            {
+                var home = ArenaSlotLayout.GroundFoot(HomePosition);
+                var at = ArenaSlotLayout.GroundFoot(cardAnchor);
+                return new Vector2(at.x - home.x, at.z - home.z);
+            }
+            return new Vector2(cardAnchor.x - HomePosition.x, cardAnchor.y - HomePosition.y);
+        }
+
+        /// <summary><see cref="OffsetFromHome"/> 的逆：地面平面偏移 → 卡牌锚点。</summary>
+        Vector3 AnchorAtOffset(Vector2 offset)
+        {
+            if (Grounded)
+            {
+                var home = ArenaSlotLayout.GroundFoot(HomePosition);
+                return ArenaSlotLayout.GroundPoint(home.x + offset.x, home.z + offset.y);
+            }
+            return HomePosition + new Vector3(offset.x, offset.y, 0f);
+        }
+
+        /// <summary>越界即截断到微调圆边界（不是反弹、不是取模）。</summary>
+        static Vector2 ClampToTuneCircle(Vector2 offset)
+        {
+            float r = TuneCircleRadius;
+            return offset.sqrMagnitude > r * r ? offset.normalized * r : offset;
         }
 
         void Build(HeroSnapshot hero, string teamId, Color factionColor, Vector3 position,
@@ -129,12 +210,19 @@ namespace ClientBattle.Units
             _portrait = NewSprite("Portrait", portraitSprite, 1);
             FitSpriteToSlot(_portrait, _portraitW, _portraitH);
             _portraitBaseY = _portraitLocalY;
-            _portrait.transform.localPosition = new Vector3(0f, _portraitBaseY, -0.02f);
+            // 景深：立绘沿卡面法线抬离卡框。近 3D 下卡牌后倾 45°，这点间距
+            // 配合惯性滞后就能读出「框里装着一个人」而非一张贴纸；
+            // 抬太多会在斜视角下明显浮空，PortraitDepth 是目视上限。
+            _portrait.transform.localPosition =
+                new Vector3(0f, _portraitBaseY, -PortraitDepth * _layoutScale);
 
             // 深度代理：卡牌进入深度图与不透明贴图，厂包的折射壳/软粒子/深度排序
             // 才能正确处理卡牌（详见 CardDepthProxy）。不改卡面本体渲染。
             CardDepthProxy.AttachTo(_frame);
             CardDepthProxy.AttachTo(_portrait);
+
+            // 接地阴影：没有接触阴影的物体一律被读作浮空贴纸（近 3D 舞台才建）
+            CardGroundShadow.AttachTo(this);
 
             // 名字（框下方）
             _nameLabel = NewText("NameLabel", hero.HeroId, Mathf.RoundToInt(42 * _layoutScale), Color.white,
@@ -181,21 +269,22 @@ namespace ClientBattle.Units
 
             MomentumFire = new MomentumFireController(transform);
             _idlePhase = (position.x * 0.73f + position.y * 1.31f) * 2.4f;
+            _idleMotion.Bind(_portrait.transform, _layoutScale, _idlePhase);
         }
+
+        /// <summary>立绘抬离卡框的景深（世界单位 × LayoutScale）。</summary>
+        const float PortraitDepth = 0.05f;
 
         void Update()
         {
-            // 待机呼吸：立绘轻微上下浮动。石化/阵亡时冻结，形成静止观感。
-            if (Defeated || _portrait == null) return;
-            if (_petrified)
-            {
-                var fp = _portrait.transform.localPosition;
-                _portrait.transform.localPosition = new Vector3(fp.x, _portraitBaseY, fp.z);
-                return;
-            }
-            float bob = Mathf.Sin(Time.time * 2.1f + _idlePhase) * S(0.035f);
-            var p = _portrait.transform.localPosition;
-            _portrait.transform.localPosition = new Vector3(p.x, _portraitBaseY + bob, p.z);
+            // 卡面生动性统一由合成器写立绘 Transform（呼吸/惯性视差/受击挤压）；
+            // 石化与阵亡由 SetFrozen 冻成静止像，此处不再各自判分支。
+            if (_portrait == null) return;
+            float dt = Time.deltaTime;
+            TickHitTremble(dt); // 击退落定后的沿线前后颤（纯动画，围绕落点）
+            float ratio = Hero != null && Hero.MaxTroops > 0
+                ? CurrentTroops / (float)Hero.MaxTroops : 1f;
+            _idleMotion.Tick(transform, dt, ratio);
         }
 
         // ---------------------------------------------------------- 势能表现（B2）
@@ -343,12 +432,27 @@ namespace ClientBattle.Units
         Vector3 SampleRestAroundHome()
         {
             StanceLayout.SampleSlotDiskOffset(out float dx, out float dy);
-            if (CameraFitter.PerspectivePilot && ArenaSlotLayout.GroundActive)
-            {
-                var foot = ArenaSlotLayout.GroundFoot(HomePosition);
-                return ArenaSlotLayout.GroundPoint(foot.x + dx, foot.z + dy);
-            }
-            return HomePosition + new Vector3(dx, dy, 0f);
+            return AnchorAtOffset(ClampToTuneCircle(new Vector2(dx, dy)));
+        }
+
+        /// <summary>沿本次行动方向在微调圆内取一个**前进**休息点：出击后不回原位，
+        /// 而是往打过去的方向落一点。与受击的向后击退互为一对——
+        /// 打出去的人往前站、挨打的人被推回去，一来一回，整局站位是活的而不是钉死的。
+        /// 两者都夹在微调圆内，所以位置只会在圆盘里游走，不会走失。</summary>
+        public Vector3 RerollRestPositionToward(Vector3 towardWorld)
+        {
+            Vector2 forward = OffsetFromHome(towardWorld);
+            if (forward.sqrMagnitude < 1e-6f) return RerollRestPosition();
+            forward.Normalize();
+            var lateral = new Vector2(-forward.y, forward.x);
+            float r = TuneCircleRadius;
+            float lat = StagePerformanceConfig.AdvanceRestLateral;
+            Vector2 offset =
+                forward * (r * Random.Range(StagePerformanceConfig.AdvanceRestForwardMin,
+                                            StagePerformanceConfig.AdvanceRestForwardMax))
+                + lateral * (r * Random.Range(-lat, lat));
+            RestPosition = AnchorAtOffset(ClampToTuneCircle(offset));
+            return RestPosition;
         }
 
         /// <summary>位移回位：先重采样休息点，再 tween 过去（演出层观感抖动，不影响结算）。</summary>
@@ -358,23 +462,156 @@ namespace ClientBattle.Units
                 .SetEase(ease).SetLink(gameObject);
         }
 
-        /// <summary>受击顿挫：短促位移抖动 + 红闪；结束后重采样休息点（同回位微抖区域）并贴回。
-        /// 绕身<strong>视觉仍在场</strong>（VfxShroudPresence.IsPresent）时只红闪不抖动；
-        /// 渐隐收干净后恢复抖动。</summary>
-        public void HitReact(bool isCrit)
+        /// <summary>出击收势回位：落点沿 towardWorld 方向前移（见
+        /// <see cref="RerollRestPositionToward"/>）。</summary>
+        public Tween DOMoveReturnHomeToward(Vector3 towardWorld, float duration,
+                                            Ease ease = Ease.OutQuad)
+        {
+            return transform.DOMove(RerollRestPositionToward(towardWorld), duration)
+                .SetEase(ease).SetLink(gameObject);
+        }
+
+        /// <summary>受击顿挫：卡根**定向击退**（沿受击线）→ 落定后**沿线前后颤** +
+        /// 立绘挤压 + 红闪。
+        ///
+        /// 受击线 = 「攻击方站位中心 → 本卡站位中心」（2026-07-27 定案）。
+        /// 取**站位中心点**（<see cref="HomePosition"/>）而不是当前 transform：
+        /// 攻击方突进后就贴在身边，用实时位置算出的方向会乱跳甚至反向。
+        ///
+        /// 三条通道刻意分开、时间上串行，互不代偿：
+        ///   击退＝**定位点位移**（力的方向，推开与落定都钉在受击线上，微调圆截断）；
+        ///   颤动＝落定后围绕落点沿同线的**纯动画**前后颤（结束回落点，不改定位点）；
+        ///   挤压＝**立绘形变**（肉感）。
+        /// 颤动排在击退之后而不是同时：同时跑会互相抵消，方向和力度都读不清。
+        ///
+        /// 绕身<strong>视觉仍在场</strong>（VfxShroudPresence.IsPresent）时禁一切卡根
+        /// 位移（击退+颤动，位移会把绕身罩甩出去，P-58）；挤压与红闪照给。
+        ///
+        /// fromHome＝伤害来源的站位中心；省略（环境/状态伤）则不击退，
+        /// 原地沿纵深轴起颤+挤压。</summary>
+        public void HitReact(bool isCrit, Vector3? fromHome = null)
         {
             transform.DOKill(true);
-            if (!UnitAuraService.HasShroud(this))
+            CancelHitTremble();
+            // 绕身在场＝一切卡根位移（含击退与前后颤）都禁：位移会甩飞绕身罩
+            // （P-58）；肉感只剩立绘挤压 + 红闪。
+            if (!UnitAuraService.HasShroud(this) && !KnockBack(isCrit, fromHome))
             {
-                transform.DOShakePosition(isCrit ? 0.3f : 0.18f, isCrit ? 0.22f : 0.12f, 20)
-                    .SetLink(gameObject)
-                    .OnComplete(() =>
-                    {
-                        if (Defeated) return;
-                        transform.position = RerollRestPosition();
-                    });
+                // 没有可用的受击线（环境/状态伤、同格）：原地起颤，方向取
+                // 地面纵深轴（朝观众），围绕当前位置，结束归位。
+                StartHitTremble(isCrit, new Vector2(0f, -1f), transform.position);
             }
+            _idleMotion.Punch(isCrit ? 1f : 0.6f, ShoveLocal(fromHome));
             FlashPortrait(isCrit ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 0.55f, 0.55f));
+        }
+
+        /// <summary>定向击退：把**定位点**沿受击线随机后退一段（微调圆截断），
+        /// 位移两段（推开→落定）**全部钉在受击线上**。返回是否真的退了。
+        ///
+        /// 【为什么落定点不再随机重采样】旧版推开点在受击线上、回弹却奔一个
+        /// 圆盘随机点去——第二段位移斜出受击线，观感就是"击退方向不对"。
+        /// 现在落定点＝线上的随机后退距离，推开点＝同线上再过冲一点，
+        /// 抖动（沿线前后颤）在落定之后接手。</summary>
+        bool KnockBack(bool isCrit, Vector3? fromHome)
+        {
+            if (fromHome == null) return false;
+            // 「攻击方站位中心 → 本卡站位中心」＝被推开的方向
+            Vector2 dir = -OffsetFromHome(fromHome.Value);
+            if (dir.sqrMagnitude < 1e-6f) return false; // 自伤/同格：不击退
+            dir.Normalize();
+
+            // 后退点**严格落在受击线上**：以 Home 为起点、沿 dir 走一段随机距离。
+            // 不从当前位置累加——当前位置可能已被上一发推偏，累加会让卡牌
+            // 一路斜着漂出受击线，也会连着挨打时越推越远。
+            float dist = TuneCircleRadius * (isCrit
+                ? Random.Range(StagePerformanceConfig.KnockbackCritMin,
+                               StagePerformanceConfig.KnockbackCritMax)
+                : Random.Range(StagePerformanceConfig.KnockbackNormalMin,
+                               StagePerformanceConfig.KnockbackNormalMax));
+            // 微调圆是唯一的封顶处（配置被改到 >1 倍半径时也不会越圆）
+            Vector2 settleOffset = ClampToTuneCircle(dir * dist);
+            Vector3 settle = AnchorAtOffset(settleOffset);
+            // 推开点＝同一条线上再过冲一点（同样被圆截断），回弹落回 settle
+            Vector3 shoved = AnchorAtOffset(ClampToTuneCircle(
+                dir * (dist * Mathf.Max(1f, StagePerformanceConfig.KnockOvershoot))));
+            RestPosition = settle; // 击退移动的就是定位点，后续回位动画同源
+
+            var seq = DOTween.Sequence().SetLink(gameObject);
+            seq.Append(transform.DOMove(shoved, isCrit
+                    ? StagePerformanceConfig.KnockOutSecondsCrit
+                    : StagePerformanceConfig.KnockOutSecondsNormal)
+                .SetEase(Ease.OutQuad));
+            seq.Append(transform.DOMove(settle, isCrit
+                    ? StagePerformanceConfig.KnockBackSecondsCrit
+                    : StagePerformanceConfig.KnockBackSecondsNormal)
+                .SetEase(Ease.OutQuad));
+            // 抖动在击退**结束后**接手：沿同一条受击线前后颤，纯动画、围绕落点
+            seq.OnComplete(() => StartHitTremble(isCrit, dir, settle));
+            return true;
+        }
+
+        // ---- 受击抖动（沿受击线前后颤，纯动画）----
+        //
+        // 2026-07-27 重做：旋转式抖动在近正面卡上怎么调都读不出来（面内自旋不改
+        // 轮廓、俯仰被投影吃掉）。改为**位置颤动**：击退落定后，围绕落点沿同一条
+        // 受击线小幅前后颤，衰减归零后回到落点——纯动画，不改定位点。
+        // 与"位移归击退"不冲突：颤动发生在击退结束之后，两者在时间上不重叠。
+        float _trembleLeft, _trembleTotal, _trembleAmp;
+        Vector3 _trembleCenter, _trembleAxis;
+
+        /// <summary>起颤。dirGround＝受击线方向（地面二维），center＝围绕的落点。</summary>
+        void StartHitTremble(bool isCrit, Vector2 dirGround, Vector3 center)
+        {
+            if (Defeated || _petrified) return; // 尸位/石化是静止像
+            _trembleTotal = isCrit ? StagePerformanceConfig.HitTrembleSecondsCrit
+                                   : StagePerformanceConfig.HitTrembleSecondsNormal;
+            _trembleLeft = _trembleTotal;
+            _trembleCenter = center;
+            // 地面二维方向 → 世界轴（近 3D 下必须经地面映射，直接用世界向量会错纵深）
+            Vector3 axis = AnchorAtOffset(dirGround) - AnchorAtOffset(Vector2.zero);
+            _trembleAxis = axis.sqrMagnitude > 1e-8f ? axis.normalized : Vector3.zero;
+            _trembleAmp = TuneCircleRadius * (isCrit
+                ? StagePerformanceConfig.HitTrembleAmpCrit
+                : StagePerformanceConfig.HitTrembleAmpNormal);
+        }
+
+        void CancelHitTremble()
+        {
+            _trembleLeft = 0f;
+        }
+
+        /// <summary>颤动逐帧驱动。任何 tween 接管 transform（回位/突进/倒下）即让位——
+        /// 颤动是最低优先级的收尾装饰，不许跟正经位移打架。</summary>
+        void TickHitTremble(float dt)
+        {
+            if (_trembleLeft <= 0f) return;
+            if (Defeated || _petrified || DOTween.IsTweening(transform))
+            {
+                _trembleLeft = 0f;
+                return;
+            }
+            _trembleLeft = Mathf.Max(0f, _trembleLeft - dt);
+            float k = _trembleTotal > 0f ? _trembleLeft / _trembleTotal : 0f;
+            if (k <= 0f)
+            {
+                transform.position = _trembleCenter; // 收干净：动画结束回到落点
+                return;
+            }
+            float amp = _trembleAmp *
+                        Mathf.Pow(k, Mathf.Max(0.2f, StagePerformanceConfig.HitTrembleDecayPower));
+            float t = (_trembleTotal - _trembleLeft)
+                      * StagePerformanceConfig.HitTrembleFrequency * Mathf.PI * 2f;
+            transform.position = _trembleCenter + _trembleAxis * (Mathf.Sin(t) * amp);
+        }
+
+        /// <summary>受力方向换算成卡局部 xy 单位向量（供立绘挤压/侧倾）。
+        /// 必须转局部：近 3D 下卡牌后倾 45°，直接用世界向量会把纵深错算成上下。</summary>
+        Vector2 ShoveLocal(Vector3? fromHome)
+        {
+            if (fromHome == null) return Vector2.zero;
+            var local = transform.InverseTransformDirection(HomePosition - fromHome.Value);
+            var dir = new Vector2(local.x, local.y);
+            return dir.sqrMagnitude < 1e-6f ? Vector2.zero : dir.normalized;
         }
 
         void FlashPortrait(Color flash)
@@ -443,11 +680,7 @@ namespace ClientBattle.Units
         /// <summary>石化冻结：立绘归位、怒火/圣盾呼吸停、雷霆驱动关、光环粒子暂停。</summary>
         void SetBreathingFrozen(bool frozen)
         {
-            if (_portrait != null)
-            {
-                var p = _portrait.transform.localPosition;
-                _portrait.transform.localPosition = new Vector3(p.x, _portraitBaseY, p.z);
-            }
+            _idleMotion.SetFrozen(frozen);
 
             // 阿瑞斯红呼吸
             if (_aresRagePulse != null)
@@ -649,6 +882,7 @@ namespace ClientBattle.Units
             Defeated = true;
             transform.DOKill();
             _dimTween?.Kill();
+            _idleMotion.SetFrozen(true); // 尸位不呼吸：倒下后必须是完全静止像
             SetAresRage(false);
             MomentumFire.Extinguish();
             _portrait.color = new Color(0.35f, 0.35f, 0.35f);
@@ -671,6 +905,12 @@ namespace ClientBattle.Units
             RestPosition = SampleRestAroundHome();
             transform.position = RestPosition;
             ApplyCardLean(); // 阵亡倒下改过 rotation，复活必须回到固定卡姿
+            // 立绘姿态可能停在阵亡冻结帧上：重绑基准并解冻，否则下一局带着歪斜复活
+            _portrait.transform.localPosition =
+                new Vector3(0f, _portraitBaseY, -PortraitDepth * _layoutScale);
+            _portrait.transform.localRotation = Quaternion.identity;
+            FitSpriteToSlot(_portrait, _portraitW, _portraitH);
+            _idleMotion.Bind(_portrait.transform, _layoutScale, _idlePhase);
             _portrait.color = Color.white;
             _frame.color = _ornateFrame ? Color.white : _frameColor;
             if (_nameLabel != null) _nameLabel.color = Color.white;

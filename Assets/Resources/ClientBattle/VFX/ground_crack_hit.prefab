@@ -119,7 +119,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0.02, z: 0}
-  m_LocalScale: {x: 1.1861581, y: 1.1861581, z: 1.1861581}
+  m_LocalScale: {x: 1.0057344, y: 1.0057344, z: 1.0057344}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4959674471592346675}
@@ -146,15 +146,15 @@ MonoBehaviour:
   BakedSize: 2
   CardWidthFactor: 1.5
   AreaFactor: 1
-  GrowTime: 0.28
-  GrowthMode: 0
+  GrowTime: 0.22
+  GrowthMode: 1
   MaskGain: 1.15
-  GlowPeak: 0
+  GlowPeak: 1.6379999
   FrontWidth: 0.14
-  EmberFloor: 0
+  EmberFloor: 0.0936
   SizeScale: 1
-  LavaDelay: 0.12
-  LavaGrowMul: 1.15
+  LavaDelay: 0.65
+  LavaGrowMul: 1.45
   LavaLifeRatio: 0.65
   DurationScale: 1
 --- !u!1 &2232725471876776012

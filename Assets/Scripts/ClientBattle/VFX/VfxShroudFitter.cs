@@ -21,9 +21,9 @@ namespace ClientBattle.VFX
     ///      随时间暴涨（Effect31 实测本地高度 0.12s ~10.5、后期 ~30），据此定径必错；
     ///      碰撞体是"被罩住的人形"（2.0×2.5）而不是罩子（2.89×8.66），按它定径会让
     ///      罩子高出卡顶三倍多 —— 在陡俯角下就读作"一根指着相机的柱子"。
-    ///   3) **等比缩放**，系数取两条约束的**较大者**；**原点放定位圆心（贴地）**。
-        ///      - 横向：结构件（壳 + 地面贴花）初算到定位圆直径 × WidthOvershoot；
-    ///        **随后 Decal 单独钉死＝定位圆直径**（`PinGroundRingToCardCircle`），
+    ///   3) **等比缩放**，系数取两条约束的**较大者**；**原点放投影圆心（贴地）**。
+        ///      - 横向：结构件（壳 + 地面贴花）初算到投影圆直径 × WidthOvershoot；
+    ///        **随后 Decal 单独钉死＝投影圆直径**（`PinGroundRingToProjectionCircle`），
     ///        竖向补高不得把地板圈撑出圆外；
     ///      - 竖向：**下限**是可见主体（壳以外的火/烟/电）顶到卡牌上边缘 × TopOvershoot；
     ///        与横向冲突时竖向优先，但横向溢出封顶 OverflowCap（只影响壳，贴花已钉死）。
@@ -37,7 +37,7 @@ namespace ClientBattle.VFX
     /// 【原点＝地面接触点，不要按壳底对齐】厂包这类件的**根原点就是脚下地面**
     /// （Effect31 的贴花在 y=0、碎石 y≈−0.06、电柱 y≈−0.2，只有壳中心抬到 2.34
     /// 且下半截 y≈−2 是故意埋进地面的）。曾把"壳的包围盒底面"对齐地面，
-    /// 等于把整件抬高约 1.9 米 —— 贴花与碎石一起悬在半空，读作"地面痕迹跑出定位圆"。
+    /// 等于把整件抬高约 1.9 米 —— 贴花与碎石一起悬在半空，读作"地面痕迹跑出投影圆"。
     /// 壳下半截被不透明地面挡住，才是它该有的样子。
     ///
     /// 卡牌浮空（HoverRatio 卡高）不补偿：罩子从地面立起，自然把浮空段包进去。
@@ -66,7 +66,7 @@ namespace ClientBattle.VFX
         /// 实测 15% 不够、35% 仍差一点，2026-07-26 定到 60%。</summary>
         const float TopOvershoot = 1.6f;
 
-        /// <summary>横向切面要超出定位圆的倍数。罩身要"把卡包进去"，
+        /// <summary>横向切面要超出投影圆的倍数。罩身要"把卡包进去"，
         /// 切面与影子外接圆恰好同宽时，卡的左右边缘看着正好蹭着罩壁 —— 要露出
         /// 一圈罩壳才有包裹感。</summary>
         const float WidthOvershoot = 1.2f;
@@ -87,35 +87,35 @@ namespace ClientBattle.VFX
             Measure(instance, out float structW, out float bodyTop, out Renderer shell);
             if (structW < 0.001f && bodyTop < 0.001f) { Restart(instance); return; }
 
-            // 横向：定位圆再放大 WidthOvershoot，留出可见的包裹圈。
+            // 横向：投影圆再放大 WidthOvershoot，留出可见的包裹圈。
             float kFit = structW > 0.001f
-                ? ArenaSlotLayout.CardCircleDiameter * WidthOvershoot / structW : 0f;
+                ? ArenaSlotLayout.ProjectionCircleDiameter * WidthOvershoot / structW : 0f;
             // 竖向下限：**可见主体**要盖过卡上缘（再多留 TopOvershoot 一截）。
             float coverH = (ArenaSlotLayout.CardTopY(cardAnchor) - CameraFitter.PilotGroundY)
                 * TopOvershoot;
             float kCover = bodyTop > 0.001f ? coverH / bodyTop : 0f;
 
-            // 竖向优先，但不许为了补高把地面痕迹撑出定位圆太多。
+            // 竖向优先，但不许为了补高把地面痕迹撑出投影圆太多。
             float upper = kFit > 0.001f ? Mathf.Min(MaxScale, kFit * OverflowCap) : MaxScale;
             float k = Mathf.Clamp(Mathf.Max(kFit, kCover), MinScale, upper);
 
             instance.transform.localScale *= k;
-            instance.transform.position = ArenaSlotLayout.CardCircleCenter(cardAnchor);
+            instance.transform.position = ArenaSlotLayout.ProjectionCircleCenter(cardAnchor);
 
-            // 地板圈（Decal）严格＝定位圆：整件等比缩放常被竖向补高撑大，
-            // 贴花会溢出圆外；单独把 Decal 反缩到直径＝CardCircleDiameter。
-            PinGroundRingToCardCircle(instance);
+            // 地板圈（Decal）严格＝投影圆：整件等比缩放常被竖向补高撑大，
+            // 贴花会溢出圆外；单独把 Decal 反缩到直径＝ProjectionCircleDiameter。
+            PinGroundRingToProjectionCircle(instance);
 
             EnsureShellVisible(shell);
             Restart(instance);
         }
 
-        /// <summary>地面贴花/圈严格锚定定位圆：圆心已由根节点对齐；
-        /// 仅把 Decal 类非粒子渲染器的水平尺寸钉成 <see cref="ArenaSlotLayout.CardCircleDiameter"/>。
+        /// <summary>地面贴花/圈严格锚定投影圆：圆心已由根节点对齐；
+        /// 仅把 Decal 类非粒子渲染器的水平尺寸钉成 <see cref="ArenaSlotLayout.ProjectionCircleDiameter"/>。
         /// 壳/火/烟仍保持整件等比，不受影响。可对外调用（跟随位移后重钉一次）。</summary>
-        public static void PinGroundRingToCardCircle(GameObject instance)
+        public static void PinGroundRingToProjectionCircle(GameObject instance)
         {
-            float target = ArenaSlotLayout.CardCircleDiameter;
+            float target = ArenaSlotLayout.ProjectionCircleDiameter;
             if (target < 0.001f || instance == null) return;
 
             foreach (var r in instance.GetComponentsInChildren<Renderer>(true))
@@ -145,7 +145,7 @@ namespace ClientBattle.VFX
         /// 它们世界空间模拟 + 重力飞散，包围盒随时间暴涨（Effect31 的 Smoke 4.44 宽、
         /// 本地高度后期涨到 ~30），算进来会把主体挤瘪。
         ///
-        /// 为什么贴花必须算：它是**落在地面上的痕迹**，一旦超出定位圆就直接读作
+        /// 为什么贴花必须算：它是**落在地面上的痕迹**，一旦超出投影圆就直接读作
         /// "特效的地面变化跑出圈外"。Effect31 贴花 3.4 比壳 2.89 还宽，
         /// 只按壳定径必然溢出。
         ///

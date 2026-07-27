@@ -51,7 +51,7 @@ namespace ClientBattle.Test
             GroundFlat = 2,  // 卡牌脚下并**平躺**（判能否当地面法阵/贴花用）
             BoardCenter = 3, // 棋盘中心（群攻落点/全局类）
             Ballistic = 4,   // 弹道：从施法者定位圆心射向敌方卡的定位圆心
-            Shroud = 5,      // 罩身：切面＝卡牌定位圆、顶部＝卡牌上边缘（VfxShroudFitter）
+            Shroud = 5,      // 罩身：切面＝卡牌投影圆、顶部＝卡牌上边缘（VfxShroudFitter）
         }
 
         const int AnchorCount = 6;
@@ -85,7 +85,8 @@ namespace ClientBattle.Test
 
         BattleBoardView _board;
         VFXManager _vfx;
-        LineRenderer _ring;
+        LineRenderer _ring;        // 青：投影圆
+        LineRenderer _anchorRing;  // 黄：定位圆
         GameObject _targetMarker;
         bool _fitCircle;
         bool _autoBallistic = true;
@@ -302,7 +303,7 @@ namespace ClientBattle.Test
             Spawn();
         }
 
-        /// <summary>换包时切到该包的默认审核姿势。厂包件一律先按**地面 + 卡牌定位圆**
+        /// <summary>换包时切到该包的默认审核姿势。厂包件一律先按**地面 + 卡牌投影圆**
         /// 看（它们是 3D 世界尺度的散件，贴卡看不出可用性，且多数是落地/冲击型）；
         /// 我方标准件已按 key 接线调好，默认贴卡看。</summary>
         void ApplyGroupDefaults()
@@ -472,7 +473,7 @@ namespace ClientBattle.Test
             {
                 Anchor.CardBody => unit.transform.position,
                 Anchor.CardFoot or Anchor.GroundFlat => ArenaSlotLayout.GroundFoot(unit.RestPosition),
-                Anchor.Shroud => ArenaSlotLayout.CardCircleCenter(unit.RestPosition),
+                Anchor.Shroud => ArenaSlotLayout.ProjectionCircleCenter(unit.RestPosition),
                 _ => _board.Center,
             };
         }
@@ -605,7 +606,7 @@ namespace ClientBattle.Test
             }
         }
 
-        /// <summary>按【卡牌定位圆】定径：把实例的地面投影尺寸缩到圆直径（＝卡宽）。
+        /// <summary>按【卡牌投影圆】定径：把实例的地面投影尺寸缩到该圆直径。
         /// 厂包件按 3D 世界尺度做（动辄 5~10 米），不定径就会糊满全屏没法判。
         ///
         /// 量的是**起手核心**：Simulate 只推 0.12s。推久了冲击件的碎屑已飞散开，
@@ -618,7 +619,7 @@ namespace ClientBattle.Test
                 float extent = Mathf.Max(bounds.size.x, bounds.size.z);
                 if (extent > 0.001f)
                 {
-                    float k = Mathf.Clamp(ArenaSlotLayout.CardCircleDiameter / extent, 0.25f, 20f);
+                    float k = Mathf.Clamp(ArenaSlotLayout.ProjectionCircleDiameter / extent, 0.25f, 20f);
                     instance.transform.localScale *= k;
                 }
             }
@@ -672,10 +673,14 @@ namespace ClientBattle.Test
             Restart(instance);
         }
 
-        /// <summary>把卡牌定位圆画出来，否则「有没有对准圆心、有没有溢出」全靠猜。
+        /// <summary>把卡牌的**两个**地面圆都画出来，否则「有没有对准圆心、
+        /// 有没有溢出」全靠猜，而且两个圆混用是历史上翻过车的地方：
+        ///   青环 = 投影圆（心在卡心正下方，罩身/绕身件按它定径）
+        ///   黄环 = 定位圆（心在卡脚，直径＝卡宽，地面痕迹类按它定径）
+        /// 两圆**不同心也不同径**，同屏画出来才不会再选错。
         ///
         /// 带子必须**躺在地面平面里**：LineRenderer 默认 `alignment=View` 会让每段
-        /// 朝相机竖起来，55° 俯角下这圈线是斜立的，读起来就"不像画在地上"（透视不对）。
+        /// 朝相机竖起来，俯角下这圈线是斜立的，读起来就"不像画在地上"（透视不对）。
         /// 故把物体绕 X 转 90°（本地 XY 面 → 世界水平面）、用本地坐标下环，
         /// 并改 `TransformZ` 对齐（本地 Z ＝ 世界向上）。圆心/半径一律直取
         /// ArenaSlotLayout，此处不做任何额外补偿。</summary>
@@ -683,30 +688,44 @@ namespace ClientBattle.Test
         {
             bool show = unit != null
                 && _anchor is Anchor.CardFoot or Anchor.GroundFlat or Anchor.Shroud;
-            if (_ring == null)
-            {
-                var go = new GameObject("CardCircleRing");
-                go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                _ring = go.AddComponent<LineRenderer>();
-                _ring.useWorldSpace = false;
-                _ring.alignment = LineAlignment.TransformZ;
-                _ring.loop = true;
-                _ring.widthMultiplier = 0.04f;
-                _ring.material = new Material(Shader.Find("Sprites/Default"));
-                _ring.startColor = _ring.endColor = new Color(0.35f, 0.95f, 1f, 0.9f);
-                _ring.sortingOrder = 44; // 地面之上、卡牌之下
-                _ring.positionCount = RingSegments;
-            }
+
+            _ring = EnsureRing(_ring, "ProjectionCircleRing", new Color(0.35f, 0.95f, 1f, 0.9f));
+            _anchorRing = EnsureRing(_anchorRing, "AnchorCircleRing", new Color(1f, 0.86f, 0.3f, 0.9f));
 
             _ring.enabled = show;
+            _anchorRing.enabled = show;
             if (!show) return;
 
-            _ring.transform.position = ArenaSlotLayout.CardCircleCenter(unit.RestPosition);
-            float radius = ArenaSlotLayout.CardCircleRadius;
+            LayRing(_ring, ArenaSlotLayout.ProjectionCircleCenter(unit.RestPosition),
+                ArenaSlotLayout.ProjectionCircleRadius);
+            LayRing(_anchorRing, ArenaSlotLayout.AnchorCircleCenter(unit.RestPosition),
+                ArenaSlotLayout.AnchorCircleRadius);
+        }
+
+        LineRenderer EnsureRing(LineRenderer ring, string name, Color color)
+        {
+            if (ring != null) return ring;
+            var go = new GameObject(name);
+            go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            ring = go.AddComponent<LineRenderer>();
+            ring.useWorldSpace = false;
+            ring.alignment = LineAlignment.TransformZ;
+            ring.loop = true;
+            ring.widthMultiplier = 0.04f;
+            ring.material = new Material(Shader.Find("Sprites/Default"));
+            ring.startColor = ring.endColor = color;
+            ring.sortingOrder = 44; // 地面之上、卡牌之下
+            ring.positionCount = RingSegments;
+            return ring;
+        }
+
+        static void LayRing(LineRenderer ring, Vector3 center, float radius)
+        {
+            ring.transform.position = center;
             for (int i = 0; i < RingSegments; i++)
             {
                 float a = i / (float)RingSegments * Mathf.PI * 2f;
-                _ring.SetPosition(i, new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
+                ring.SetPosition(i, new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
             }
         }
 
@@ -775,7 +794,7 @@ namespace ClientBattle.Test
                 $"接线：{usage}{(string.IsNullOrEmpty(warn) ? "" : "    ⚠ " + warn)}\n" +
                 $"当前：{mode}    锚点 {AnchorName(_anchor)}（F）  目标卡（T）  " +
                 $"自动弹道 {(_autoBallistic ? "开" : "关")}（B）  " +
-                $"定位圆定径 {(_fitCircle ? "开" : "关")}（C）  ×{_scaleMul:0.00}（- = 0）  " +
+                $"投影圆定径 {(_fitCircle ? "开" : "关")}（C；青环=投影圆 黄环=定位圆）  ×{_scaleMul:0.00}（- = 0）  " +
                 $"重播 {(_autoLoop ? "开" : "关")}（G）  慢放 {(_slowMo ? "0.25×" : "关")}（K）  " +
                 $"卡牌深度 {(CardDepthProxy.Enabled ? "开" : "关")}（J）\n" +
                 $"←→ 切件（PgUp/PgDn ±10）   [/] 或 ↑↓ 切包   R 重播   " +
@@ -810,7 +829,7 @@ namespace ClientBattle.Test
             Anchor.CardFoot => "卡牌脚下",
             Anchor.GroundFlat => "脚下平躺",
             Anchor.Ballistic => "弹道→敌卡",
-            Anchor.Shroud => "罩身（等比·切面=定位圆·底面坐地）",
+            Anchor.Shroud => "罩身（等比·切面=投影圆·底面坐地）",
             _ => "棋盘中心",
         };
 

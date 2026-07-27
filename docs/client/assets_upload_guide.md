@@ -28,19 +28,27 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | **030-DualBolt100** Orange / Purple |
 | `proj_bolt200` | （可选）粗束弹道 029；战吼已改走默认 `blade_bolt` | **029-Bolt200** Orange |
 | `lightning_projectile` | （备选）宙斯竖劈弹道 | Vefects LP02 Directional；当前 `thunder`/`zeus_bolt` 已改走 DR，未用 |
-| `hit_generic` / `heal_generic` | 默认命中 / 治疗命中 | hit ← **Vefects Hit_05 Once** |
-| `hit_lightning` | 魔法主动默认 / `thunder`/`zeus_bolt` 命中 | **Magic Pack Effect19_Collision**（scale≈0.32） |
+| `hit_generic` / `heal_generic` | 普攻等兜底命中 / 治疗命中 | hit ← **Vefects Hit_05 Once** |
+| `hit_petrify` | **魔法伤害默认**命中（卡面）；亦美杜莎石化反噬 | 画廊 **[1/8] 我方标准件**（序号随入库漂移，以 key 为准） |
+| `hit_sword` | **物理伤害默认**命中（卡面）；亦珀尔修斯飞剑命中 | 画廊 **[1/8] 我方标准件** |
+| `hit_wave` | **神谕产生伤害默认**命中（`OracleDefault.HitKey`）；亦海神水浪命中 | 画廊 **[1/8] 我方标准件** |
+| `hit_massive` | **巨伤命中**（>3000 触发「重创」横幅的伤害，覆盖一切专配＋强制震屏） | 原料 **RFX4 Effect15**（画廊 3/8 件 7/54）→ 碰撞子件 **Effect15_Collision**（P-68）；`WireDefaultHitVfx.WireMassive` |
+| `hit_lightning` | 宙斯/雷霆等**专配**命中（`thunder`/`zeus_bolt` HitKey） | Magic Pack **2/8**＝**Effect19_Collision**（非默认） |
 | `hit_zeus_discharge` | （备选）宙斯电击闪 | Vefects Electric_Discharge_02 Bunch（当前宙斯未用） |
 | `cast_warcry` | （可选）物理冲击波，**主动默认已取消 Cast** | Impact_Shockwave v2 |
 | `cast_aoe_burst` | （可选）魔法中心爆，**主动默认已取消 Cast** | Explosion_01_Pivot |
+| `hit_clash` | （库内）Magic Effect22_Collision 标准件；**不再作物理默认** | 画廊 Magic **2/8** 件 45 原料；专配/备用 |
 | `proj_bolt200` | **物理主动默认**弹道 | 029-Bolt200 Orange |
 | `magic_bolt` | **魔法主动默认**弹道 | DualBolt Purple |
-| `hit_clash` | **物理主动默认**命中（Radial_Spiky） | Vefects Radial_Spiky_Hit_01 |
-| `hit_warcry` | （可选）Radial_Burst 放大命中 | 战吼已改走默认 hit_clash |
+| `hit_warcry` | （可选）Radial_Burst 放大命中 | 战吼已改走默认 `hit_sword` |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
 | `aura_fire_foot` / `aura_fire_head` | 阿瑞斯血战（脚） | 仅卡框红呼吸 `SetAresRage`（弱）；`aura_fire_head` 备用 |
 | `aura_ares_might` | （旧）阿瑞斯战神之勇 Effect18 | 已由 `shroud_ares_might` 取代，可留库 |
-| `shroud_ares_might` | 阿瑞斯战神之勇罩身 | Magic Effect31 **完整件**；`VfxShroudFollower` + `VfxShroudPresence`（OddRounds） |
+| `shroud_ares_might` | 阿瑞斯战神之勇罩身 | 画廊 2/8·**10/61**＝Magic Effect18 **完整件**；`VfxShroudFollower` + `VfxShroudPresence`（OddRounds） |
+| `cast_duel_launch` | 单挑出阵：双方**定位圆**地面（Effect28） | **RFX4 Effect28**（画廊 3/8 包 19/54 件）；RFX4 深度贴花层 URP 画不出、标准化时摘除（P-33） |
+| `aura_duel_victory` | 单挑加冕：胜者**卡面**；亦作出阵双方**卡面追加**（画廊 1/8 件 8/60） | 原料 **RFX4 Effect23** → 碰撞子件 **Effect23_Explosion**（P-68） |
+| `ground_duel_defeat` | 单挑溃败：败者**定位圆地面** | 原料 **Magic Pack v1 Effect8** → **Effect8_Collision**；挂 `VfxGroundLayer`；贴花 → 自研裂地补 |
+| `aura_duel_defeat` | 单挑溃败**卡面追加**（画廊 1/8 件 32/60 观感） | 同原料 Effect8 → Collision；`VfxUsage.Anchor`（无地面层） |
 | `momentum_fire` | 势能火（四轨最高 ≥4/5/6/7 分档） | **CFXR3 Fire (No Smoke)**；卡上缘；非状态光环 |
 | `momentum_glow` | 势能卡后柔光（≥4 起） | **CFXR LightGlow A**（**已去 Small Stars**）；关点光；sorting −1；与火同灭 |
 | `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
@@ -68,9 +76,9 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `icon_aegis_heal` | 雅典娜圣盾**重击回血**闪烁图标（与反伤区分） | 待上传；未传则青绿占位 |
 | `icon_block` | 普通格挡触发闪烁图标（卡面中央渐变闪，同圣盾逻辑） | 待上传；蓝灰占位 |
 | `icon_trojan_bomb` / `hit_explosion_crack` | 木马炸弹图标 / 裂开爆炸 | |
-| `proj_flying_sword` / `hit_sword` | 珀尔修斯飞剑弹道 / 命中 | |
+| `proj_flying_sword` | 珀尔修斯飞剑弹道 | |
 | `proj_wave` / `hit_wave` | 海神水浪弹道 / 命中 | |
-| `hit_pierce` / `hit_petrify` / `hit_clash` | 穿刺 / 石化反噬 / 单挑对撞 | |
+| `hit_pierce` / `hit_clash` | 穿刺 /（库内）对撞备用 | |
 
 > ~~`proj_aegis_bounce`~~：已取消。圣盾反弹走 `aegis_shield` **Melee**（持盾者闪光后突进）；
 > 重击回血不走 Melee，闪 `icon_aegis_heal`。不配回击弹道。  
@@ -114,9 +122,21 @@ Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。�
 雷击本身走 DR 单道竖雷（`thunder`/`zeus_bolt`）+ `hit_lightning`（Electric_Impact_02），
 与头像标分开。RFX4 **禁止**接到宙斯技能（P-25）。
 
-**全屏 cut-in 复用同一路径（无需另传）**：单人 cut-in（斜带+巨幅立绘）与决斗
-裂缝交错 cut-in（半屏卡）都取 `Portraits/<template_id>.png` contain 放大展示；
-立绘越高清 cut-in 越震撼，建议 ≥1024 高。占位时为阵营色块。
+**全屏 cut-in 复用同一路径（无需另传）**：单人 cut-in（斜带+巨幅立绘）与单挑
+舞台 cut-in（立绘出框进虚空展示屏）都取 `Portraits/<template_id>.png` contain
+放大展示；立绘越高清 cut-in 越震撼，建议 ≥1024 高。占位时为阵营色块。
+
+**单挑动作 flipbook（可选，逐武将补）**：
+`Resources/ClientBattle/DuelAction/<template_id>_<strike|react>_<NN>.png`
+（`NN` 从 `00` 连号，断号即停）。缺失则该段用静态立绘占满，时序不变。
+**单挑屏华饰（全部可选，不传则程序化生成）**：`UI/duel_screen_bg`（屏底，
+**最高性价比，建议 AI 生成，规格与中文提示词见 portrait_cutin_assets.md §5d**）、
+`UI/duel_icon`（中央图标）、`UI/duel_rays`（整张放射光芒）、
+`UI/duel_corner`（左上角纹饰，其余三角代码镜像）。
+一次投入、全部单挑复用，不随武将数量增长。
+
+**构图安全区与 flipbook 制作规格** → [portrait_cutin_assets.md](portrait_cutin_assets.md)；
+**单挑系统总索引** → [../mechanics/duel.md](../mechanics/duel.md)。
 
 ### 4. 音效 `Resources/ClientBattle/SFX/<key>.wav`
 
@@ -224,7 +244,7 @@ kenney.nl UI Pack（CC0）或 Asset Store fantasy card frame（$10~25）改色�
 | 2D Sword Slash VFX | $19.99 | 2026-07-05 | 已导入 `Assets/Cartoon Coffee/`：斩击/穿刺/裂甲 variant |
 | Universal Sound FX | ~$40 | 已购已导入（2026-07-20，`Assets/Universal Sound FX/`） | 按 §二步骤 2 逐 key 挑选接线；三皇音效优先从本包出 |
 | **KriptoFX Realistic Effects Pack 4** | $42 | 2026-07-24 | 已导入；**须** `GreekMyth → RFX4 → 导入 URP Patch（修粉红）`（2026-07-25 已应用；Effect22 全粉即未导）。**禁止用于宙斯/单挑**。仅舞台远景/神像大场面。**可靠预览**：`GreekMyth → RFX4 可靠预览（一键）`；粉红诊断同菜单下「诊断粉红材质」 |
-| **kripto289 Magic Effects Pack 1** | $37 | 2026-07-24 | 已导入；URP patch。宙斯命中=`Effect19_Collision`；战神之勇常驻=`Effect18`→`aura_ares_might`；雅典娜反制=`Effect17_Collision`；圣盾挂身回 AllIn1。**预览**：`GreekMyth → Magic Pack → 可靠预览` |
+| **kripto289 Magic Effects Pack 1** | $37 | 2026-07-24 | 已导入；URP patch。宙斯命中=`Effect19_Collision`；战神之勇罩身＝画廊 2/8·10/61 `Effect18`→`shroud_ares_might`（旧环 `aura_ares_might` 可留库）；雅典娜反制=`Effect17_Collision`；圣盾挂身回 AllIn1。**预览**：`GreekMyth → Magic Pack → 可靠预览` |
 | （候选）magic aura loop 2D 类 | $10~20 | 未购 | 光环族精修备选（步骤 5.2） |
 
 ## 四、维护红线

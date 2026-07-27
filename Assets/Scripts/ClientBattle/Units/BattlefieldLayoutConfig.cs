@@ -12,8 +12,8 @@ namespace ClientBattle.Units
         /// <summary>左右 UI 各占地面宽的比例（0.25 = W/4）。</summary>
         public static float UiSideFraction = 0.25f;
 
-        /// <summary>战场院区占原主战场纵深的比例（0.2 = D/5，远侧过渡天际）。</summary>
-        public static float CourtyardDepthFraction = 0.2f;
+        /// <summary>战场院区占原主战场纵深的比例（0.3＝原 0.2×1.5，远侧过渡天际）。</summary>
+        public static float CourtyardDepthFraction = 0.3f;
 
         /// <summary>隔离带占缩后主战场纵深的比例（0.125 = D/8）。</summary>
         public static float BeltDepthFraction = 0.2f;

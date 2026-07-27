@@ -38,8 +38,8 @@
 - **效果**：敌我全体【血战】（通用易伤 +20%、暴击伤害 +50%）；己方武力最高【战神之勇】
   （武 +20、速 +20，整局；并列小站位）。
 - **实现**：`blood_battle`（`vulnerable_bps` + `crit_damage_up_bps`）/ `ares_might`。
-- **演出**：血战＝卡框红呼吸；战神之勇＝Magic `shroud_ares_might`（Effect31 罩身完整件，
-  与画廊同件同 Fit）；显隐＝通用 `VfxShroudPresence` + 注册表 `OddRounds`
+- **演出**：血战＝卡框红呼吸；战神之勇＝Magic `shroud_ares_might`（画廊 2/8·10/61
+  Effect18 罩身完整件，与画廊同件同 Fit）；显隐＝通用 `VfxShroudPresence` + 注册表 `OddRounds`
   （奇数渐显、偶数渐隐；渐隐后 `IsPresent=false`，受击恢复抖动）。
 - **事件流**：prepare status_apply。
 

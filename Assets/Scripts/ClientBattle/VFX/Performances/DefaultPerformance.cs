@@ -191,9 +191,9 @@ namespace ClientBattle.VFX
                 if (striker != null && target != null && !striker.Defeated)
                 {
                     Vector3 strikePos = Vector3.Lerp(target.RestPosition, striker.RestPosition, 0.28f);
-                    var dash = striker.transform.DOMove(strikePos, ctx.Scaled(0.22f))
-                        .SetEase(Ease.InQuad).SetLink(striker.gameObject);
-                    yield return dash.WaitForCompletion();
+                    // 出手三拍：预备后仰 → 加速突进（带残影）；协程返回＝已抵近
+                    // 传 damages：拉满出手时突进轨迹踩出档 3 裂缝（T4，判据在裂地服务）
+                    yield return StrikeBeats.Advance(ctx, striker, strikePos, damages);
                 }
                 if (target != null)
                 {
@@ -204,10 +204,10 @@ namespace ClientBattle.VFX
                 // 命中裂地与 HitKey 同帧：统一在 SettleDamage，勿在此重复 PlayHit
                 SettleDamage(damage, profile, ctx, floatName);
                 if (striker != null && !striker.Defeated)
-                {
-                    var back = striker.DOMoveReturnHome(ctx.Scaled(0.24f));
-                    yield return back.WaitForCompletion();
-                }
+                    // 第三拍：收势过冲回位；落点朝刚才打过去的方向前移。
+                    // 目标不在场（已被清）就朝棋盘中心，方向仍是「往前」。
+                    yield return StrikeBeats.Recover(ctx, striker,
+                        target != null ? target.RestPosition : ctx.BoardCenter);
             }
         }
 
@@ -218,11 +218,7 @@ namespace ClientBattle.VFX
         {
             // 施法者移动至卡盘中心 → 齐射弹道（主动默认不再播 Cast）
             if (actor != null && !actor.Defeated)
-            {
-                var move = actor.transform.DOMove(ctx.BoardCenter, ctx.Scaled(0.3f))
-                    .SetEase(Ease.OutQuad).SetLink(actor.gameObject);
-                yield return move.WaitForCompletion();
-            }
+                yield return StrikeBeats.Advance(ctx, actor, ctx.BoardCenter, damages);
 
             // N 道弹道错峰起飞、同时段抵达 → 抵达帧同帧结算掉血
             string projectileKey = ProjectileKeyOf(profile, damages);
@@ -254,10 +250,7 @@ namespace ClientBattle.VFX
                 SettleDamage(damage, profile, ctx, floatName);
             // 命中特效/受击闪烁与回身位移同播，命中后不垫定格
             if (actor != null && !actor.Defeated)
-            {
-                var back = actor.DOMoveReturnHome(ctx.Scaled(0.3f));
-                yield return back.WaitForCompletion();
-            }
+                yield return StrikeBeats.Recover(ctx, actor, ctx.BoardCenter);
         }
 
         // ---------------------------------------------------------- 远程落击（雷霆）

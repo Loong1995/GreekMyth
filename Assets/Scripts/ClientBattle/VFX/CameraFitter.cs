@@ -1,3 +1,4 @@
+using ClientBattle.Units;
 using UnityEngine;
 
 namespace ClientBattle.VFX
@@ -7,8 +8,8 @@ namespace ClientBattle.VFX
     //
     // 设计安全区（半宽 DesignHalfWidth × 半高 DesignHalfHeight）固定；
     // - 正交：调 orthographicSize
-    // - 透视默认（PerspectivePilot）：卡牌与地面夹角 CardLeanDeg → 卡姿 CardPitchDeg
-    //   → 相机俯角 PilotPitchDeg（＝CardPitchDeg，光轴垂直卡面），见下方角度链注释
+    // - 透视默认（PerspectivePilot）：卡姿 CardPitchDeg 与相机俯角 PilotPitchDeg
+    //   **各自独立**（卡几何真源在本类；俯角数值在 StagePerformanceConfig）
     // 所有表现代码不得写死 orthoSize/FOV——统一依赖本组件。
     // =========================================================================
 
@@ -30,40 +31,34 @@ namespace ClientBattle.VFX
 
         // ------------------------------------------------------------ 卡牌与相机角度
         //
-        // 【三个角，一条链】(2026-07-25 定稿：卡后倾 30° / 相机 ⟂ 卡面)
+        // 【两个独立旋钮】卡后倾在本类；相机俯角在 StagePerformanceConfig.PilotPitchDeg
         //
-        //   CardPitchDeg = 卡牌**后倾角** = Euler X = 与**竖直**方向的夹角（唯一真源）
-        //   CardLeanDeg  = 卡牌与**地面**的夹角 = 90 − CardPitchDeg（派生，仅供换算）
-        //   PilotPitchDeg= 相机俯角。定为 ＝ CardPitchDeg，即**光轴垂直于卡面**
+        //   CardPitchDeg = 卡牌**后倾角** = Euler X = 与**竖直**方向的夹角
+        //                  （站位/影子/定位圆几何的唯一真源）
+        //   CardLeanDeg  = 卡牌与**地面**的夹角 = 90 − CardPitchDeg（派生）
+        //   PilotPitchDeg= 相机俯角 = Euler X（从水平往下压；越大越俯视）
+        //                  → 转发 StagePerformanceConfig，改数字即调参
         //
-        // 这两个量历史上混用过（文档写"夹角=俯角 55°"其实是 35°）。定论：
-        // "后倾 θ 度"一律指**离竖直** θ 度，实现就是 Euler(θ)。
+        // 术语定论："后倾 θ 度"一律指**离竖直** θ 度，实现就是 Euler(θ)。
         //
-        // 【为什么 30 而不是 60】曾按"与地面 30°"实现（Euler 60 + 俯角 60）。
-        // 那等于把卡摊在桌上从高处俯看，两个后果：影子纵深 3.13 比卡宽 2.04 还长，
-        // 定位圆被撑到 1.8 倍卡宽，读作"圆被相机拉歪了"；竖直立件（罩身壳 8.7 米高）
-        // 在陡俯角下透视收敛极强，读作"柱子指着相机"。改回 30 后影子纵深降到 1.81、
-        // 定位圆 2.73（1.34 倍卡宽），机位也接近厂包预览的近平视，立件才立得住。
-        //
-        // 【为什么让相机垂直于卡面】卡面平行于成像平面时，透视对它只做等比缩放，
-        // 立绘不被斜切 —— 卡面观感最干净。代价是卡牌本身没有左右梯形畸变，
-        // 而躺在地面的圆必然是椭圆；二者的观感差异**不靠歪卡牌来抹平**，而是靠
-        // 把「定位圆」定义成**卡牌影子（竖直投影）的外接圆**（见 ArenaSlotLayout），
-        // 让圆的大小与位置天然贴合卡牌的地面足迹。
+        // 【为什么解耦】此前 PilotPitchDeg ≡ CardPitchDeg，光轴垂直卡面。解耦后
+        // 可单独调机位而不动卡几何。卡 Euler 60 曾试废（影子过长、罩身件收敛）。
         //
         // 红线：卡牌姿态唯一真源是 CardPitchDeg。禁止任何地方再写 cam.eulerAngles.x
-        // 当卡牌倾角用（那会让"调相机连带改卡姿"，且绕过这里的角度链）。
+        // 当卡牌倾角用（那会让"调相机连带改卡姿"）。
 
         /// <summary>卡牌后倾角（度）＝ Euler X ＝ 与竖直方向的夹角。
-        /// 2026-07-25 定稿：45（与地面夹角 45）。当日试过 30（影子浅但立绘偏正面）
-        /// 与"与地面 30°"＝Euler 60（影子过深，定位圆被撑到 1.8 倍卡宽）。</summary>
+        /// 2026-07-25 定稿：45（与地面夹角 45）。几何（落点/影子/定位圆）
+        /// 一律读此值，**不**跟相机俯角走。</summary>
         public const float CardPitchDeg = 45f;
 
         /// <summary>卡牌与地面夹角（度）。派生量，供文档与几何换算引用。</summary>
         public const float CardLeanDeg = 90f - CardPitchDeg;
 
-        /// <summary>相机俯角（度）＝ CardPitchDeg，使光轴垂直于卡面。</summary>
-        public const float PilotPitchDeg = CardPitchDeg;
+        /// <summary>相机俯角（度）。数值权威在
+        /// <see cref="StagePerformanceConfig.PilotPitchDeg"/>；本属性只转发，
+        /// 调用方继续写 <c>CameraFitter.PilotPitchDeg</c> 即可。</summary>
+        public static float PilotPitchDeg => StagePerformanceConfig.PilotPitchDeg;
 
         /// <summary>桌面扭转角（度，俯视顺时针）。相机保持正面（真转相机会让
         /// 地台远边一头高一头低+露黑角）；由卡牌自转+站位绕圆心旋转来体现
@@ -160,7 +155,10 @@ namespace ClientBattle.VFX
             _cam.farClipPlane = 80f;
             _cam.allowHDR = true;
 
-            // 相机保持正面 45° 俯视；「桌面扭转」由卡牌自转+站位绕圆心旋转体现
+            // 俯角改了分区几何也要重算（缓存只按宽高比键，否则调参不进 Play 也看不见）
+            BattlefieldLayout.InvalidateCache();
+
+            // 相机保持正面俯视（俯角 = PilotPitchDeg）；「桌面扭转」由卡牌自转+站位旋转体现
             float pitchRad = PilotPitchDeg * Mathf.Deg2Rad;
             _cam.transform.position = new Vector3(
                 0f,

@@ -62,6 +62,64 @@ namespace ClientBattle.VFX
             return instance;
         }
 
+        /// <summary>该 key 的**一次性发射窗口**时长（秒），即"这一炸放完了"的时刻。
+        ///
+        /// 取各粒子系统 `startDelay + duration` 的最大值，有两条刻意的排除：
+        ///
+        /// · **不加 `startLifetime`**：厂包件普遍是「爆发 + 长烟尾」，把烟尾也等完，
+        ///   观众看到的是一段发呆。发射结束＝主体已打完，余烬继续飘不妨碍下一拍。
+        ///
+        /// · **跳过 `loop=true` 的层**：循环层没有"播完"这回事（它靠外部停止），
+        ///   它的 `duration` 是**循环周期**而不是时长，拿来当结束时刻是把两个
+        ///   不同量当成一个用。混进来会得到一个既不是周期也不是时长的数
+        ///   （实测 `cast_duel_launch` 因此报 4.0 s，而它真正的一次性爆发只有 1.5 s）。
+        ///   循环层由调用方在合适的拍子上 `StopEmitting`。
+        ///
+        /// **全是循环层时**（`aura_duel_victory` / `ground_duel_defeat` 即如此）
+        /// 退而求其次，返回「成形时长」＝各层 `startDelay + startLifetime` 的最大值：
+        /// 循环件没有终点，但它从起播到**看上去完整**大约就是一个粒子寿命
+        /// （粒子要先填满那个形状）。用它当节拍，比退到通用保底值贴合得多——
+        /// 保底值只是"素材缺失时别把节奏丢了"，不该拿来当正常时长用。
+        /// 只探测 prefab（不实例化），结果随 prefab 缓存；key 不存在返回 0。
+        /// <paramref name="cap"/> 是硬上限——厂包件时长不可控，演出不能被卡住。
+        ///
+        /// 【注意是真实秒】粒子按真实时间播，不吃 <c>ctx.Scaled</c>。要"等它播完"
+        /// 就只能等真实时长，把这段乘倍速等于把它拦腰截断（那就不叫顺序播了）。</summary>
+        public float EmitWindow(string key, float cap)
+        {
+            if (string.IsNullOrEmpty(key) || cap <= 0f) return 0f;
+            if (!_prefabCache.TryGetValue(key, out var prefab))
+            {
+                prefab = Resources.Load<GameObject>($"ClientBattle/VFX/{key}");
+                _prefabCache[key] = prefab;
+            }
+            if (prefab == null) return 0f;
+
+            float window = 0f, shape = 0f;
+            foreach (var ps in prefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = ps.main;
+                float delay = main.startDelayMultiplier;
+                if (main.loop)
+                    shape = Mathf.Max(shape, delay + main.startLifetimeMultiplier);
+                else
+                    window = Mathf.Max(window, delay + main.duration);
+            }
+            return Mathf.Min(window > 0f ? window : shape, cap);
+        }
+
+        /// <summary>让实例**收势**：只掐新粒子，已生成的按自己的 lifetime 走完。
+        ///
+        /// 顺序演出交接用。与"等它彻底播完"是两回事：循环层永远不会自己结束，
+        /// 而全速发射中的件被下一拍盖过去会读作"炸到一半被打断"。在切拍那一刻
+        /// 收势，余烬在下一拍里继续飘，读作"在余烬中被拽走"。</summary>
+        public static void StopEmitting(GameObject instance)
+        {
+            if (instance == null) return;
+            foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>(true))
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        }
+
         /// <summary>渲染级预热是否已收尾（PlayLoop 等它变 true 再开播，约 3 帧）。</summary>
         public bool PrewarmComplete { get; private set; } = true;
 
@@ -96,7 +154,14 @@ namespace ClientBattle.VFX
                 _prefabCache[prefab.name] = prefab;
                 // 同会话内重播：池里已有实例说明上一场已渲染过，shader/贴图已热
                 if (_pool.TryGetValue(prefab.name, out var pooled) && pooled.Count > 0) continue;
-                var instance = Instantiate(prefab);
+                GameObject instance;
+                // 一件坏件不允许拖垮整个预热批次（预热要实例化全部标准件）
+                try { instance = Instantiate(prefab); }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[VFX] 预热 {prefab.name} 实例化抛 {e.GetType().Name}，跳过：{e.Message}");
+                    continue;
+                }
                 instance.AddComponent<VfxOriginalScale>().Value = instance.transform.localScale;
                 instance.transform.SetParent(_prewarmRig.transform, false);
                 instance.transform.localPosition = new Vector3(
@@ -144,10 +209,16 @@ namespace ClientBattle.VFX
             PrewarmComplete = true;
         }
 
-        /// <summary>手动回收常驻特效（如整局光环随状态移除撤下）。</summary>
+        /// <summary>手动回收常驻特效（如整局光环随状态移除撤下）。
+        /// 挂了 <see cref="VfxFreshInstance"/> 的件**销毁而不入池**（原因见该类注释）。</summary>
         public void Release(string key, GameObject instance)
         {
             if (instance == null) return;
+            if (instance.GetComponent<VfxFreshInstance>() != null)
+            {
+                Destroy(instance);
+                return;
+            }
             instance.SetActive(false);
             instance.transform.SetParent(transform, false);
             if (!_pool.TryGetValue(key, out var queue))
@@ -167,7 +238,10 @@ namespace ClientBattle.VFX
                 DOTween.Kill(child.gameObject, complete: false);
                 foreach (var ps in child.GetComponentsInChildren<ParticleSystem>(true))
                     ps.Clear(true);
-                child.gameObject.SetActive(false);
+                // 一次性件不入池，只 SetActive(false) 会让它作为失活子物体永久挂在
+                // 管理器下（既占内存又会被后续 foreach 反复遍历）
+                if (child.GetComponent<VfxFreshInstance>() != null) Destroy(child.gameObject);
+                else child.gameObject.SetActive(false);
             }
         }
 
@@ -175,6 +249,18 @@ namespace ClientBattle.VFX
 
         GameObject Rent(string key, Color? tint)
         {
+            // 一次性件绕过池：它们的观感由 Awake/Start 里初始化的驱动脚本决定，
+            // 而池化复用**不会重跑 Awake/Start**（Unity 语义），出池的是上一次
+            // 结束时的残留状态。详见 VfxFreshInstance。
+            if (IsFresh(key))
+            {
+                var fresh = Build(key, tint);
+                fresh.AddComponent<VfxOriginalScale>().Value = fresh.transform.localScale;
+                RestartParticles(fresh);
+                EnsureVfxSorting(fresh);
+                return fresh;
+            }
+
             if (_pool.TryGetValue(key, out var queue) && queue.Count > 0)
             {
                 var pooled = queue.Dequeue();
@@ -194,15 +280,39 @@ namespace ClientBattle.VFX
             return built;
         }
 
-        /// <summary>出池/新建后强制重播粒子（Assets/VFX DualBolt 等 playOnAwake=false）。</summary>
+        /// <summary>该 key 是否是「每次新建」的一次性件。查 prefab 上的标记，
+        /// 结果随 prefab 缓存，热路径不做 IO。</summary>
+        bool IsFresh(string key)
+        {
+            if (!_prefabCache.TryGetValue(key, out var prefab))
+            {
+                prefab = Resources.Load<GameObject>($"ClientBattle/VFX/{key}");
+                _prefabCache[key] = prefab;
+            }
+            return prefab != null && prefab.GetComponent<VfxFreshInstance>() != null;
+        }
+
+        /// <summary>出池/新建后强制重播粒子（Assets/VFX DualBolt 等 playOnAwake=false）。
+        ///
+        /// **只对"最上层"的粒子系统调 Play**：`Play(true)` 本身就会级联到全部子孙，
+        /// 对每一层都再调一次等于把子发射器重复触发，相位被打乱——同一件在画廊里
+        /// （只在根级起播）与战斗里长得不一样，这是其中一处。
+        /// `Clear` 则对每一层都调：清空是幂等的，且深层残留粒子必须清干净。</summary>
         static void RestartParticles(GameObject instance)
         {
             if (instance == null) return;
-            foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>(true))
-            {
-                ps.Clear(true);
-                ps.Play(true);
-            }
+            var systems = instance.GetComponentsInChildren<ParticleSystem>(true);
+            foreach (var ps in systems) ps.Clear(true);
+            foreach (var ps in systems)
+                if (IsTopMost(ps, instance.transform)) ps.Play(true);
+        }
+
+        /// <summary>ps 之上（到 root 为止）是否再无粒子系统。</summary>
+        static bool IsTopMost(ParticleSystem ps, Transform root)
+        {
+            for (var t = ps.transform.parent; t != null && t != root.parent; t = t.parent)
+                if (t.GetComponent<ParticleSystem>() != null) return false;
+            return true;
         }
 
         /// <summary>Vefects 等源 Prefab sortingOrder=0，会被卡面盖住；抬到池默认档。
@@ -231,7 +341,22 @@ namespace ClientBattle.VFX
                 _prefabCache[key] = prefab; // 缓存 null 也记住，避免反复 IO
             }
             if (prefab != null)
-                return Instantiate(prefab);
+            {
+                // 厂包脚本 Awake 里的异常会从 Instantiate 传出来。这里必须接住：
+                // 一件坏件只允许它自己降级成占位，**不允许打断调用方的演出协程**
+                // ——否则症状是"从这一刻起后面所有演出全没了"，且极难归因（P-68）。
+                // 客户端播放红线「任何情况必能播出」的兜底就在这一层。
+                try
+                {
+                    return Instantiate(prefab);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[VFX] {key} 实例化抛 {e.GetType().Name}，降级为占位方块。"
+                                   + $"多半是标准化裁剪产生的孤儿驱动脚本，"
+                                   + $"跑一次「体检 标准件流水线四项」定位：{e.Message}");
+                }
+            }
 
             // 占位：纯色方块 + 出生缩放弹跳
             var go = new GameObject($"vfx_{key}");
@@ -250,12 +375,42 @@ namespace ClientBattle.VFX
             return Color.HSVToRGB(Mathf.Abs(hash % 360) / 360f, 0.75f, 1f);
         }
 
+        /// <summary>回收宽限上限（秒）：停止发射后最多再等这么久让余烬自然消亡。
+        /// 有上限是必须的——厂包件常有 5 s 以上的长尾粒子，无限等会让实例迟迟不回池。</summary>
+        const float RecycleGrace = 1.2f;
+
+        /// <summary>到点后**先停发射、再等余烬散尽**，而不是直接 SetActive(false)。
+        ///
+        /// 直接关等于拦腰砍断：屏幕上正飘着的火星/烟一帧消失，观感是"特效坏了"，
+        /// 而画廊里同一件是自然收尾的——这是两处观感差异里最容易被误读成
+        /// "素材不行"的一处。`StopEmitting` 只掐新粒子，已生成的按自己的
+        /// lifetime 走完，形状与画廊一致。</summary>
         IEnumerator RecycleAfter(string key, GameObject instance, float duration)
         {
             yield return new WaitForSeconds(duration);
+            if (instance == null) yield break;
+
+            var systems = instance.GetComponentsInChildren<ParticleSystem>(true);
+            foreach (var ps in systems)
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+
+            for (float t = 0f; t < RecycleGrace; t += Time.deltaTime)
+            {
+                if (instance == null) yield break;
+                bool alive = false;
+                foreach (var ps in systems)
+                {
+                    if (ps == null || !ps.IsAlive(true)) continue;
+                    alive = true;
+                    break;
+                }
+                if (!alive) break;
+                yield return null;
+            }
             Release(key, instance);
         }
     }
+
 
     /// <summary>记录实例出生缩放，回池复用时还原（防调用方缩放残留）。</summary>
     public class VfxOriginalScale : MonoBehaviour

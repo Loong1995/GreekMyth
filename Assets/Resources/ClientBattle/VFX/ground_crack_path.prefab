@@ -146,15 +146,15 @@ MonoBehaviour:
   BakedSize: 1.05
   CardWidthFactor: 0
   AreaFactor: 1
-  GrowTime: 0.16
+  GrowTime: 0.22
   GrowthMode: 1
   MaskGain: 1.15
-  GlowPeak: 0
+  GlowPeak: 1.6379999
   FrontWidth: 0.14
-  EmberFloor: 0
+  EmberFloor: 0.0936
   SizeScale: 1
-  LavaDelay: 0.12
-  LavaGrowMul: 1.15
+  LavaDelay: 0.65
+  LavaGrowMul: 1.45
   LavaLifeRatio: 0.65
   DurationScale: 1
 --- !u!1 &5756506821171153007

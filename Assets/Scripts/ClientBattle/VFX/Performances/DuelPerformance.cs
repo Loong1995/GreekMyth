@@ -48,14 +48,15 @@ namespace ClientBattle.VFX
             else if (result != null)
             {
                 yield return PlayDuelLines(group, ctx, "duel_accept");
-                // 全屏裂缝交错 cut-in：两张半屏卡对向滑过中央裂缝线算一次交错，
-                // 段数由服务端 clash_cutins 下发（武力越接近交错越多、越快）
+                // 单挑舞台 cut-in：双方立绘出框 → 虚空展示屏 → 交错+动作 ×clashes
+                // → 定胜负 → 飞回卡框。轮数由服务端 clash_cutins 下发
+                // （武力越接近交错越多）。挑战方在左、应战方在右。
                 var a = ctx.Unit(challenge.ChallengerId);
                 var b = ctx.Unit(challenge.DefenderId);
                 int clashes = Math.Clamp(challenge.ClashCutins, 1, 3);
                 if (a != null && b != null && ctx.CutIns != null)
                     yield return ctx.CutIns.DuelClashRoutine(
-                        ctx, a, b, clashes,
+                        ctx, a, b, clashes, result.WinnerId,
                         onClash: () =>
                         {
                             ctx.Sfx.Play("sfx_duel_clash");

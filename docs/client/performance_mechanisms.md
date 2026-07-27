@@ -68,8 +68,8 @@
 | 势能火 | 四轨最高 ≥4 小 / ≥5 / ≥6 / ≥7 满分大；`momentum_fire`←CFXR3 Fire；**一旦点着持续到回合结束**，下回合 `round_start` 前渐灭。生命周期收拢进控制器；hold-off＝抑制同值重挂（值变化即重新点火） | `Units/MomentumFireController.cs` |
 | 闪光档（4） | 某轨首次 `value≥Flash(4)`：白闪爆发帧 + punch 缩放（**乙案已定稿**；不采购专属 overflow 包） | `MomentumService.Apply` → `PlayMomentumOverflow` |
 | 满档（5）/闪光（4）+ | 四轨最高 ≥4 起挂：**卡上缘火** + **卡后 LightGlow A（无星点）**；同分档轻抬、行动切换同渐灭；≥5 起服务端 `cut_in` | `MomentumFireController` / `MountMomentumGlow` |
-| cut-in 通道 | **全屏单人 cut-in**（2026-07-21 升级）：暗幕 + 阵营色斜带甩入 + 巨幅立绘反向滑入 + 大字标题，约 0.8s 甩出；触发源①满档轨（见下行语义）②高伤 >3000 ③行动窗内追伤第 5 次（②③非阻塞不占时间轴）；**同一播放组只播 1 次**去重，不做回合级限流（C10 定案）。无主体的播报（战术变更）回退 OnGUI 文字横幅。请求入口与组去重收口 `CutInService.Request` | `VFX/CutInService.Request/PlaySolo`；回退 `VFX/BannerService.ShowTextCutIn` |
-| 满档 cut-in 语义 | **按轨**：某轨已满（≥5）后，**同轨再次进账**的伤害出手前触发；刚满 5 当次不切。**阻塞**：`PlaySoloBlocking` 切完才开打。**标题＝即将造成伤害的技能名**（战法/普攻/协击/状态归因战法）。强化音效 `sfx_attack_empowered`。落账路径不再弹「势能全开·轨名」 | `CutInPolicy.FindFullTrackCutIn` + `CutInPolicy.SkillNameOf`（`PlaybackDirector.PlayGroup` 调用）+ `CutInService.PlaySoloBlocking` |
+| cut-in 通道 | **全屏单人 cut-in**：暗幕 + 阵营色斜带甩入 + 巨幅立绘反向滑入 + 大字标题；触发源①满档轨②巨伤「重创」>3000③追伤第 5 次④战术变更（无主体→OnGUI 文字横幅）。**2026-07-27 统一**：前三类一律走取景独占单元「**推镜→横幅→本组出手命中→撤镜**」（与单挑同构，不飞立绘），判据在播组**之前**由 `CutInPolicy.Resolve` 一处定；**同组只播 1 次**，不做回合级限流（C10）。权威文档 [cutin_stage.md](cutin_stage.md) | `VFX/CutInPolicy.Resolve` + `VFX/CutInStage.Play`（`PlaybackDirector.PlayGroup` 调用）；构件 `CutInService.PlaySolo` |
+| 满档 cut-in 语义 | **按轨**：某轨已满（≥5）后，**同轨再次进账**的伤害出手前触发；刚满 5 当次不切。**阻塞**：`PlaySoloBlocking` 切完才开打。**标题＝即将造成伤害的技能名**（战法/普攻/协击/状态归因战法）。强化音效 `sfx_attack_empowered`。落账路径不再弹「势能全开·轨名」 | `CutInPolicy.FindFullTrackCutIn` + `SkillNameOf`（经 `Resolve` 汇总）+ `CutInStage.Play` |
 | 连发演出 | `skill_trigger.burst_no≥2`：**与首发完全同模板整套重播**（`Classify` 按 burst_no 判为 ActiveSkill——连发 parent 指回首发触发事件，若不判会误分类成追击）；在此之上叠加节拍加速（倍率 `PerformanceProfile.BurstTempoScale`，默认 ×1.35，经 `VFXContext.TempoScale` 生效、播完复位）+ 施法者「连发 ×N」金色角标 | `EventPipeline.Classify` / `PlaybackDirector.PlayGroup` |
 | 协击标 | `normal_attack.kind=="coordinated"`：出手前施法者「协击」青色角标，其余复用 Melee 模板 | `DefaultPerformance.Play` |
 
@@ -83,7 +83,7 @@
 | 飘字手调 | 字体/字号/颜色/上浮曲线全参数收进 SO（`Resources/ClientBattle/FloatingTextTuning.asset`，缺失用代码默认）；字体放 `Resources/ClientBattle/Fonts/` 填名即换 | `Units/FloatingTextTuning.cs`；操作文档 [floating_text_tuning.md](floating_text_tuning.md) |
 | 头像标（皇卡 C1） | profile.PortraitMarkKey：受影响单位头顶短暂浮现指定武将头像——宙斯落雷 `thunder`→zeus（RemoteStrike 落雷节拍内挂）、哈迪斯吸统 `hades_command_drain`→hades | `UnitView.ShowPortraitMark` + `DefaultPerformance` |
 | 圣盾反弹/回血（C1） | 反伤 → `icon_aegis`；格挡 → `icon_block`；`aegis_shield` Melee；挂身 AllIn1 金描边；反制闪=`hit_shield_counter`（Effect17_Collision）；重击回血 `icon_aegis_heal` | `MountAegisAura` + `FlashOverlayIcon` |
-| 战神之勇光环 | `ares_might` → Effect31 罩身；跟随＝`VfxShroudFollower`；显隐＝通用 `VfxShroudPresence` + 注册表 `OddRounds`；`HasShroud` 看 `IsPresent`（渐隐后恢复抖动） | `MountShroud` / `SetShroudVisible` |
+| 战神之勇光环 | `ares_might` → 画廊 2/8·10/61（Magic Effect18）罩身；跟随＝`VfxShroudFollower`；显隐＝通用 `VfxShroudPresence` + 注册表 `OddRounds`；`HasShroud` 看 `IsPresent`（渐隐后恢复抖动） | `MountShroud` / `SetShroudVisible` |
 | 回位微抖 | 每次位移回位或受击顿挫结束重采样 `RestPosition`：边长=区域宽/5，半边由 `StanceLayout.RestJitterHalf` 约束（与卡面尺寸一并反算，保证邻格不叠）；突进/落雷瞄当前休息点 | `UnitView.DOMoveReturnHome` / `HitReact`；`StanceLayout` |
 | 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlaybackDirector.PlayGroupsRange`；入口 `PerformanceRunner.PlayHighlight`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
 
@@ -91,16 +91,16 @@
 
 | 模板 | 触发条件 | 演出 | 代码 |
 |---|---|---|---|
-| Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击** → 回位（休息点重采样） | `DefaultPerformance.PlayMelee` |
+| Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击**（`slash`）+ 卡面命中 **`hit_generic`**（`MeleeDefault.HitKey`，≠主动默认的 hit_sword）→ 回位（休息点重采样） | `DefaultPerformance.PlayMelee`；查表 [vfx_config_index](vfx_config_index.md) |
 | AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样）。**物理群攻 + 近 3D 地面**（仅 `ArenaSlotLayout.GroundActive`）：弹道裂地分 3 段 `ground_crack_path`，**起裂与生长都由 `StrikeSync` 的弹道飞行进度驱动**，末段推满＝弹道抵达；命中裂地与 HitKey 在 `SettleDamage` **同帧** `ground_crack_hit`（直径卡宽×1.5×面积）。档位/面积见 [ground_crack_config.md](ground_crack_config.md)：准备型物理群攻档 2、瞬发档 1；`EmpoweredStrike` 强制档 3 弹道+面积×1.5 命中，并叠场心大裂地。**唯一入口 `GroundCrackService`**（亦接 PerSegment / Melee，见 P-46） | `DefaultPerformance.PlayAoeCenter` / `PlayPerSegment` / `PlayMelee` → `SettleDamage` → `VFX/GroundCrackService.cs` |
 | PerSegment 逐段 | 单体主动/多段 | 每段一个节拍：弹道（同走 `StrikeSync`）→ 抵达同帧命中掉血 | `DefaultPerformance.PlayPerSegment` |
 | **出手同步（跨模板）** | 任何带弹道的模板 | 一次出手＝**飞行段 + 命中拍**：`StrikeSync.Fly(from, projectiles, aims, flight)` 逐帧广播弹道真实进度给挂上来的 `IFlightDriven`（现有裂地一家），`Run()` 返回＝进度推满＝弹道抵达，调用方**同帧**开命中拍 `SettleDamage`。禁止模板各自 `WaitForSeconds` 拼时序；新表现想跟弹道走只需实现 `IFlightDriven` 并 `Attach` | `VFX/StrikeSync.cs` + `GroundCrackService.PathDriver` |
-| RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`/`zeus_bolt`：DR **单道**竖雷 + `hit_lightning`（Magic Effect19_Collision）+ 宙斯头像标。**禁 RFX4** | `DefaultPerformance.PlayRemoteStrike` |
-| 主动默认（按伤害类型） | 全部未专配主动 | **物理** Proj=`proj_bolt200` + Hit=`hit_clash`；**魔法** Proj=`magic_bolt` + Hit=`hit_lightning`。**默认不播 Cast** | `ProjectileKeyOf` / `ResolveHitKey` |
+| RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`/`zeus_bolt`：DR **单道**竖雷 + `hit_lightning`（Magic Effect19_Collision，专配 HitKey）+ 宙斯头像标。**禁 RFX4** | `DefaultPerformance.PlayRemoteStrike` |
+| 主动默认（按伤害类型） | 全部未专配主动 | **物理** Proj=`proj_bolt200` + Hit=`hit_sword`（画廊 **[1/8] 我方标准件** 件 45/61）；**魔法** Proj=`magic_bolt` + Hit=`hit_petrify`（同包件 41/61）。**默认不播 Cast**。命中件回收时长按 `EmitWindow`（真实秒，上限 2.5s）给足，不写死 0.5s。**命中解析四级**（巨伤 `hit_massive` 覆盖一切＋强制震屏 → 专配 HitKey → 伤害类型 → 兜底）；追击 HitKey 留空同步主动；神谕伤害默认 `hit_wave`——查表 [vfx_config_index](vfx_config_index.md) §一 | `ProjectileKeyOf` / `ResolveHitKey` / `SettleDamage` |
 | StatusTrigger | 状态触发组 | 默认按目标数走中心齐射/逐段；可特殊配置为 Melee / RemoteStrike | 同上（模板内分派） |
 | OracleAura 神谕 | 神谕/被动宣告 | 施法者前摇 → 组内状态一次性落账（同帧挂光环）+ 整盘滤镜 | `OracleAuraPerformance` |
 | None | 明确无演出（如蛇杖圣谕） | 只落账 | `PlaybackDirector.ApplyGroupSilently`（`EventApplyService.Apply(animated:false)`） |
-| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗渐变 → 号角 → 叫阵气泡 →（拒战｜应战→**全屏裂缝交错 cut-in**→胜者）→ 恢复渐变。交错用 cut-in 同层白闪+裂缝扩光+震屏（**不叠 RFX 粒子**）。`clash_cutins` 1~3 | `DuelPerformance` + `CutInService.DuelClashRoutine` |
+| 单挑 | duel_challenge/duel_result + 组内 duel_* 台词 | 压暗渐变 → 号角 → 叫阵气泡 →（拒战｜应战→**单挑舞台 cut-in**→胜者）→ 恢复渐变。舞台＝立绘**出框**飞进虚空展示屏 → 交错+动作 ×`clash_cutins`(1~3) → 定胜负 → 飞回卡框；动作走 flipbook，缺帧退静态立绘占满时长。屏体华饰/氛围（阵营辉光·放射慢转·浮尘·影院黑边·四角纹饰·立绘背光·冲击环·白闪）在 `DuelStageChrome`，**MonoBehaviour 自走 Update**，故编排层插值/等待/放帧时屏上恒有运动（零死帧）；四种周期互质防呆板，全程程序化贴图零预制资源（**不叠 RFX 粒子**）。**总索引 [../mechanics/duel.md](../mechanics/duel.md)** | `DuelPerformance` + `CutInService.DuelClashRoutine` → `VFX/DuelStage.cs` |
 
 **斩击尺寸规则（2026-07-10 定）**：普攻斩击 = 资源基准尺寸 ×1.0；追击 ×1.5；
 再乘 profile.StrikeVfxScale（Inspector 可调）。物理组默认 key=`slash`、
@@ -124,8 +124,17 @@
 | 机制 | 一句话 | 代码 |
 |---|---|---|
 | 卡牌结构 | 卡框(阵营色染色，支持 CardFrames/frame.png)+立绘+血条+名字 | `Units/UnitView.cs` |
-| 受击表现 | **命中拍**＝裂地+HitKey+抖动(+震屏)同帧；**绕身 `IsPresent` 时只红闪**，渐隐收干净后恢复抖动 | `SettleDamage` → `HitReact` + `UnitAuraService.HasShroud`（=`VfxShroudPresence.IsPresent`） |
-| 待机呼吸 | 存活卡牌立绘正弦浮动，相位按位置错开；阵亡停止 | `UnitView.Update` |
+| **演出参数收口** | 机位俯角 + 卡牌「怎么动」的全部可调量（卡姿抖动 / 微调圆 / 击退 / 受击颤动 / 三拍 / 残影 / 接地阴影）集中一处，改数字即调参。**禁止再在各表现类里散落 const**。分工：`BattlefieldLayoutConfig`＝舞台几何（含院区比例），`StagePerformanceConfig`＝机位与演出幅度；卡后倾基准仍 `CameraFitter.CardPitchDeg` | `Units/StagePerformanceConfig.cs` |
+| **微调圆（站位活动上限，旧名"击打圆"）** | 站位微抖圆同时是运行期活动上限：受击击退与出击后的前进休息点**都截断在圆内**（越界取圆周点，不反弹）。于是卡牌只在自己的圆盘里一进一退地游走——**挨打向后退、出击向前进**——整局站位是活的，又永远不会走进别人的格子。所有裁剪在**地面 XZ 二维**做（`OffsetFromHome`/`AnchorAtOffset`），近 3D 下用世界向量会把纵深错算成高度 | `UnitView.ClampToTuneCircle`；半径 `StagePerformanceConfig.TuneCircleScale` × `StanceLayout.SlotJitterRadius` |
+| **卡姿随机后倾** | 每卡后倾角在 **`CameraFitter.CardPitchDeg` ± `CardPitchJitterDeg`** 内随机（45±5 ＝ **40°~50°**），整排卡不像同一块板刷出来的。**只抖视觉**：`GroundPoint`/`GroundFoot`/`CardShadowDepth` 等几何一律仍按基准角算（几度内目视无差），故抖动幅度不宜 >8° | `UnitView.ApplyCardLean` → `_baseLean` |
+| **受击表现（三通道，时间上串行）** | **命中拍**＝裂地+HitKey+**定向击退**+**立绘挤压**+震屏，同帧；击退**落定后**接**沿线前后颤**。三条通道各管一件、互不代偿：**击退**＝定位点位移（力的方向），**颤动**＝落定后围绕落点沿同线的**纯动画**前后颤（结束回落点，不改定位点），**挤压**＝立绘形变（肉感）。受击线＝「攻击方站位中心 → 本卡站位中心」，**必须取 `HomePosition` 不得取 `transform.position`**（攻击方突进后就贴在身边，实时位置算出的方向会乱跳甚至反向）。**两段位移都钉在受击线上**：落定点＝以 Home 为起点沿线的随机距离（`KnockbackXxxMin/Max`，单位＝微调圆半径倍数），推开点＝同线过冲（`KnockOvershoot`），越圆即截断到圆边；**落定点不得随机重采样**——旧版回弹奔圆盘随机点去，第二段位移斜出受击线，观感即"击退方向不对"。来源不在场（环境/状态伤）＝不击退，原地沿纵深轴起颤+挤压。**绕身 `IsPresent` 时禁一切卡根位移（击退+颤动）**（位移会甩飞绕身罩，P-58），挤压与红闪照给。**颤动定标（安卓）**：频率按战斗负载 **30 fps 下限** 定（vSync 锁 60，中端机战斗常掉到 30~45）——`HitTrembleFrequency`=**10 Hz**（30fps 下约 3 帧一周期；18 Hz 在 30fps 只剩 1.7 帧＝噪点）。振幅＝微调圆半径 × `HitTrembleAmpCrit/Normal`（0.22/0.13），幂衰减 1.1。颤动是最低优先级：任何 tween 接管 transform 即让位 | `SettleDamage` → `UnitView.HitReact(isCrit, fromHome)` → `KnockBack` →（OnComplete）`StartHitTremble` / `TickHitTremble` / `CardIdleMotion.Punch` |
+| ~~受击随机抖动（位移式）~~ | **已废除（2026-07-27）**：`DOShakePosition` 全向随机**位移**抖动读作「震动」而不是「被打」。 | — |
+| ~~受击旋转抖动（纯角度）~~ | **已废除（2026-07-27 当日重做）**：近正面卡的面内自旋不改轮廓、俯仰被投影吃掉，角度抖怎么调都读不出来。改为击退落定后的**沿线前后颤**（见上行） | — |
+| **出手三拍** | 任何「移动过去打」的模板共用：**预备**（反向蓄力 OutQuad，给出「要打了」的预告）→ **发力**（InQuint 加速冲入，末速最高，命中拍落在最快的一帧，途中留残影）→ **收势**（OutBack 过冲回弹，读作收招而非倒带）。收势落点**沿本次行动方向前移**（`RerollRestPositionToward`），与受击者被推回去互为一对。三拍均为可见位移，不违背零死帧；时长全部经 `ctx.Scaled` | `VFX/StrikeBeats.cs`（`Advance` / `Recover(ctx, mover, towardWorld)`）← `PlayMelee` / `PlayAoeCenter` |
+| **突进残影** | 突进期间按**固定间隔**（非 tween 回调，否则低端机上只出两张）拍下卡面快照，逐张淡出+收缩成锥形尾巴。残影是**运行期快照**（含压暗/石化/染色），不可预制，故不走 VFXManager 池，自带环形池，突进期零 Instantiate。order −2 | `Units/AfterImageService.cs` |
+| **接地阴影** | 近 3D 舞台每卡一枚地面软椭圆。**没有接触阴影的物体一律被眼睛读作浮空贴纸**——这是「卡牌呆板」最物理的一层来源。长宽取自 `ArenaSlotLayout`（CardWidth / CardShadowDepth），卡尺一改自动跟随；卡牌抬离地面越高影子越小越淡。挂在卡牌**父级**而非卡牌自身（否则继承 45° 后倾与 DOPunchScale 缩放）；LateUpdate 取位（早于呼吸/tween 写入会慢一帧）。正交模式不创建 | `Units/CardGroundShadow.cs` ← `UnitView.Build` |
+| ~~命中顿帧~~ | **已删除（2026-07-27 人工否决观感）**：暴击压 `Time.timeScale` 咬住数十毫秒的做法本项目不采用，勿再引入。任何「压全局时间」的手感方案都要先过人工验收 | — |
+| **卡面生动性** | 立绘三条通道由**唯一合成器**每帧合成写入（不用 tween：三者作用于同一 Transform，互相 Kill 会让呼吸断掉/立绘停在半路）。① 待机呼吸＝浮动+侧摆+胸腔缩放+微倾，三个互质频率，每卡相位与频率各自失谐（六卡同屏永不同步）；兵力越低越慢越重。② 惯性视差＝立绘比卡框慢半拍，配合景深偏移读出「框里装着一个人」。③ 受击挤压＝阻尼正弦弹性形变。石化/阵亡冻成静止像 | `Units/CardIdleMotion.cs` ← `UnitView.Update` / `SetBreathingFrozen` / `PlayDefeated` |
 | 兵力刷新 | 恒取事件 troops_after 权威值，客户端零计算 | `UnitView.SetTroops` |
 | 状态图标 | 硬控/冥火卡顶外侧横排（宽≈卡宽 1/5）+ 抖动；**先攻/犹豫不展示图标**；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` + `StatusPresentationRegistry` |
 | **状态常驻光环** | status_id → 光环 key + 挂载偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记…）；status_apply 挂、status_remove/阵亡/整局重置撤；一次性 flipbook 粒子强制循环+补发射密度+压半透明（`aura_fire*` 另偏橙红） | `Units/UnitAuraService.cs`；配置收口 `Names/StatusPresentationRegistry.cs`（新状态只加注册表一行） |
@@ -160,6 +169,7 @@
 
 | 想改什么 | 去哪看 |
 |---|---|
+| **特效 key 谁用什么 / 普攻命中 / 解析顺序** | **[vfx_config_index.md](vfx_config_index.md)**（总索引） |
 | 播放单元/时间轴阻塞/台词独占/管线 processor | [playback_units.md](playback_units.md) |
 | 分辨率适配/图像槽位/sorting 层级 | [rendering_layout.md](rendering_layout.md) |
 | 战场分区/站位/阵型识别/卡尺 | [battlefield_layout.md](battlefield_layout.md) |
@@ -171,6 +181,7 @@
 | 结算表谁记杀伤 | [settlement_stats.md](settlement_stats.md) |
 | 框架分层/数据流向/逐文件职责 | [client_battle_framework.md](client_battle_framework.md) |
 | 资源上传路径/命名/尺寸规格/获取分档 | [assets_upload_guide.md](assets_upload_guide.md) |
+| 特效配置总索引（默认 HitKey / 查表） | [vfx_config_index.md](vfx_config_index.md) |
 | 已购资源包与采购登记 | [assets_upload_guide.md §三](assets_upload_guide.md) |
 | 阵营视觉规范 | [faction_style.md](faction_style.md) |
 | 事件流契约（字段语义，只读） | `docs/schema/battle_events.md` + `battle_events_payloads.md` |
