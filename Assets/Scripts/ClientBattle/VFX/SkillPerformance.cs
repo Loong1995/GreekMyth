@@ -28,7 +28,7 @@ namespace ClientBattle.VFX
         /// 占池；当前最长件 hit_lightning=2.0s，上限须 ≥ 实测窗口。</summary>
         const float HitVfxWindowCap = 2.5f;
 
-        /// <summary>巨额伤害（触发「重创」横幅，>CutInPolicy.HighDamageThreshold）
+        /// <summary>巨额伤害（触发「重创」横幅，>CutInPlanner.HighDamageThreshold）
         /// 的卡面命中件：RFX4 Effect15_Collision（画廊 3/8 件 7/54 的碰撞子件）。
         /// 解析最高优先级，覆盖一切 Profile 专配（见 ResolveHitKey）。</summary>
         const string MassiveHitKey = "hit_massive";
@@ -45,7 +45,7 @@ namespace ClientBattle.VFX
             if (target == null) return;
 
             bool mitigated = !string.IsNullOrEmpty(damage.Mitigation);
-            bool massive = CutInPolicy.IsHighDamage(damage); // 与「重创」横幅同判据同帧
+            bool massive = CutInPlanner.IsHighDamage(damage); // 与「重创」横幅同判据同帧
             // —— 命中拍（同帧）：裂地 / HitKey / HitReact(+震屏) 不得拆到模板或错峰 ——
             if (GroundCrackService.ShouldPlayHit(damage))
                 GroundCrackService.PlayHit(ctx, profile, target, massive);
@@ -118,7 +118,7 @@ namespace ClientBattle.VFX
         /// ④ damage 缺失 → <c>hit_generic</c> 兜底。</summary>
         protected static string ResolveHitKey(PerformanceProfile profile, DamageEvent damage)
         {
-            if (CutInPolicy.IsHighDamage(damage)) return MassiveHitKey;
+            if (CutInPlanner.IsHighDamage(damage)) return MassiveHitKey;
             if (profile != null && !string.IsNullOrEmpty(profile.HitKey)) return profile.HitKey;
             if (damage == null) return "hit_generic";
             return damage.DamageType == "magic" ? "hit_petrify" : "hit_sword";

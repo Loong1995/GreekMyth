@@ -20,7 +20,7 @@
 ## 一、命中 key 解析顺序（唯一，四级）
 
 ```
-1. 巨伤覆盖：CutInPolicy.IsHighDamage（>3000，与「重创」横幅同判据）
+1. 巨伤覆盖：CutInPlanner.IsHighDamage（>3000，与「重创」横幅同判据）
      → hit_massive（RFX4 Effect15_Collision），压过一切专配；
        同帧强制震屏（0.55/0.48s，不吃 CameraShakeOnHit；MaxOffset=0.75）；
        同帧命中裂地强制**档 3 + 面积 ×1.5**（`PlayHit(..., massive)`）；

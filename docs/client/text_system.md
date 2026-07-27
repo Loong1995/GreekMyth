@@ -67,7 +67,7 @@ defeat 同组）；客户端无特判——`TraitLineExtract` 抽成独占 Trait
   ≥5 后该轨再次进账才切；出手音效换 `sfx_attack_empowered`）/
   单笔伤害 >3000「重创」/ 行动窗内第 5 次追伤；同播放组去重。
   **2026-07-27 统一**：三者一律**独占**且带取景——推镜→横幅→本组出手命中→
-  撤镜（与单挑同构、不飞立绘），判据前移到播组前的 `CutInPolicy.Resolve`；
+  撤镜（与单挑同构、不飞立绘），判据前移到编译期 `Events/CutInPlanner`（播放流注记）；
   权威 [cutin_stage.md](cutin_stage.md)。
   **文案**：满档 cut-in 标题＝即将造成伤害的技能名（战法中文名 /
   「普攻」/「协击」/状态归因战法，`SkillNameOf`）；不再用「势能全开·轨名」。

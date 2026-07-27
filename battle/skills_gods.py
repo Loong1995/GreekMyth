@@ -650,9 +650,12 @@ class NikePaean(Skill):
 # 注册
 # =============================================================================
 
+# damage_type 标签义务见 Skill 基类 docstring：伤害归因（含状态钩子）随定义声明
 register(ThunderOracle(skill_id="thunder_oracle", timing=TIMING_PREPARE,
-                       is_oracle=True, hint_intensity="strong"))
-register(ZeusBolt(skill_id="zeus_bolt", trigger_rate_bps=5000, hint_intensity="strong"))
+                       is_oracle=True, hint_intensity="strong",
+                       damage_type="magic"))  # 雷霆状态钩子落雷
+register(ZeusBolt(skill_id="zeus_bolt", trigger_rate_bps=5000, hint_intensity="strong",
+                  damage_type="magic"))
 register(AthenaAegis(skill_id="athena_aegis", timing=TIMING_PREPARE,
                      is_oracle=True, hint_intensity="strong"))
 register(AthenaGuard(skill_id="athena_guard", timing=TIMING_PREPARE))
@@ -669,6 +672,6 @@ register(AsclepiusOracle(skill_id="asclepius_oracle", timing=TIMING_PREPARE,
 register(AsclepiusKiss(skill_id="asclepius_kiss", trigger_rate_bps=5000))
 register(ArtemisHunt(skill_id="artemis_hunt", timing=TIMING_PREPARE))
 register(ArtemisArrow(skill_id="artemis_arrow", trigger_rate_bps=4000,
-                      timing=TIMING_PURSUIT))
+                      timing=TIMING_PURSUIT, damage_type="magic"))
 register(NikeWings(skill_id="nike_wings", timing=TIMING_PREPARE, is_oracle=True))
 register(NikePaean(skill_id="nike_paean", trigger_rate_bps=4500))

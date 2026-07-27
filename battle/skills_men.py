@@ -853,20 +853,26 @@ class PatroclusArmor(Skill):
 # 注册
 # =============================================================================
 
-register(AchillesWrath(skill_id="achilles_wrath", timing=TIMING_PREPARE))
+# damage_type 标签义务见 Skill 基类 docstring：伤害归因（含状态钩子）随定义声明
+register(AchillesWrath(skill_id="achilles_wrath", timing=TIMING_PREPARE,
+                       damage_type="physical"))  # 怒火状态追伤
 register(AchillesThrust(skill_id="achilles_thrust", trigger_rate_bps=4000,
-                        timing=TIMING_PURSUIT))
-register(HeraclesTrials(skill_id="heracles_trials", timing=TIMING_PREPARE))
+                        timing=TIMING_PURSUIT, damage_type="physical"))
+register(HeraclesTrials(skill_id="heracles_trials", timing=TIMING_PREPARE,
+                        damage_type="physical"))  # 试炼反打
 register(LionCounter(skill_id="heracles_counter", timing=TIMING_PREPARE,
-                     status_def=LION_COUNTER_STATUS))
+                     status_def=LION_COUNTER_STATUS, damage_type="physical"))
 register(OdysseusTrojan(skill_id="odysseus_trojan", timing=TIMING_PREPARE,
-                        hint_intensity="strong"))
-register(OdysseusFeint(skill_id="odysseus_feint", trigger_rate_bps=4000))
+                        hint_intensity="strong", damage_type="magic"))  # 木马爆炸
+register(OdysseusFeint(skill_id="odysseus_feint", trigger_rate_bps=4000,
+                       damage_type="magic"))
 register(PerseusRelics(skill_id="perseus_relics", trigger_rate_bps=6000,
-                       hint_intensity="strong"))
+                       hint_intensity="strong", damage_type="physical"))
 register(PerseusMirror(skill_id="perseus_mirror", timing=TIMING_PREPARE))
-register(PerseusFlash(skill_id="perseus_flash", trigger_rate_bps=5500))
-register(AtalantaSwift(skill_id="atalanta_swift", timing=TIMING_PREPARE))
+register(PerseusFlash(skill_id="perseus_flash", trigger_rate_bps=5500,
+                      damage_type="physical"))
+register(AtalantaSwift(skill_id="atalanta_swift", timing=TIMING_PREPARE,
+                       damage_type="physical"))  # 先手连射
 register(AtalantaDash(skill_id="atalanta_dash", timing=TIMING_PREPARE))
 register(SelfStatusPassive(skill_id="paris_fatal_arrow", timing=TIMING_PREPARE,
                            status_def=FATAL_ARROW_STATUS))
@@ -876,13 +882,19 @@ register(SelfStatusPassive(skill_id="ajax_shield", timing=TIMING_PREPARE,
                            status_def=AJAX_SHIELD_STATUS))
 register(AjaxBulwark(skill_id="ajax_bulwark", trigger_rate_bps=6000))
 register(HectorWarcry(skill_id="hector_warcry", trigger_rate_bps=4500,
-                      prepare_rounds=1, hint_intensity="strong"))
-register(HectorAssault(skill_id="hector_assault", trigger_rate_bps=5000))
+                      prepare_rounds=1, hint_intensity="strong",
+                      damage_type="physical"))
+register(HectorAssault(skill_id="hector_assault", trigger_rate_bps=5000,
+                       damage_type="physical"))
 register(JasonExpedition(skill_id="jason_expedition", timing=TIMING_PREPARE))
 register(JasonCommand(skill_id="jason_command", trigger_rate_bps=7000))
 register(SelfStatusPassive(skill_id="castor_twin", timing=TIMING_PREPARE,
-                           status_def=CASTOR_TWIN_STATUS))
+                           status_def=CASTOR_TWIN_STATUS,
+                           damage_type="physical"))  # 协击普攻
 register(SelfStatusPassive(skill_id="castor_chase", timing=TIMING_PREPARE,
-                           status_def=CASTOR_CHASE_STATUS))
-register(PatroclusStandin(skill_id="patroclus_standin", timing=TIMING_PREPARE))
-register(PatroclusArmor(skill_id="patroclus_armor", trigger_rate_bps=5500))
+                           status_def=CASTOR_CHASE_STATUS,
+                           damage_type="physical"))
+register(PatroclusStandin(skill_id="patroclus_standin", timing=TIMING_PREPARE,
+                          damage_type="mixed"))  # 借手武/智/速对位
+register(PatroclusArmor(skill_id="patroclus_armor", trigger_rate_bps=5500,
+                        damage_type="mixed"))

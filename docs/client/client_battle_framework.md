@@ -39,7 +39,7 @@
 【第4层 播放核心】（2026-07-23 拆分，见 architecture.md §二）
    PerformanceRunner    控制器：状态机 + 生命周期入口 + 唯一协程宿主 + HardStop
    PlaybackWorldBuilder 建世界 → PlaybackSession（会话状态容器）
-   PlaybackDirector     主循环/组分派/节奏；CutInPolicy 集中 cut-in 判定与阈值
+   PlaybackDirector     主循环/组分派/节奏；cut-in 读编译期注记（Events/CutInPlanner）
    落账统一走 EventApplyService（含伤害/治疗镜像写入 ApplyDamage/ApplyHeal）
    横幅 → BannerService；cut-in → CutInService.Request
    战斗动作组 → SkillPerformance.Play(group, profile, ctx) 协程：
@@ -79,7 +79,7 @@
 | `VFX/PlaybackSession.cs` | 会话状态容器（R-7.3）+ PlaybackState 状态机枚举 + IPlaybackPacing 节奏只读口 |
 | `VFX/PlaybackWorldBuilder.cs` | 建世界唯一实现：棋盘/管线注册/VFXContext 装配/镜像清零/报告驱动预热/BGM 起播 |
 | `VFX/PlaybackDirector.cs` | 主循环与组分派（PlaySeries/PlayGroupsRange/PlayGroup/PlayNode）；无生命周期职责 |
-| `VFX/CutInPolicy.cs` | cut-in 判定与阈值集中地（高伤 3000/第 5 追击/满档轨判定/技能标题） |
+| `Events/CutInPlanner.cs` | cut-in 判定与阈值集中地（编译期注记：高伤 3000/第 5 追击/满档势能预演/技能标题） |
 | `VFX/BannerService.cs` | 顶部横幅 + 无主体 cut-in 的 OnGUI 文字回退（2026-07-22 自 Runner 拆出） |
 | `VFX/HighlightSelector.cs` | 高光选窗纯函数（观感分=伤害+满势能 cut_in×3000），重播复用 `PlaybackDirector.PlayGroupsRange` |
 | `Units/MomentumFireController.cs` | **势能火生命周期唯一管理**：Refresh/Fade/Extinguish/Clear + 棋盘级相位信号；hold-off=抑制同值重挂（值变化即重新点火，2026-07-22 修 g1r5） |

@@ -9,8 +9,10 @@
 ## 一、分层与依赖规则
 
 ```
- L1 事件模型   Events/            战报 JSON → 强类型（纯数据，零 Unity 依赖倾向）
- L2 事件管线   Events/Processors/ group_id 聚合 + 播放序加工（纯数据变换）
+ L1 事件模型   Events/            战报 JSON → 强类型（含 skill_catalog 标签直读）
+ L2 事件管线   Events/Processors/ + PlaybackCompiler/CutInPlanner：开播前一次编译
+               为 CompiledPlayback（分组+播放序+cut-in 注记），运行期只读
+               （权威 playback_script.md）
  L3 演出配置   VFX/Config…        三级 PerformanceProfile 查找（纯查表）
  L4 播放核心   VFX/Playback…      会话/编排/落账/演出模板（协程 + 领域镜像）
  L5 基础设施   VFX·Units·Audio    池/飘字/气泡/音效/BGM/相机/cut-in/横幅（无战斗语义）
@@ -40,9 +42,9 @@
 |---|---|---|
 | **PerformanceRunner（控制器）** | `VFX/PerformanceRunner.cs` | 状态机（R-1.1）与全部生命周期入口：Play/Skip/Teardown/Highlight/Stop；唯一协程宿主；硬停止（R-1.2）的单一实现 `HardStop()`；类名沿用保证公开 API 兼容 |
 | **PlaybackWorldBuilder** | `VFX/PlaybackWorldBuilder.cs` | 建世界：棋盘/单位/服务 Ensure/管线注册/VFXContext 装配/预热；产出 `PlaybackSession` |
-| **PlaybackDirector** | `VFX/PlaybackDirector.cs` | 主循环：逐局→管线→逐组调度；组分派（Node/TraitLine/Duel/演出模板）；节奏（ActionPause/GroupPause/TraitLine 无缝）；范围播放（高光窗复用，R-1.6） |
-| **CutInPolicy** | `VFX/CutInPolicy.cs` | 满档/高伤/第5追击/战术 cut-in 判定与组去重（R-5.2），阈值集中于此 |
-| **PlaybackSession** | `VFX/PlaybackSession.cs` | 会话状态容器（纯字段）：report/board/ctx/resolver/pipeline/演出模板/结算快照/追击计数；重建时整体丢弃引用即作废（cut-in 组去重在 CutInService，会话建立时 `ResetDedup`） |
+| **PlaybackDirector** | `VFX/PlaybackDirector.cs` | 主循环：逐局→读编译产物→逐组调度；组分派（Node/TraitLine/Duel/演出模板）；节奏（ActionPause/GroupPause/TraitLine 无缝）；范围播放（高光窗复用，R-1.6）；cut-in 只读 `EventGroup.CutIn` 注记 |
+| **CutInPlanner（L2 编译期）** | `Events/CutInPlanner.cs` | 满档（势能预演）/巨伤/第5追击 cut-in 判定与阈值（R-5.2），编译期逐组注记；原 L4 CutInPolicy 2026-07-27 下沉 |
+| **PlaybackSession** | `VFX/PlaybackSession.cs` | 会话状态容器（纯字段）：report/board/ctx/resolver/**Compiled 播放流**/演出模板/结算快照；重建时整体丢弃引用即作废（cut-in 组去重在 CutInService，会话建立时 `ResetDedup`） |
 
 生命周期迁移表（所有公开入口只能走这些迁移）：
 
@@ -127,7 +129,9 @@ group_id 语义打架的部分。以下均为**可选字段/新语义的加法�
 
 ## 七、遗留债登记（本轮未清，勿当新规范模仿）
 
-- 单 asmdef，层约束靠评审非编译器；长期项：Events 拆独立 asmdef。
+- ~~单 asmdef~~ 2026-07-27 已拆：`ClientBattle.Names`（纯表）与
+  `ClientBattle.Core`（Events+Processors+Compiler）独立 asmdef，
+  L1/L2 不得引用 L3+ 由编译器强制。
 - BgmLayerService 仍 DontDestroyOnLoad（跨场景常驻是有意的，但 Teardown
   只 StopBattle 不销毁）。
 - PerformanceDatabase 内置默认 ~180 行与 SO 资产并存（R-7.6 目标是 SO 唯一
@@ -139,9 +143,10 @@ group_id 语义打架的部分。以下均为**可选字段/新语义的加法�
 ## 八、扩展点（新机制唯一合法接入面，R-7.7）
 
 1. **纯换演出/资源**：PerformanceDatabase 配置条目 + assets_upload_guide 登记。
-2. **新播放序语义**：新增 `IEventProcessor`（在 WorldBuilder 注册，注意链序）。
+2. **新播放序语义**：新增 `IEventProcessor`（在 `PlaybackCompiler.BuildPipeline`
+   登记，注意链序；WorldBuilder 不再持有链）。
 3. **全新演出形态**：派生 `SkillPerformance` + 新 `PerformanceTemplate` 枚举。
-4. **新 cut-in 触发**：只改 `CutInPolicy`。
+4. **新 cut-in 触发**：只改 `Events/CutInPlanner`（编译期注记）。
 5. **要跟弹道飞行进度的表现**：实现 `VFX/IFlightDriven` + `StrikeSync.Attach`
    （出手时间轴唯一真源：飞行段 → 抵达 → 命中拍）。
 6. 禁止：在 Director/EventApplyService 里堆技能 id 特判；

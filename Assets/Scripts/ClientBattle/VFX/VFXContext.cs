@@ -39,7 +39,7 @@ namespace ClientBattle.VFX
         /// <summary>本组出手前刚播完满档 cut-in（势能全开）：攻击主音效改用
         /// 强化版 sfx_attack_empowered。PlaybackDirector 每组播放前设置、播完复位。</summary>
         public bool EmpoweredStrike;
-        /// <summary>本组已判定为**巨伤「重创」**（`CutInPolicy.Resolve` 播组前判定，
+        /// <summary>本组已判定为**巨伤「重创」**（`CutInPlanner` 编译期判定，
         /// 走取景 cut-in）。裂地层据此把这一组整段拉满：移动轨迹 T4 + 弹道 T1 +
         /// 命中 T2 全部档 3（命中另 ×1.5 面积）。与 `EmpoweredStrike` 同为
         /// 「一组一置一复位」，由 PlaybackDirector 管，演出层只读。</summary>

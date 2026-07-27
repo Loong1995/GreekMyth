@@ -9,6 +9,22 @@ namespace ClientBattle.Events
     // 只读镜像，不做任何客户端结算。schema 主版本 != 1 时拒绝加载。
     // =========================================================================
 
+    /// <summary>战法标签条目（schema 1.5.0 `skill_catalog`）。服务端定义处声明、
+    /// 客户端播放编译层**直读**，禁止再逐事件推断「是不是追击/魔法」。
+    /// 未知 tags 必须忽略（契约加法演进义务）。</summary>
+    public class SkillCatalogEntry
+    {
+        public string Name = "";
+        /// <summary>basic / active / prepare_active / passive / pursuit / oracle。</summary>
+        public string Category = "";
+        /// <summary>physical / magic / mixed / none。</summary>
+        public string DamageType = "none";
+        public string Timing = "";
+        public bool IsOracle;
+        public int PrepareRounds;
+        public List<string> Tags = new();
+    }
+
     public class HeroSnapshot
     {
         public string HeroId, TemplateId;
@@ -50,6 +66,13 @@ namespace ClientBattle.Events
         public string SeriesWinnerTeamId, SeriesReason;
         public int TotalGames;
         public List<HeroSeriesStats> HeroStats = new();
+        /// <summary>出场战法标签目录（1.5.0 可选；旧战报为空表，编译层回退启发式并告警）。</summary>
+        public Dictionary<string, SkillCatalogEntry> SkillCatalog = new();
+
+        /// <summary>目录查询（无条目返回 null；调用方必须容忍旧战报缺目录）。</summary>
+        public SkillCatalogEntry CatalogOf(string skillId) =>
+            !string.IsNullOrEmpty(skillId) && SkillCatalog.TryGetValue(skillId, out var e)
+                ? e : null;
 
         public IEnumerable<HeroSnapshot> AllHeroes()
         {
@@ -83,6 +106,26 @@ namespace ClientBattle.Events
                 Debug.LogError($"[ClientBattle] 不支持的 schema_version '{report.SchemaVersion}'（仅支持 1.x）");
                 return null;
             }
+
+            var catalogJson = root.Value<JObject>("skill_catalog");
+            if (catalogJson != null)
+                foreach (var prop in catalogJson.Properties())
+                {
+                    var e = (JObject)prop.Value;
+                    var entry = new SkillCatalogEntry
+                    {
+                        Name = e.Value<string>("name") ?? "",
+                        Category = e.Value<string>("category") ?? "",
+                        DamageType = e.Value<string>("damage_type") ?? "none",
+                        Timing = e.Value<string>("timing") ?? "",
+                        IsOracle = e.Value<bool?>("is_oracle") ?? false,
+                        PrepareRounds = e.Value<int?>("prepare_rounds") ?? 0,
+                    };
+                    var tags = e.Value<JArray>("tags");
+                    if (tags != null)
+                        foreach (var t in tags) entry.Tags.Add((string)t);
+                    report.SkillCatalog[prop.Name] = entry;
+                }
 
             foreach (var teamJson in root.Value<JArray>("teams"))
             {

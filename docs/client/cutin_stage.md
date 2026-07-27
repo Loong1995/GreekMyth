@@ -2,7 +2,7 @@
 
 > 一切 cut-in 横幅（满档 / **巨伤「重创」** / 追击不止 / 战术变更）的触发判据、
 > 编排形状、运镜与参数，全部登记在本文。改 cut-in 只改本文所列的两个文件：
-> `VFX/CutInPolicy.cs`（判据）与 `VFX/CutInStage.cs`（编排），
+> `Events/CutInPlanner.cs`（判据，编译期注记）与 `VFX/CutInStage.cs`（编排），
 > 禁止在演出层/编排层散落门槛判断。
 > 关联：[playback_requirements R-5.2](playback_requirements.md)、
 > [performance_mechanisms §一b](performance_mechanisms.md)、
@@ -23,7 +23,7 @@ cut-in 只有一种形状，与单挑同构，**整段独占播放单元**：
 - 相机唯一写方是 `StageCameraRig`；`CutInStage` 借用后在 `finally` 归还，
   中断路径（HardStop / CancelAll）也不会把战斗留在近机位。
 
-## 二、触发源与判据（`CutInPolicy.Resolve`，播组**之前**判）
+## 二、触发源与判据（`CutInPlanner`，**编译期**逐组注记，运行期只读 `EventGroup.CutIn`）
 
 | 源 | 判据 | 标题 | 加强出手 |
 |---|---|---|---|

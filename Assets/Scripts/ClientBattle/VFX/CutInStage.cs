@@ -25,7 +25,8 @@ namespace ClientBattle.VFX
     // 【为什么高伤 cut-in 要预判而不是事后补】客户端在播一组之前就持有整组
     // 事件，能提前知道「这一下会打出巨额伤害」。事后回调式（旧
     // NotifyDamageSettled）只能在命中后才切横幅，既做不到「伤害前推镜」，
-    // 还会让暗幕盖住刚起播的命中特效（P-72 的成因）。判定统一在 CutInPolicy。
+    // 还会让暗幕盖住刚起播的命中特效（P-72 的成因）。判定统一在编译期
+    // CutInPlanner（Events 层），运行期只读 EventGroup.CutIn 注记。
     //
     // 文档：docs/client/cutin_stage.md（权威）、playback_requirements R-5.2
     // =========================================================================

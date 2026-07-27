@@ -7,6 +7,7 @@ from typing import Any
 
 from battle.engine import SeriesEngine
 from battle.setup import BattleSetup
+from battle.skill_catalog import build_skill_catalog
 from battle.version import CORE_VERSION, SCHEMA_VERSION
 
 
@@ -79,6 +80,8 @@ def build_report(setup: BattleSetup, seed: int, engine: SeriesEngine, series: di
         "rng_seed": seed,
         # 1.3.0 加法字段：影响结算的 setup.metadata（如 trait_rate_overrides），重放必需
         "setup_metadata": dict(setup.metadata),
+        # 1.5.0 加法字段：出场战法标签目录（定义期声明，客户端播放层直读）
+        "skill_catalog": build_skill_catalog(setup),
         "teams": build_team_snapshots(setup),
         "games": games,
         "result": {

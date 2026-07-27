@@ -608,24 +608,29 @@ class HecatePyre(Skill):
 
 from battle.skills_men import SelfStatusPassive  # noqa: E402
 
+# damage_type 标签义务见 Skill 基类 docstring：伤害归因（含状态钩子）随定义声明
 register(HadesUnderworldDominion(skill_id="hades_underworld_dominion",
                                  timing=TIMING_PREPARE, is_oracle=True,
                                  hint_intensity="strong"))
 register(HadesSoulDrain(skill_id="hades_soul_drain", trigger_rate_bps=4000,
-                        hint_intensity="strong"))
-register(MedusaGaze(skill_id="medusa_gaze", timing=TIMING_PREPARE))
-register(MedusaGlance(skill_id="medusa_glance", trigger_rate_bps=3500))
+                        hint_intensity="strong", damage_type="magic"))
+register(MedusaGaze(skill_id="medusa_gaze", timing=TIMING_PREPARE,
+                    damage_type="magic"))  # 石化反噬
+register(MedusaGlance(skill_id="medusa_glance", trigger_rate_bps=3500,
+                      damage_type="magic"))
 register(PersephoneSeasons(skill_id="persephone_seasons", timing=TIMING_PREPARE))
-register(PersephoneSprout(skill_id="persephone_sprout", timing=TIMING_PREPARE))
+register(PersephoneSprout(skill_id="persephone_sprout", timing=TIMING_PREPARE,
+                          damage_type="magic"))  # 冬芽反击
 register(CharonFerry(skill_id="charon_ferry", timing=TIMING_PREPARE))
 register(CharonFerryman(skill_id="charon_ferryman", trigger_rate_bps=4000))
 register(ThanatosScythe(skill_id="thanatos_scythe", trigger_rate_bps=5500,
-                        hint_intensity="ultimate"))
+                        hint_intensity="ultimate", damage_type="magic"))
 register(SelfStatusPassive(skill_id="thanatos_gaze", timing=TIMING_PREPARE,
-                           status_def=DEATH_GAZE_STATUS))
+                           status_def=DEATH_GAZE_STATUS, damage_type="magic"))
 register(CerberusBite(skill_id="cerberus_bite", trigger_rate_bps=4000,
-                      timing=TIMING_PURSUIT))
+                      timing=TIMING_PURSUIT, damage_type="physical"))
 register(LionCounter(skill_id="cerberus_guard", timing=TIMING_PREPARE,
-                     status_def=CERBERUS_GUARD_STATUS))
+                     status_def=CERBERUS_GUARD_STATUS, damage_type="physical"))
 register(HecateTorch(skill_id="hecate_torch", timing=TIMING_PREPARE))
-register(HecatePyre(skill_id="hecate_pyre", trigger_rate_bps=5000))
+register(HecatePyre(skill_id="hecate_pyre", trigger_rate_bps=5000,
+                    damage_type="magic"))

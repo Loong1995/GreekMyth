@@ -37,6 +37,9 @@ namespace ClientBattle.Events
         public bool ParallelWithNext;
         /// <summary>阿喀琉斯傲慢贯穿（25%）已成功：StatusTrigger 组播裂甲 ExtraIcon。</summary>
         public bool PierceBoost;
+        /// <summary>取景 cut-in 编译期注记（CutInPlanner 写入；null=本组不切）。
+        /// 运行期只读，Director 不得再自行判门槛。</summary>
+        public CutInPlan CutIn;
 
         public int RootSeq => Root?.Seq ?? (Events.Count > 0 ? Events[0].Seq : 0);
 
@@ -72,6 +75,9 @@ namespace ClientBattle.Events
     public class EventPipeline
     {
         readonly List<IEventProcessor> _processors = new();
+        readonly BattleReport _report; // 分类读 skill_catalog（可空＝旧战报回落启发式）
+
+        public EventPipeline(BattleReport report = null) => _report = report;
 
         public EventPipeline Register(IEventProcessor processor)
         {
@@ -81,13 +87,13 @@ namespace ClientBattle.Events
 
         public List<EventGroup> Run(List<BattleEvent> rawEvents)
         {
-            var groups = GroupByGroupId(rawEvents);
+            var groups = GroupByGroupId(rawEvents, _report);
             foreach (var processor in _processors)
                 groups = processor.Process(groups);
             return groups;
         }
 
-        static List<EventGroup> GroupByGroupId(List<BattleEvent> events)
+        static List<EventGroup> GroupByGroupId(List<BattleEvent> events, BattleReport report)
         {
             // 按 group_id 全量聚合（组序=首次出现序），不能只合并连续段：
             // 群攻主动的 N 条伤害之间会被状态触发（雷霆 tick 等，new_group）插队，
@@ -105,12 +111,14 @@ namespace ClientBattle.Events
                 group.Events.Add(ev); // 原始流本身 seq 有序，组内即 seq 序
             }
             foreach (var group in groups)
-                group.Kind = Classify(group);
+                group.Kind = Classify(group, report);
             return groups;
         }
 
-        /// <summary>按组根事件推断播放语义类别。</summary>
-        public static GroupKind Classify(EventGroup group)
+        /// <summary>按组根事件推断播放语义类别。战法组优先读
+        /// `skill_catalog`（1.5.0，定义期声明的单真源）；旧战报无目录时
+        /// 回落 parent_seq/kind 启发式。</summary>
+        public static GroupKind Classify(EventGroup group, BattleReport report = null)
         {
             switch (group.Root)
             {
@@ -118,6 +126,20 @@ namespace ClientBattle.Events
                 case SkillTriggerEvent st:
                     if (st.Kind == "prepare" || st.Kind == "interrupted" || st.Kind == "delayed")
                         return GroupKind.Passive;
+                    // 目录裁决「追击 vs 主动」（最易错分支：追击靠 parent_seq
+                    // 启发式，连发/借刀等都会让 parent 语义打架）；
+                    // 其余类别（oracle/passive 的 release 段仍是主动形演出）
+                    // 沿用下方启发式，行为与 1.4.x 完全一致。
+                    var tag = report?.CatalogOf(st.SkillId);
+                    if (tag != null)
+                        switch (tag.Category)
+                        {
+                            case "pursuit": return GroupKind.Pursuit;
+                            case "active":
+                            case "prepare_active":
+                            case "basic": return GroupKind.ActiveSkill;
+                        }
+                    // ---- 无目录回落（旧战报）----
                     // 连发（1.4.0）：parent 指回首发触发事件但语义仍是主动释放，
                     // 必须与首发同模板演出（burst_no 是与追击的唯一判别字段）
                     if (st.BurstNo >= 2) return GroupKind.ActiveSkill;

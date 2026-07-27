@@ -14,6 +14,7 @@
 | [architecture.md](architecture.md) | **播放架构权威**：分层依赖规则、L4 拆分（控制器/建造器/导演/策略）、生命周期迁移表、子机制索引、服务端适配点 |
 | [performance_mechanisms.md](performance_mechanisms.md) | **演出机制总纲（改演出先看这里）**：全部机制一句话结论+代码位置+细则索引 |
 | [vfx_config_index.md](vfx_config_index.md) | **特效配置总索引（查「谁用什么特效」）**：普攻/主动默认 HitKey、解析顺序、查表入口；分文档只详述 |
+| [playback_script.md](playback_script.md) | **播放编译权威（2026-07-27 重整）**：skill_catalog 直读、PlaybackCompiler 链序、CutInPlanner 编译期注记（势能预演）、.playback.json 导出与扩展纪律 |
 | [playback_units.md](playback_units.md) | **播放单元机制**：一回合怎么在屏幕上展开、分组管线六 processor、时间轴阻塞规则、台词独占三原则、模板族节拍 |
 | [rendering_layout.md](rendering_layout.md) | **渲染/分辨率/层级**：机型适配、图像槽位缩放（contain/stretch）、sorting 层级总表、棋盘布局摘要 |
 | [battlefield_layout.md](battlefield_layout.md) | **战场分区与站位几何唯一权威**：UI/主战场/隔离带/矩形六等分、六套预设、单体制卡尺 |

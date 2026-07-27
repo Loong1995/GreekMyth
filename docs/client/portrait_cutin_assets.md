@@ -48,7 +48,7 @@
 数值出处 `VFX/CutInService.cs`。以屏幕高度为 1 单位。
 
 ### 单人 cut-in（`SoloRoutine`）
-触发：满势能满档 / 单条伤害 >3000 / 行动窗第 5 次追击（阈值见 `VFX/CutInPolicy.cs`）。
+触发：满势能满档 / 单条伤害 >3000 / 行动窗第 5 次追击（阈值见 `Events/CutInPlanner.cs`）。
 
 - 立绘槽位：**宽 55% 屏宽 × 高 75% 屏高**（`halfW*1.1` × `halfH*1.5`，contain）
 - 立绘中心停在**屏幕横向 64% 处**（偏右；`portTo.x = halfW*0.28`）

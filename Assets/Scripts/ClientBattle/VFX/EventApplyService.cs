@@ -125,7 +125,7 @@ namespace ClientBattle.VFX
         static void ApplyMomentum(MomentumChangeEvent momentum, VFXContext ctx, bool animated)
         {
             // 满档 cut-in 不在此处发：由 PlaybackDirector 在出手前阻塞预播
-            // （CutInPolicy.FindFullTrackCutIn/SkillNameOf 判定，文案 = 即将造成
+            // （CutInPlanner 编译期判定，文案 = 即将造成
             // 伤害的技能名）。此处只落账 + 条/火表现。
             // （服务端 value≥5 起都带 cut_in；刚满 5 当次不切由该判定按镜像过滤。）
             MomentumService.Apply(momentum, ctx.Unit(momentum.HeroId), silent: !animated);

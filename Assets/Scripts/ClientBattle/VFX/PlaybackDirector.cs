@@ -13,7 +13,7 @@ namespace ClientBattle.VFX
     // - PlayGroupsRange：主循环与高光回放共用（高光 = 带 [start,end) 窗口的
     //   二次剪辑，窗前静默落账）。
     // - PlayGroup：Node / TraitLine / Duel / 演出模板分派；满档 cut-in、
-    //   连发节拍、追击门槛（策略数值在 CutInPolicy）。
+    //   连发节拍；cut-in 读编译期注记（判据在 Events/CutInPlanner）。
     // - 只经 PlaybackSession 与 IPlaybackPacing 工作；不 Ensure 单例、
     //   不 new GameObject、不管协程宿主（协程由控制器启动）。
     // =========================================================================
@@ -39,7 +39,7 @@ namespace ClientBattle.VFX
                 }
                 s.Ctx.OnBanner?.Invoke($"第 {game.GameNo} 局");
 
-                var groups = s.Pipeline.Run(game.Events);
+                var groups = s.Compiled.GroupsOf(gameIdx);
                 yield return PlayGroupsRange(s, groups, 0, int.MaxValue);
 
                 s.Ctx.OnBanner?.Invoke(game.WinnerTeamId != null
@@ -152,11 +152,10 @@ namespace ClientBattle.VFX
                         ApplyGroupSilently(s, group);
                         yield break;
                     }
-                    if (group.Kind == GroupKind.Pursuit) s.PursuitCountInWindow++;
-                    // cut-in 判定：满档 / 巨伤 / 追击第 N 次，播组**之前**定
-                    // （判据全在 CutInPolicy.Resolve，本处不得再自行判门槛）
-                    var cut = CutInPolicy.Resolve(group, s.PursuitCountInWindow);
-                    var cutUnit = cut.HasValue ? ctx.Unit(cut.Value.HeroId) : null;
+                    // cut-in：编译期注记（CutInPlanner，含势能预演与追击计数），
+                    // 运行期只读，本处不得再自行判门槛
+                    var cut = group.CutIn;
+                    var cutUnit = cut != null ? ctx.Unit(cut.HeroId) : null;
                     bool empowered = cut is { Empowered: true } && cutUnit != null;
                     // 连发演出（B1）：第 2 次起节拍加速 + 计数角标（倍率走 profile 配置）
                     bool burst = group.Root is SkillTriggerEvent { BurstNo: >= 2 };
@@ -173,15 +172,13 @@ namespace ClientBattle.VFX
                         profile.Template == PerformanceTemplate.OracleAura ? s.OraclePerf : s.DefaultPerf;
                     if (empowered) ctx.EmpoweredStrike = true;
                     // 巨伤：本组整段裂地拉满（轨迹 T4 + 弹道 T1 + 命中 T2 全档 3）
-                    bool massive = cut is { Empowered: false } && cutUnit != null
-                                   && CutInPolicy.FindHighDamage(group) != null;
+                    bool massive = cut is { Massive: true } && cutUnit != null;
                     if (massive) ctx.MassiveStrike = true;
                     if (cutUnit != null)
                     {
                         // 取景 cut-in：推镜 → 横幅 → 本组出手命中 → 撤镜，整段独占。
                         // 出手协程作为 body 传入，让命中落在推近的机位上。
-                        var d = cut.Value;
-                        yield return CutInStage.Play(ctx, cutUnit, d.Title, d.GroupId,
+                        yield return CutInStage.Play(ctx, cutUnit, cut.Title, cut.GroupId,
                             () => performance.Play(group, profile, ctx));
                     }
                     else
@@ -208,7 +205,6 @@ namespace ClientBattle.VFX
                     var unit = ctx.Unit(action.ActorId);
                     // 势能改按回合清零，action_start 不再清四轨
                     EventApplyService.Apply(action, ctx, animated: true);
-                    s.PursuitCountInWindow = 0;
                     if (unit != null && action.Skipped)
                         ctx.Floats.Show(unit, "无法行动", new Color(0.7f, 0.7f, 0.8f), 1.0f);
                     break;

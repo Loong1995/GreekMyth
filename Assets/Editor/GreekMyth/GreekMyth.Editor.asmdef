@@ -2,7 +2,9 @@
     "name": "GreekMyth.Editor",
     "rootNamespace": "GreekMyth.EditorTools",
     "references": [
-        "ClientBattle"
+        "ClientBattle",
+        "ClientBattle.Core",
+        "ClientBattle.Names"
     ],
     "includePlatforms": [
         "Editor"

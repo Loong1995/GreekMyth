@@ -27,16 +27,11 @@ namespace ClientBattle.VFX
             var s = new PlaybackSession { Report = report, Board = board };
 
             s.Resolver = new VFXResolver(database);
-            s.Pipeline = new EventPipeline()
-                // 借刀（代战/披甲）按段拆单元并回插事件流原生位置：
-                // 段1(借手)→响应→追伤→段2…（不拆会三刀连劈再补账）
-                .Register(new BorrowBladeSplitProcessor(
-                    g => s.Resolver.Resolve(g).BorrowBlade))
-                .Register(new ReactionRegroupProcessor())        // 状态触发摘出，排主单元之后
-                .Register(new CollectiveTriggerMergeProcessor()) // 雷霆等合并为一次集体齐发
-                .Register(new TraitLineExtractProcessor())       // 台词拆成独占 TraitLine 组
-                .Register(new AchillesPierceTagProcessor())      // 傲慢贯穿 → 裂甲图标闸门
-                .Register(new NodeMergeProcessor());
+            // 播放流编译（链序与分类唯一登记处在 PlaybackCompiler）：
+            // 开播前一次编译，运行期 Director/高光/Skip 只读同一份产物
+            s.Compiled = PlaybackCompiler.Compile(
+                report, g => s.Resolver.Resolve(g).BorrowBlade,
+                MomentumService.TrackTable.ContainsKey);
 
             s.DefaultPerf = ScriptableObject.CreateInstance<DefaultPerformance>();
             s.OraclePerf = ScriptableObject.CreateInstance<OracleAuraPerformance>();

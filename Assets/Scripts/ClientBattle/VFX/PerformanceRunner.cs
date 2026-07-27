@@ -20,7 +20,7 @@ namespace ClientBattle.VFX
     // 其余职责已拆出：
     //   建世界      → PlaybackWorldBuilder（产出 PlaybackSession）
     //   主循环/组分派 → PlaybackDirector
-    //   cut-in 策略  → CutInPolicy
+    //   cut-in 策略  → Events/CutInPlanner（编译期注记）
     //   落账        → EventApplyService（唯一镜像写入，R-7.4）
     // =========================================================================
 
@@ -172,7 +172,7 @@ namespace ClientBattle.VFX
 
         /// <summary>伤害落定回调（<c>SkillPerformance.SettleDamage</c>）。
         ///
-        /// **巨伤 cut-in 不在这里请求**：它由 <c>CutInPolicy.Resolve</c> 在播组
+        /// **巨伤 cut-in 不在这里请求**：它由 <c>CutInPlanner</c> 在编译期、播组
         /// 之前预判，走 <c>CutInStage</c> 的「推镜→横幅→出手命中→撤镜」独占单元
         /// （2026-07-27 统一）。事后请求既做不到伤害前推镜，暗幕还会盖住刚起播的
         /// 命中特效（P-72）。本回调保留给高光选窗等纯观测方，勿再挂表现。</summary>
@@ -246,8 +246,7 @@ namespace ClientBattle.VFX
             State = PlaybackState.Playing;
             _session.Ctx.OnBanner?.Invoke(
                 $"★ 高光回放 — {window.ActorId}（单窗伤害 {window.Damage}）");
-            var groups = _session.Pipeline.Run(
-                _session.Report.Games[window.GameIndex].Events);
+            var groups = _session.Compiled.GroupsOf(window.GameIndex);
             yield return _director.PlayGroupsRange(
                 _session, groups, window.StartSeq, window.EndSeq);
             _session.Ctx.OnBanner?.Invoke($"高光回放结束 — {window.ActorId}");

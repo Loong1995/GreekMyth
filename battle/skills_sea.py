@@ -378,21 +378,24 @@ class ScyllaBite(Skill):
 # 注册
 # =============================================================================
 
+# damage_type 标签义务见 Skill 基类 docstring：伤害归因（含状态钩子）随定义声明
 register(PoseidonOracle(skill_id="poseidon_oracle", timing=TIMING_PREPARE,
-                        is_oracle=True, hint_intensity="strong"))
+                        is_oracle=True, hint_intensity="strong",
+                        damage_type="mixed"))  # 潮涌回响原样回击来源类型
 register(PoseidonTorrent(skill_id="poseidon_torrent", trigger_rate_bps=4500,
-                         timing=TIMING_PURSUIT))
+                         timing=TIMING_PURSUIT, damage_type="physical"))
 register(AmphitriteTide(skill_id="amphitrite_tide", timing=TIMING_PREPARE))
 register(AmphitriteGrace(skill_id="amphitrite_grace", timing=TIMING_PREPARE))
 register(TritonHorn(skill_id="triton_horn", trigger_rate_bps=10000))
 register(TritonSurge(skill_id="triton_surge", timing=TIMING_PREPARE))
 register(SirenSong(skill_id="siren_song", trigger_rate_bps=5500,
-                   hint_intensity="strong"))
-register(SirenCharm(skill_id="siren_charm", trigger_rate_bps=3500))
+                   hint_intensity="strong", damage_type="magic"))
+register(SirenCharm(skill_id="siren_charm", trigger_rate_bps=3500,
+                    damage_type="magic"))
 register(ScyllaMaw(skill_id="scylla_maw", trigger_rate_bps=10000,
-                   timing=TIMING_PURSUIT))
+                   timing=TIMING_PURSUIT, damage_type="physical"))
 register(ScyllaBite(skill_id="scylla_bite", trigger_rate_bps=3500,
-                    timing=TIMING_PURSUIT))
+                    timing=TIMING_PURSUIT, damage_type="physical"))
 
 
 # =============================================================================
@@ -444,5 +447,7 @@ class CalypsoRime(Skill):
                 engine.apply_status(actor, target, freeze(1), parent_seq=trigger_seq)
 
 
-register(CalypsoDetain(skill_id="calypso_detain", trigger_rate_bps=4500))
-register(CalypsoRime(skill_id="calypso_rime", trigger_rate_bps=4000))
+register(CalypsoDetain(skill_id="calypso_detain", trigger_rate_bps=4500,
+                       damage_type="magic"))
+register(CalypsoRime(skill_id="calypso_rime", trigger_rate_bps=4000,
+                     damage_type="magic"))

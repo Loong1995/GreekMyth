@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "greekmyth://schema/battle_events/1.4.1",
+  "$id": "greekmyth://schema/battle_events/1.5.0",
   "title": "BattleReport",
-  "description": "战斗事件流契约 v1.4.1（1.4.0：momentum_change/burst_no/normal_attack.kind/position 1~6；1.4.1 增 tactic_applied 经理人战术）。冻结后仅允许加法式演进。pb 字段编号见 x-pb 注记与 md 文档。",
+  "description": "战斗事件流契约 v1.5.0（1.4.0：momentum_change/burst_no/normal_attack.kind/position 1~6；1.4.1 增 tactic_applied 经理人战术；1.5.0 增 skill_catalog 战法标签目录）。冻结后仅允许加法式演进。pb 字段编号见 x-pb 注记与 md 文档。",
   "type": "object",
   "required": ["schema_version", "core_version", "battle_id", "rng_seed", "teams", "games", "result"],
   "properties": {
@@ -11,6 +11,11 @@
     "battle_id": { "type": "string" },
     "rng_seed": { "type": "integer", "minimum": 0 },
     "setup_metadata": { "type": "object", "description": "1.3.0 可选：影响结算的 setup.metadata（如 trait_rate_overrides），重放必需" },
+    "skill_catalog": {
+      "type": "object",
+      "description": "1.5.0 可选：出场战法标签目录（skill_id → 条目，字典序）。定义期声明、客户端播放层直读；含固定条目 basic_attack。加法演进：客户端必须忽略未知键。",
+      "additionalProperties": { "$ref": "#/$defs/SkillCatalogEntry" }
+    },
     "teams": {
       "type": "array", "minItems": 2, "maxItems": 2,
       "items": { "$ref": "#/$defs/TeamSnapshot" }
@@ -42,6 +47,20 @@
   },
   "$defs": {
     "AttrName": { "enum": ["force", "intelligence", "command", "speed"] },
+    "SkillCatalogEntry": {
+      "type": "object",
+      "required": ["name", "category", "timing", "damage_type", "is_oracle", "prepare_rounds"],
+      "properties": {
+        "name": { "type": "string", "description": "战法中文名" },
+        "category": { "enum": ["basic", "active", "prepare_active", "passive", "pursuit", "oracle"], "description": "播放分类（由 timing/is_oracle/prepare_rounds 推导；basic 为普攻固定条目）" },
+        "timing": { "enum": ["active", "prepare", "pursuit"] },
+        "damage_type": { "enum": ["physical", "magic", "mixed", "none"], "description": "本战法（含其状态钩子归因）产生的伤害类型；纯增益/治疗/控制为 none" },
+        "is_oracle": { "type": "boolean" },
+        "prepare_rounds": { "type": "integer", "minimum": 0 },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "自由标签位（加法演进，客户端未知标签必须忽略）" }
+      },
+      "additionalProperties": true
+    },
     "TeamSnapshot": {
       "type": "object",
       "required": ["team_id", "main_hero_id", "heroes"],

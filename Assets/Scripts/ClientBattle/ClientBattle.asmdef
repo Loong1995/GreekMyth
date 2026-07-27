@@ -2,6 +2,8 @@
     "name": "ClientBattle",
     "rootNamespace": "ClientBattle",
     "references": [
+        "ClientBattle.Core",
+        "ClientBattle.Names",
         "Unity.InputSystem",
         "DigitalRuby.LightningBolt",
         "AllIn1SpriteShaderAssembly",

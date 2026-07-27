@@ -59,7 +59,7 @@ namespace GreekMyth.EditorTools
             bool ok = VfxPackStandardizer.Standardize(MassiveSrc, MassiveKey, VfxUsage.Anchor);
             AssetDatabase.SaveAssets();
             Debug.Log($"[WireHit] hit_massive 落盘并验证：{(ok ? "OK" : "失败，见上方日志")}。"
-                      + "触发条件＝CutInPolicy.IsHighDamage（与「重创」横幅同判据）。");
+                      + "触发条件＝CutInPlanner.IsHighDamage（与「重创」横幅同判据）。");
         }
 
         [MenuItem("GreekMyth/特效/体检 默认命中（物理 hit_sword · 魔法 hit_petrify · 神谕 hit_wave · 巨伤 hit_massive）")]

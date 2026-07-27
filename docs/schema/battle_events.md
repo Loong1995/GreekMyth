@@ -1,6 +1,6 @@
 # 战斗事件流契约（battle_events）
 
-> **现行版本：schema 1.4.1 / core battle-0.4.1**（`battle/version.py`；演进史见 §7）。
+> **现行版本：schema 1.5.0 / core battle-0.4.2**（`battle/version.py`；演进史见 §7）。
 > 总纲。事件类型逐一明细见 `battle_events_payloads.md`，
 > 机器可校验定义见 `battle_events.schema.json`。
 > 本契约一经人工确认即**冻结**，此后仅允许加法式演进（新增事件类型 / 新增可选字段），
@@ -29,6 +29,7 @@
 | `battle_id` | string | 3 | 系列唯一 id，外部注入 |
 | `rng_seed` | uint64 | 4 | 随机种子。`(rng_seed, teams, core_version)` 可一键复现 |
 | `setup_metadata` | map | 8 | 影响结算的 setup.metadata（如 trait_rate_overrides；1.3.0 可选，重放必需） |
+| `skill_catalog` | map | 9 | **出场战法标签目录**（1.5.0 可选）：skill_id → 条目（字典序），见 §2.2b。定义期声明、客户端播放层直读，不再逐事件推断 |
 | `teams` | TeamSnapshot[2] | 5 | 双方阵容与初始属性快照（进入系列前的原始面板） |
 | `games` | Game[] | 6 | 各局，按局序号升序，1~7 个 |
 | `result` | SeriesResult | 7 | 系列总摘要，列表页无需解析事件即可展示 |
@@ -65,6 +66,24 @@
 | `trait_id` | string | 13 | 性格 id，空=无性格（1.3.0 可选） |
 | `gender` | string | 14 | `"m"`/`"f"`（1.3.0 可选；性格判定用） |
 | `level` | int32 | 15 | 等级（1.3.0 可选；四维已按等级预算，仅存档） |
+
+### 2.2b skill_catalog（1.5.0 加法字段）
+
+出场战法标签目录：本战报事件流中**可能出现伤害/触发归因的全部 skill_id**
+（各 HeroSnapshot.skills 并集 + 固定条目 `basic_attack`），键按字典序。
+战法标签在**服务端定义处声明**（`battle.skills.Skill` 字段 + `category`
+推导），经 `battle/skill_catalog.py` 导出；客户端播放编译层直读，
+禁止再逐事件推断「这是不是魔法」「是不是主动」。
+
+| 条目字段 | 类型 | 说明 |
+|---|---|---|
+| `name` | string | 战法中文名 |
+| `category` | enum | `basic` / `active` / `prepare_active` / `passive` / `pursuit` / `oracle`（由 timing/is_oracle/prepare_rounds 推导，单真源） |
+| `timing` | enum | `active` / `prepare` / `pursuit` |
+| `damage_type` | enum | `physical` / `magic` / `mixed` / `none`——本战法（含其状态钩子归因伤害）的伤害类型；纯增益/治疗/控制为 `none` |
+| `is_oracle` | bool | 神谕 |
+| `prepare_rounds` | int32 | >0 = 准备型主动 |
+| `tags` | string[]，可选 | 自由标签位；**客户端未知标签必须忽略**（加法演进） |
 
 ### 2.3 Game 与 SeriesResult
 
@@ -204,3 +223,4 @@ core 内部错误：战斗失败、不产出战报、抛出含完整上下文的
 | 1.3.1 | `damage.mitigation` 枚举新增 `"reflect"`（圣盾反弹：受伤归零，随后 status_tick + 子 damage(special) 反弹给攻击者），payloads §7 |
 | 1.4.0（2026-07-20 冻结，core battle-0.4.0） | 新增事件类型 `momentum_change`（四轨势能，**默认开启**，`setup.metadata.enable_momentum=false` 可关）；`skill_trigger` 新增可选字段 `burst_no`（连发第 N 次释放，2 起，硬上限 7）；`normal_attack` 新增可选字段 `kind`（`"coordinated"`=协击，缺省=普攻）；HeroSnapshot.position 扩展 1~6（4~6=后排）。机制见 `docs/mechanics/momentum.md`、`burst_coordination.md`。golden 已全量重生成 |
 | 1.4.1（2026-07-20，core battle-0.4.1，P4-C） | 新增事件类型 `tactic_applied`（经理人战术变更生效，payloads §26）；`status_remove.reason` 枚举补登 `"exhausted"`（充能耗尽摘除，行为 A2 起已存在）；`setup_metadata.tactics` 承载预设/变更序列（重放闭环）。机制见 `docs/mechanics/manager_tactics.md` |
+| 1.5.0（2026-07-27，core battle-0.4.2） | 顶层新增可选字段 `skill_catalog`（§2.2b，出场战法标签目录：name/category/timing/damage_type/is_oracle/prepare_rounds/tags）。标签在服务端战法定义处声明（`Skill.damage_type` register 强校验），客户端播放编译层直读、删逐事件推断。golden 已全量重生成 |

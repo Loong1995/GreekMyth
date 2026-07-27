@@ -179,8 +179,9 @@ def test_manual_3v3_smoke():
         "A", TEAM_A, TEAM_A_POSITIONS)
     assert [h.position for h in setup.teams[1].heroes] == _resolve_positions(
         "B", TEAM_B, TEAM_B_POSITIONS)
-    assert setup.teams[0].formation == "yanxing"
-    assert setup.teams[1].formation == "yanxing"
+    # 阵型由站位自动推导（[2,4,6]=zhui）；改站位后此断言须同步
+    assert setup.teams[0].formation == "zhui"
+    assert setup.teams[1].formation == "zhui"
     report = simulate(setup, seed=SEED)
     assert report["games"], "战报为空"
     assert report["result"]["total_games"] >= 1

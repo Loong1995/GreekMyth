@@ -34,11 +34,28 @@ TIMING_ACTIVE = "active"
 TIMING_PREPARE = "prepare"
 TIMING_PURSUIT = "pursuit"
 
+# 战法伤害标签取值（定义期声明，进战报 skill_catalog，客户端拿来即用）：
+#   physical / magic  本战法（含其挂出的状态钩子）产生的伤害类型
+#   mixed             同一战法会打出两种类型（代战借手、海神潮涌回响等）
+#   none              纯增益/治疗/控制，不产生伤害
+DAMAGE_TYPE_PHYSICAL = "physical"
+DAMAGE_TYPE_MAGIC = "magic"
+DAMAGE_TYPE_MIXED = "mixed"
+DAMAGE_TYPE_NONE = "none"
+_DAMAGE_TYPES = {DAMAGE_TYPE_PHYSICAL, DAMAGE_TYPE_MAGIC,
+                 DAMAGE_TYPE_MIXED, DAMAGE_TYPE_NONE}
+
 
 @dataclass(frozen=True, slots=True)
 class Skill:
     """战法基类。子类实现 select_targets / execute；execute 即战法的结算载荷
-    （准备型战法的 prepare 登记由引擎负责，execute 只写 release 段效果）。"""
+    （准备型战法的 prepare 登记由引擎负责，execute 只写 release 段效果）。
+
+    【标签义务（2026-07-27 起）】新战法注册时必须声明 `damage_type`：
+    会造成伤害（含状态钩子产生的归因伤害）写 physical/magic/mixed，
+    纯增益/治疗/控制写 "none"。标签随战报头 `skill_catalog` 下发，
+    客户端播放层直读、不再逐事件推断（docs/schema/battle_events.md §skill_catalog）。
+    `tags` 为自由标签位（加法演进，客户端未知标签必须忽略）。"""
 
     skill_id: str
     trigger_rate_bps: int = 10000
@@ -53,6 +70,20 @@ class Skill:
     # 准备型连发不重新准备（释放段直接连发）。
     burst_rate_bps: int = 0
     burst_pseudo_random: PseudoRandomParams = PLAIN
+    # ---- 播放标签（schema 1.5.0 skill_catalog）----
+    damage_type: str = DAMAGE_TYPE_NONE
+    tags: tuple[str, ...] = ()
+
+    @property
+    def category(self) -> str:
+        """播放分类（由既有字段推导，禁止另立字段造成双真源）：
+        oracle / passive（prepare 时机非神谕）/ pursuit /
+        prepare_active（准备型主动）/ active。"""
+        if self.timing == TIMING_PREPARE:
+            return "oracle" if self.is_oracle else "passive"
+        if self.timing == TIMING_PURSUIT:
+            return "pursuit"
+        return "prepare_active" if self.prepare_rounds > 0 else "active"
 
     def trigger_rate_for(self, engine: "SeriesEngine", actor: "HeroState") -> int:
         """有效触发率（Phase 3：海嗣号角等每次释放递减的动态率可覆盖）。"""
@@ -79,6 +110,10 @@ REGISTRY: dict[str, Skill] = {}
 def register(skill: Skill) -> Skill:
     if skill.skill_id in REGISTRY:
         raise ValueError(f"skill_id 重复注册: {skill.skill_id}")
+    if skill.damage_type not in _DAMAGE_TYPES:
+        raise ValueError(
+            f"{skill.skill_id}: damage_type 非法 {skill.damage_type!r}，"
+            f"必须是 {sorted(_DAMAGE_TYPES)} 之一（纯增益/治疗写 'none'）")
     REGISTRY[skill.skill_id] = skill
     return skill
 
@@ -290,15 +325,18 @@ register(_TestBlast(skill_id="test_blast", trigger_rate_bps=5000,
                     pseudo_random=PseudoRandomParams(bonus_per_fail_bps=1200,
                                                      penalty_per_success_bps=800,
                                                      guarantee_fail_count=4),
-                    hint_intensity="strong"))
+                    hint_intensity="strong", damage_type="magic"))
 register(_TestMend(skill_id="test_mend", trigger_rate_bps=5000))
-register(_TestPoison(skill_id="test_poison", trigger_rate_bps=6000))
+register(_TestPoison(skill_id="test_poison", trigger_rate_bps=6000,
+                     damage_type="magic"))
 register(_TestWarCry(skill_id="test_war_cry", trigger_rate_bps=10000))
 register(_TestDisarm(skill_id="test_disarm", trigger_rate_bps=4000))
 register(_TestSap(skill_id="test_sap", trigger_rate_bps=4000))
-register(_TestPursuit(skill_id="test_pursuit", trigger_rate_bps=5000, timing=TIMING_PURSUIT))
+register(_TestPursuit(skill_id="test_pursuit", trigger_rate_bps=5000, timing=TIMING_PURSUIT,
+                      damage_type="physical"))
 register(_TestComboDrill(skill_id="test_combo_drill", trigger_rate_bps=10000))
 register(_TestChargedNova(skill_id="test_charged_nova", trigger_rate_bps=5000,
-                          prepare_rounds=1, hint_intensity="ultimate"))
+                          prepare_rounds=1, hint_intensity="ultimate",
+                          damage_type="magic"))
 register(_TestSilence(skill_id="test_silence", trigger_rate_bps=5000))
 register(_TestHesitate(skill_id="test_hesitate", trigger_rate_bps=6000))

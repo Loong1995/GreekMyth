@@ -156,22 +156,31 @@ register(CalTeamDR(skill_id="cal_dr_high", timing=TIMING_PREPARE,
                    status_def=CAL_DR_HIGH_STATUS))
 
 register(CalActiveStrike(skill_id="cal_active_low", timing=TIMING_ACTIVE,
-                         trigger_rate_bps=10000, rate_bps=CAL_RATE_LOW_BPS))
+                         trigger_rate_bps=10000, rate_bps=CAL_RATE_LOW_BPS,
+                         damage_type="physical"))
 register(CalActiveStrike(skill_id="cal_active_mid", timing=TIMING_ACTIVE,
-                         trigger_rate_bps=10000, rate_bps=CAL_RATE_MID_BPS))
+                         trigger_rate_bps=10000, rate_bps=CAL_RATE_MID_BPS,
+                         damage_type="physical"))
 register(CalActiveStrike(skill_id="cal_active_high", timing=TIMING_ACTIVE,
-                         trigger_rate_bps=10000, rate_bps=CAL_RATE_HIGH_BPS))
+                         trigger_rate_bps=10000, rate_bps=CAL_RATE_HIGH_BPS,
+                         damage_type="physical"))
 
 register(CalPursuitStrike(skill_id="cal_pursuit_low", timing=TIMING_PURSUIT,
-                          trigger_rate_bps=10000, rate_bps=CAL_RATE_LOW_BPS))
+                          trigger_rate_bps=10000, rate_bps=CAL_RATE_LOW_BPS,
+                          damage_type="physical"))
 register(CalPursuitStrike(skill_id="cal_pursuit_mid", timing=TIMING_PURSUIT,
-                          trigger_rate_bps=10000, rate_bps=CAL_RATE_MID_BPS))
+                          trigger_rate_bps=10000, rate_bps=CAL_RATE_MID_BPS,
+                          damage_type="physical"))
 register(CalPursuitStrike(skill_id="cal_pursuit_high", timing=TIMING_PURSUIT,
-                          trigger_rate_bps=10000, rate_bps=CAL_RATE_HIGH_BPS))
+                          trigger_rate_bps=10000, rate_bps=CAL_RATE_HIGH_BPS,
+                          damage_type="physical"))
 
 register(CalPassiveStrike(skill_id="cal_passive_low", timing=TIMING_PREPARE,
-                          status_def=CAL_PASSIVE_LOW_STATUS))
+                          status_def=CAL_PASSIVE_LOW_STATUS,
+                          damage_type="physical"))
 register(CalPassiveStrike(skill_id="cal_passive_mid", timing=TIMING_PREPARE,
-                          status_def=CAL_PASSIVE_MID_STATUS))
+                          status_def=CAL_PASSIVE_MID_STATUS,
+                          damage_type="physical"))
 register(CalPassiveStrike(skill_id="cal_passive_high", timing=TIMING_PREPARE,
-                          status_def=CAL_PASSIVE_HIGH_STATUS))
+                          status_def=CAL_PASSIVE_HIGH_STATUS,
+                          damage_type="physical"))

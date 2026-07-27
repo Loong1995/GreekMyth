@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from battle import serialize_report, simulate
 from battle.names import STATUS_NAMES, skill_name
+from battle.skill_catalog import catalog_entry
 from battle.roster import DEFAULT_LEVEL, MAX_EXTRA_SKILLS, ROSTER, hero_setup
 from battle.setup import BattleSetup, TeamSetup
 from battle.skills import (
@@ -55,15 +56,12 @@ FACTION_LABEL = {
 # ---------------------------------------------------------------- 目录导出
 
 def skill_info(skill_id: str) -> dict[str, Any]:
+    """配阵页展示条目＝skill_catalog 条目 + UI 附加字段（复用同一真源）。"""
     sk = REGISTRY[skill_id]
-    return {
-        "skill_id": skill_id,
-        "name": skill_name(skill_id),
-        "timing": TIMING_LABEL.get(sk.timing, sk.timing),
-        "trigger_rate_bps": sk.trigger_rate_bps,
-        "prepare_rounds": sk.prepare_rounds,
-        "is_oracle": bool(getattr(sk, "is_oracle", False)),
-    }
+    info = {"skill_id": skill_id, **catalog_entry(skill_id)}
+    info["timing"] = TIMING_LABEL.get(sk.timing, sk.timing)
+    info["trigger_rate_bps"] = sk.trigger_rate_bps
+    return info
 
 
 def build_catalog() -> dict[str, Any]:

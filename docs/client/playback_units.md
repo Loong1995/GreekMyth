@@ -33,7 +33,8 @@
 事件流 → 按 group_id 全量聚合成 EventGroup → processor 链改写 → 逐组播放
 ```
 
-processor 链（`PlaybackWorldBuilder.Build` 注册顺序即执行顺序）：
+processor 链（`PlaybackCompiler.BuildPipeline` 登记顺序即执行顺序，
+2026-07-27 起编译期一次跑完，见 [playback_script.md](playback_script.md)）：
 
 | # | Processor | 作用 |
 |---|---|---|

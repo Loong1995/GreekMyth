@@ -28,16 +28,15 @@ namespace ClientBattle.VFX
         public BattleBoardView Board;
         public VFXContext Ctx;
         public VFXResolver Resolver;
-        public EventPipeline Pipeline;
+        /// <summary>编译好的播放流（开播前一次编译，运行期只读；
+        /// 主循环/高光/Skip 三处消费同一份，禁止再自行跑管线）。</summary>
+        public CompiledPlayback Compiled;
 
         public DefaultPerformance DefaultPerf;
         public OracleAuraPerformance OraclePerf;
         public DuelPerformance DuelPerf;
 
         public BattleSettlementSnapshot Settlement;
-
-        /// <summary>当前行动窗内追击单元计数（cut-in 第 5 次补充门槛）。</summary>
-        public int PursuitCountInWindow;
     }
 
     /// <summary>节奏参数只读口：Director/Builder 经此读控制器上的实时可调值，
