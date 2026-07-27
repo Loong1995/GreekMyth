@@ -23,11 +23,11 @@
 | `athena_aegis` | OracleAura | — | — | **AllIn1 金描边**（无 Magic 粒子） | Aura=`aura_aegis` |
 | `aegis_shield` | Melee | — | Magic `Effect17_Collision` | 持盾者突进反弹 | Cast/Hit=`hit_shield_counter` |
 | `aegis_ward` | StatusTrigger | — | 同上闪光 | — | 同上 |
-| `ares_might` | OracleAura | — | — | Magic `Effect18` **常驻**（无卡框呼吸） | Aura=`aura_ares_might` |
+| `ares_might` | OracleAura | — | — | Magic `Effect31` 罩身（画廊同件）；奇显偶隐 | Aura=`shroud_ares_might` |
 | `blood_battle` | OracleAura | — | — | 卡框红呼吸（弱） | Aura=`aura_fire_foot` |
 
 代码：`PerformanceDatabase.CreateBuiltin`；落雷节拍 `DefaultPerformance.PlayRemoteStrike`；
-圣盾 `UnitAuraService.MountAegisAura`（仅 AllIn1）；战神之勇 `MountAresMightAura`。
+圣盾 `UnitAuraService.MountAegisAura`（仅 AllIn1）；战神之勇 `MountShroud` + `VfxShroudPresence`。
 
 ## 三、通用主动默认（未专配）
 

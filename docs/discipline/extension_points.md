@@ -41,6 +41,7 @@
 | 裂地档位/触发/关停（三档 T1-T3） | **`VFX/GroundCrackService.cs`**（唯一入口；参数在 `GroundCrackPalette`，演出模板禁止直调） |
 | 某战法的裂地强度（缝宽+持续+亮度，1/2/3） | `PerformanceDatabase` 的 `GroundStrengthTier`；规则与登记表见 `docs/client/ground_crack_config.md`（准备型物理群攻＝2，瞬发＝0→1；势能加强强制 3） |
 | 某战法的命中裂地面积倍率 | `GroundHitArea`（0→1＝卡宽×1.5）；势能加强强制 1.5；详见 ground_crack_config |
+| 想让某表现**跟着弹道飞行进度**走（沿途生长/爬升/蓄光…） | 实现 **`VFX/IFlightDriven`** 并 `StrikeSync.Fly(...).Attach(...)`；不改 StrikeSync 与演出模板。飞行段结束＝弹道抵达，调用方同帧开命中拍 `SettleDamage`。禁止在模板里 `WaitForSeconds` 自拼时序 |
 | 状态的客户端表现（光环 key / 控制大图标 / 结算归因战法 / 集体齐发） | **`Names/StatusPresentationRegistry.cs`**（2026-07-20 收口，一状态一行；原 UnitAuraService/StatusIconPanel/StatsAggregator/CollectiveMerge 四处散表已合并） |
 | 势能轨样式 | `MomentumService.TrackTable` |
 | BGM 分层 stem | `BgmLayerService.StemTable` |
@@ -48,7 +49,10 @@
 | 中文名 | `Names/ChineseNames.cs`（与 `battle/names.py` 同步红线） |
 | 事件流改写（拆组/合并/重排） | `EventPipeline.Register` 新 `IEventProcessor`（红线见 [playback_units.md §二](../client/playback_units.md)） |
 | 真实资源 | `Resources/ClientBattle/<类别>/<key>`（占位回退，零代码） |
-| 厂包表现晋升为可加载件 | 按 [vfx_standardization.md](../client/vfx_standardization.md)：**点名后 AI 落盘标准件**；Profile 只填 key |
+| 罩身件挂载（定径+跟随定位圆） | `VfxShroudFollower.FitAndFollow`（定径 `VfxShroudFitter.Fit`）；**默认不裁层** |
+| 罩身厂包完整拷贝 | `WireShroudEffect.CopyFull`（strip 参数默认 null） |
+| 绕身显隐（出现/渐隐） | **`VfxShroudPresence`** + 注册表 `ShroudVisibility`（Always/OddRounds/EvenRounds/Manual）；任意时机 `UnitAuraService.SetShroudVisible`；`HasShroud`＝`IsPresent`（渐隐后恢复受击抖动） |
+| ~~某罩身个案显隐~~ | ~~`AresMightShroudPulse`~~ → 已收进通用 Presence（2026-07-26） |
 
 **编排层与执行层边界**：`SkillPerformance` 族不得引用 `PerformanceRunner`
 单例；跨层通知走 `VFXContext.OnDamageSettled / OnCutInRequested` 回调

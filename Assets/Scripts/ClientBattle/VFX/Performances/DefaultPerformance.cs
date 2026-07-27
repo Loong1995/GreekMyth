@@ -200,10 +200,8 @@ namespace ClientBattle.VFX
                     var strike = ctx.Vfx.PlayAt(strikeKey,
                         target.RestPosition + new Vector3(0f, 0.2f, -0.5f), ctx.Scaled(0.45f));
                     strike.transform.localScale *= strikeScale;
-                    // 近身物理命中同样在受击者脚下起 T2（无弹道 → 只有命中档）
-                    if (GroundCrackService.Active(damages))
-                        GroundCrackService.PlayHit(ctx, profile, target);
                 }
+                // 命中裂地与 HitKey 同帧：统一在 SettleDamage，勿在此重复 PlayHit
                 SettleDamage(damage, profile, ctx, floatName);
                 if (striker != null && !striker.Defeated)
                 {
@@ -226,38 +224,34 @@ namespace ClientBattle.VFX
                 yield return move.WaitForCompletion();
             }
 
-            // N 道弹道错峰起飞、同时段抵达 → 命中帧同帧结算掉血
+            // N 道弹道错峰起飞、同时段抵达 → 抵达帧同帧结算掉血
             string projectileKey = ProjectileKeyOf(profile, damages);
             Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
             float flightBase = ctx.Scaled(0.38f);
             float stagger = damages.Count > 1 ? ctx.Scaled(0.045f) : 0f;
-            var projectiles = new Transform[damages.Count]; // 供裂地跟随实际弹道
+            var projectiles = new Transform[damages.Count]; // lane 序＝damages 序
+            var aims = new Vector3[damages.Count];
             for (int i = 0; i < damages.Count; i++)
             {
                 var target = ctx.UnitTransform(damages[i].TargetId);
                 if (target == null) continue;
                 float delay = i * stagger;
-                var launched = LaunchProjectile(ctx, projectileKey, from, target.position,
+                aims[i] = target.position;
+                var launched = LaunchProjectile(ctx, projectileKey, from, aims[i],
                     flightBase - delay, delay);
                 projectiles[i] = launched != null ? launched.transform : null;
             }
-            // 裂地是否参与本次出手，判据全在 GroundCrackService
-            bool groundFx = GroundCrackService.Active(damages);
             // T3 全局大裂地：势能全开的加强出手，逻辑圆量级主缝从场心劈开。
             // 与弹道同帧起，靠 T1/T2 在其上叠加，读作「一击震裂全场」
-            if (groundFx && ctx.EmpoweredStrike)
+            if (ctx.EmpoweredStrike && GroundCrackService.Active(damages))
                 GroundCrackService.PlayArena(ctx);
-            if (groundFx)
-                yield return GroundCrackService.PlayPath(ctx, profile, from, damages,
-                                                        projectiles, flightBase);
-            else
-                yield return new WaitForSeconds(flightBase); // 弹道飞行（弹道全程可见）
+            // 飞行段：弹道裂地跟着弹道长；协程返回＝弹道抵达＝路径生长收满
+            yield return StrikeSync.Fly(from, projectiles, aims, flightBase)
+                .Attach(GroundCrackService.PathDriver(ctx, profile, from, damages))
+                .Run();
+            // 命中拍：与抵达同帧（命中裂地+命中特效+受击抖动，见 SettleDamage）
             foreach (var damage in damages)
-            {
-                if (groundFx)
-                    GroundCrackService.PlayHit(ctx, profile, ctx.Unit(damage.TargetId));
                 SettleDamage(damage, profile, ctx, floatName);
-            }
             // 命中特效/受击闪烁与回身位移同播，命中后不垫定格
             if (actor != null && !actor.Defeated)
             {
@@ -300,8 +294,7 @@ namespace ClientBattle.VFX
                                          generations: 6, alpha: 0.2f, widthMul: 0.7f, sortingOrder: 50);
                     Object.Destroy(bolt.gameObject, strikeTime + 0.05f);
                 }
-                if (!string.IsNullOrEmpty(profile.HitKey))
-                    ctx.Vfx.PlayAt(profile.HitKey, to + new Vector3(0f, 0.1f, 0.1f), ctx.Scaled(0.35f));
+                // HitKey / 抖动 / 裂地一律等落劈结束进 SettleDamage，禁止提前炸点
             }
             yield return new WaitForSeconds(strikeTime);
             foreach (var damage in damages)
@@ -314,10 +307,10 @@ namespace ClientBattle.VFX
                                    Units.UnitView actor, List<DamageEvent> damages, string floatName)
         {
             string projectileKey = ProjectileKeyOf(profile, damages);
-            // 单体弹道同样出裂地（与群攻同一套服务）：一段一条，朝向沿本段弹道
-            bool groundFx = GroundCrackService.Active(damages);
+            // 单体弹道同样出裂地（与群攻同一套服务与同步器）：一段一条，朝向沿本段弹道
             var single = new List<DamageEvent>(1) { null };
             var projectile = new Transform[1];
+            var aim = new Vector3[1];
             foreach (var damage in damages)
             {
                 var target = ctx.UnitTransform(damage.TargetId);
@@ -325,20 +318,15 @@ namespace ClientBattle.VFX
                 {
                     float flight = ctx.Scaled(0.30f);
                     Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
-                    var launched = LaunchProjectile(ctx, projectileKey, from, target.position, flight);
-                    if (groundFx)
-                    {
-                        single[0] = damage;
-                        projectile[0] = launched != null ? launched.transform : null;
-                        yield return GroundCrackService.PlayPath(ctx, profile, from, single,
-                                                                projectile, flight);
-                    }
-                    else
-                        yield return new WaitForSeconds(flight); // 弹道飞行可见
+                    aim[0] = target.position;
+                    var launched = LaunchProjectile(ctx, projectileKey, from, aim[0], flight);
+                    single[0] = damage;
+                    projectile[0] = launched != null ? launched.transform : null;
+                    yield return StrikeSync.Fly(from, projectile, aim, flight)
+                        .Attach(GroundCrackService.PathDriver(ctx, profile, from, single))
+                        .Run();
                 }
-                if (groundFx)
-                    GroundCrackService.PlayHit(ctx, profile, ctx.Unit(damage.TargetId));
-                SettleDamage(damage, profile, ctx, floatName);
+                SettleDamage(damage, profile, ctx, floatName); // 命中拍与抵达同帧
                 // 段间不垫定格：下一段弹道立刻起飞，受击闪烁/飘字与其同播
             }
             // 治疗统一在 Play 收尾 SettleHeal（避免与 Melee 等模板漏结算）

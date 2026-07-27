@@ -285,10 +285,10 @@ MonoBehaviour:
   AreaFactor: 1
   GrowTime: 0.16
   GrowthMode: 1
-  MaskGain: 1.55
-  GlowPeak: 2.1
+  MaskGain: 1.15
+  GlowPeak: 0
   FrontWidth: 0.14
-  EmberFloor: 0.12
+  EmberFloor: 0
   SizeScale: 1
   LavaDelay: 0.12
   LavaGrowMul: 1.15

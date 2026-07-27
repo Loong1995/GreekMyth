@@ -132,7 +132,11 @@ Shader "GreekMyth/GroundCrack"
 
             half4 frag (Varyings IN) : SV_Target
             {
-                half raw = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv).a;
+                half4 texel = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
+                half raw = texel.a;
+                // R 通道＝可燃门（烘制时主缝写 1、枝杈/碎缝写 0）：
+                // 熔岩只顺着主缝烧，细枝保持暗缝（参考图语义，2026-07-26）
+                half lavaGate = texel.r;
                 // 缝宽：抬遮罩 alpha 增益＝细线变粗、梢部更多长出来。用增益而不是
                 // 缩放面片，才不会把放射骨架拉成椭圆（强度档 MaskGain，2026-07-26）
                 half mask = saturate(raw * _MaskGain);
@@ -168,7 +172,7 @@ Shader "GreekMyth/GroundCrack"
                 band *= band;
                 half core = mask * mask;
                 half ember = _EmberFloor * glowReveal;
-                half heat = core * max(band, ember);
+                half heat = core * max(band, ember) * lavaGate;
 
                 // 熔岩沿缝**渐变**，不是整条缝一个亮色：缝沿暗红 → 缝底熔岩色 →
                 // 最深处再补一点白热。高档因此读起来仍是「同一条缝烧得更透」，

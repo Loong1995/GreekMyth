@@ -39,13 +39,14 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `hit_warcry` | （可选）Radial_Burst 放大命中 | 战吼已改走默认 hit_clash |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
 | `aura_fire_foot` / `aura_fire_head` | 阿瑞斯血战（脚） | 仅卡框红呼吸 `SetAresRage`（弱）；`aura_fire_head` 备用 |
-| `aura_ares_might` | 阿瑞斯战神之勇常驻 | **Magic Effect18**（无呼吸）；scale≈0.22 |
+| `aura_ares_might` | （旧）阿瑞斯战神之勇 Effect18 | 已由 `shroud_ares_might` 取代，可留库 |
+| `shroud_ares_might` | 阿瑞斯战神之勇罩身 | Magic Effect31 **完整件**；`VfxShroudFollower` + `VfxShroudPresence`（OddRounds） |
 | `momentum_fire` | 势能火（四轨最高 ≥4/5/6/7 分档） | **CFXR3 Fire (No Smoke)**；卡上缘；非状态光环 |
 | `momentum_glow` | 势能卡后柔光（≥4 起） | **CFXR LightGlow A**（**已去 Small Stars**）；关点光；sorting −1；与火同灭 |
 | `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
 | `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
 | `aura_aegis` / `hit_shield_counter` | 圣盾挂身 / 反制命中 | 挂身＝**AllIn1 金描边**（无 Magic 粒子）；反制 ← **Magic Effect17_Collision** |
-| `ground_crack_path` / `_0`~`_3` | **弹道类骨架变体**：每套 2~4 条接力大缝；飞行途中每段各抽不同变体；档 1/2 无熔岩，档 3 与命中同亮度 | G4 生成；兼容 key `ground_crack_path`＝变体 0 |
+| `ground_crack_path` / `_0`~`_3` | **弹道类骨架变体**：蜿蜒主缝 + 树杈；飞行每段抽不同变体；三档熔岩＝同档命中×0.78（仅主缝烧） | G4 生成；兼容 key `ground_crack_path`＝变体 0 |
 | `ground_crack_hit` | **命中类骨架**：受击者脚下分形放射裂地；场心大裂地也用它（配大面积+档 3） | 同上；直径＝运行时卡宽 ×1.5 ×面积倍率 |
 | `ground_lava_bloom` | 熔岩过曝层，**当前未接线**（熔岩走 shader 沿缝渐变+灭点，见 `ground_crack_language.md`），留库备用 | **Magic Pack v1 Effect8** 晋升，菜单 `GreekMyth/裂地/G12` |
 | `chunks_<stage>.png` | 碎块图集（4×3），工具保留、现行 ChunkCount=0 | 菜单 `GreekMyth/裂地/G3` 从 `arena_<stage>.png` 现切 |

@@ -14,8 +14,23 @@ namespace ClientBattle.Names
     //                  （null = 直通 status_id；神谕/被动载体 status_id ≠ skill_id）
     //   CollectiveMerge → CollectiveTriggerMergeProcessor 相邻同状态同来源触发
     //                     合并为一次集体齐发（雷霆）
+    //   ShroudVisibility → 绕身（shroud_*）显隐策略；驱动 VfxShroudPresence
     // 与后端对应：battle/statuses.py + skills_*.py 的 StatusDef；中文名见 ChineseNames。
     // =========================================================================
+
+    /// <summary>绕身显隐时机（挂在 StatusPresentation；驱动 <see cref="VFX.VfxShroudPresence"/>）。
+    /// 可随时用 <c>UnitAuraService.SetShroudVisible</c> 覆盖；Round 策略仅在 round_start 自动对拍。</summary>
+    public enum ShroudVisibility
+    {
+        /// <summary>挂上即常显（无 Presence 渐隐，或 Presence 恒 Show）。</summary>
+        Always = 0,
+        /// <summary>奇数回合显、偶数回合隐（战神之勇）。</summary>
+        OddRounds = 1,
+        /// <summary>偶数回合显、奇数回合隐。</summary>
+        EvenRounds = 2,
+        /// <summary>只听手动 SetShroudVisible；挂载默认隐。</summary>
+        Manual = 3,
+    }
 
     public readonly struct StatusPresentation
     {
@@ -30,16 +45,20 @@ namespace ClientBattle.Names
         public readonly bool ControlIcon;
         public readonly string StatsSkillId;
         public readonly bool CollectiveMerge;
+        /// <summary>绕身（AuraKey 以 shroud_ 开头）的显隐策略；非绕身忽略。</summary>
+        public readonly ShroudVisibility ShroudVisibility;
 
         public StatusPresentation(string auraKey = null, bool controlIcon = false,
                                   string statsSkillId = null, bool collectiveMerge = false,
-                                  Vector3? auraOffset = null)
+                                  Vector3? auraOffset = null,
+                                  ShroudVisibility shroudVisibility = ShroudVisibility.Always)
         {
             AuraKey = auraKey;
             AuraOffset = auraOffset ?? DefaultAuraOffset;
             ControlIcon = controlIcon;
             StatsSkillId = statsSkillId;
             CollectiveMerge = collectiveMerge;
+            ShroudVisibility = shroudVisibility;
         }
     }
 
@@ -64,10 +83,11 @@ namespace ClientBattle.Names
             ["aegis_ward"] = new(statsSkillId: "athena_aegis"),
             ["snake_staff_protection"] = new(statsSkillId: "asclepius_oracle"),
             ["snake_staff_tender"] = new(statsSkillId: "asclepius_oracle"),
-            // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect18 常驻（无呼吸）
+            // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect31 罩身（奇数回合显）
             ["blood_battle"] = new(auraKey: "aura_fire_foot", statsSkillId: "ares_warfury",
                                    auraOffset: StatusPresentation.FireFootOffset),
-            ["ares_might"] = new(auraKey: "aura_ares_might", statsSkillId: "ares_warfury"),
+            ["ares_might"] = new(auraKey: "shroud_ares_might", statsSkillId: "ares_warfury",
+                                 shroudVisibility: ShroudVisibility.OddRounds),
             ["war_frenzy"] = new(statsSkillId: "ares_frenzy"),
             ["divine_revelation"] = new(auraKey: "aura_sunlight", statsSkillId: "delphi_revelation"),
             ["nike_wings"] = new(auraKey: "aura_sunlight"),
@@ -114,5 +134,10 @@ namespace ClientBattle.Names
         public static bool IsCollective(string statusId)
             => !string.IsNullOrEmpty(statusId)
                && Table.TryGetValue(statusId, out var p) && p.CollectiveMerge;
+
+        /// <summary>绕身显隐策略；未登记或非绕身默认 Always。</summary>
+        public static ShroudVisibility ShroudVisibilityOf(string statusId)
+            => !string.IsNullOrEmpty(statusId) && Table.TryGetValue(statusId, out var p)
+               ? p.ShroudVisibility : ShroudVisibility.Always;
     }
 }

@@ -152,7 +152,7 @@ SeriesResult：`winner_team_id`（null=系列平局）、`total_games`、逐局�
 | 节点 | `battle_end` | 系列结束（引用顶层 result） |
 | 节点 | `phase_start` | 相位开始。**仅在相位含事件时发**，空相位不发（省体积；论证见 payloads §22） |
 | 结算 | `trait_trigger` | 性格触发（1.2.0 新增）：`{hero_id, trait_id, effect, line}`，`line` 为预设台词，客户端弹聊天框播出；纯数值静默修正不发 |
-| 结算 | `momentum_change` | 四轨势能变化（1.4.0 新增，纯表现记账）：`{hero_id, track, delta, value, reason, cut_in?}`；`track`=`active`/`passive`/`oracle`/`basic_pursuit`（按轨类型跨技能累计）；`value≥5` 当次起同轨带 `cut_in=true`（客户端播切入；4 分闪光仅客户端）。自身 `action_start` 时该武将四轨静默清零（不发事件） |
+| 结算 | `momentum_change` | 四轨势能变化（1.4.0 新增，纯表现记账）：`{hero_id, track, delta, value, reason, cut_in?}`；`track`=`active`/`passive`/`oracle`/`basic_pursuit`（按轨类型跨技能累计）；`value≥5` 当次起同轨带 `cut_in=true`（客户端播切入；4 分闪光仅客户端）。每回合 `round_start` 全体四轨静默清零（不发事件；计数单元＝回合） |
 | 节点 | `tactic_applied` | 经理人战术变更生效（1.4.1 新增，round_start 组下）：`{team_id, tactic_id, round_no, change_no, params?}`；客户端播报横幅+更新左侧战术栏。预设战术不发事件（setup_metadata 可查）。机制见 `docs/mechanics/manager_tactics.md` |
 
 对任务书 3.2 最小集的增删论证：`kind=assist/delayed/interrupted` 并入 `skill_trigger`

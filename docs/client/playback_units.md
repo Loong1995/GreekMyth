@@ -9,8 +9,9 @@
 以「赫克托尔行动：先说犹豫台词，随后战法被延迟」与「阿喀琉斯出手、
 赫拉克勒斯十二试炼反打（其中一段被格挡）」为例，屏幕上按顺序发生：
 
-1. **行动开始**（action_start 节点）：该武将四轨势能清零、追伤计数复位；
+1. **行动开始**（action_start 节点）：追伤计数复位；
    若全禁（skipped）头顶飘「无法行动」。节点不占时间轴。
+   （势能改按**回合**清零，见 round_start。）
 2. **台词单元**（TraitLine）：卡牌右上弹出聊天气泡，整条时间轴**只等气泡**
    弹出→停留→收起（约 1.14s × DurationMul）；播完立刻接下一单元，
    前后**不加**单元停顿——「无缝、不重叠、独占」。
@@ -60,7 +61,7 @@ processor 链（`PlaybackWorldBuilder.Build` 注册顺序即执行顺序）：
 | StatusChange / Defeat / 其它 | 否（即时落账） | — | 无 |
 
 代码：`PerformanceRunner.PlayLoop`（协程宿主）→ `PlaybackDirector.PlaySeries` →
-`PlayGroupsRange`（主循环，含 nextTrait 判断与势能火相位信号；高光回放共用
+`PlayGroupsRange`（主循环，含 nextTrait 判断与回合边界势能火渐灭；高光回放共用
 同一循环）、`PlayGroup`（按 Kind 分派）、`Wait(seconds)`（统一乘 DurationMul/Speed）。
 
 ### 台词独占三原则（2026-07-20 定，P-18/P-19）

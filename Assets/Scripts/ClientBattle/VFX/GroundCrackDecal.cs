@@ -62,27 +62,30 @@ namespace ClientBattle.VFX
         public float SizeScale = 1f;
         // ------------------------------------------------ 熔岩的独立时间轴
         //
-        // 熔岩**故意不与骨架同步**（2026-07-26 人工验收）：缝先黑着裂开，
-        // 火晚一步顺着缝爬进去、爬的同时就开始熄，并且在裂缝淡完之前先灭。
-        // 同步时读起来像「一张会亮的贴图」，错开才有「裂开→烧起来→冷掉」的过程。
+        // 两模式时序不同（2026-07-26）：
+        //   命中：熔岩**跟随**裂缝生长（延迟极短、爬速≈1）——放射裂开时火沿锋面走。
+        //   弹道：先裂后烧（延迟明显、火更慢）——长条缝先黑着张开再烧。
+        // 熄灭仍比裂缝早，灭点错开；同步/不同步只管「生长」这段。
 
-        /// <summary>熔岩起步延迟，单位＝GrowTime 的倍数。要跟着骨架长，
-        /// 只晚一小步（缝先黑着裂开，火立刻顺着缝爬）。</summary>
-        public float LavaDelay = 0.12f;
-        /// <summary>熔岩自身推进时长，单位＝GrowTime 的倍数。≈1＝几乎跟着骨架走；
-        /// 过大就会整条缝长完火才亮，读不出「随着骨架生成」。</summary>
-        public float LavaGrowMul = 1.15f;
+        /// <summary>熔岩起步延迟，单位＝GrowTime 的倍数。
+        /// 命中 ≈0.08（跟缝）；弹道 ≈0.65（先裂后烧）。</summary>
+        public float LavaDelay = 0.65f;
+        /// <summary>熔岩自身推进时长，单位＝GrowTime 的倍数。
+        /// 命中 ≈1.0（跟缝同速）；弹道 ≈1.45（火更慢）。</summary>
+        public float LavaGrowMul = 1.45f;
         /// <summary>熔岩寿命占裂缝总时长（FadeIn+Hold+FadeOut）的比例，
         /// &lt;1 ＝比裂缝先灭。</summary>
         [Range(0.2f, 1f)] public float LavaLifeRatio = 0.65f;
 
         /// <summary>按强度档整组写入缝宽/持续/亮度。裂地件自带三档，
         /// 用哪档由场景决定（模式默认 + 英雄战法专配），
-        /// 所以同一个 prefab 三档通吃，不为分档另烘变体。</summary>
+        /// 所以同一个 prefab 三档通吃，不为分档另烘变体。
+        /// 顺带从 ModeSpec 刷生长时长与熔岩时序，避免 prefab 序列化旧值拖住。</summary>
         public void ApplyStrength(GroundCrackPalette.Strength strength,
                                   GroundCrackPalette.Mode mode = GroundCrackPalette.Mode.Path)
         {
             var spec = GroundCrackPalette.SpecOf(strength, mode);
+            var modeSpec = GroundCrackPalette.SpecOf(mode);
             MaskGain = spec.MaskGain;
             Hold = spec.Hold;
             FadeOut = spec.FadeOut;
@@ -90,6 +93,21 @@ namespace ClientBattle.VFX
             FrontWidth = spec.FrontWidth;
             EmberFloor = spec.EmberFloor;
             SizeScale = spec.SizeScale;
+            GrowTime = modeSpec.GrowTime;
+            GrowthMode = modeSpec.GrowthMode;
+            // 熔岩时序按模式分流（真源在此，别依赖 prefab 默认值）
+            if (mode == GroundCrackPalette.Mode.Impact)
+            {
+                FadeIn = 0f;     // 与命中特效/抖动同帧可见，不做淡入拖拍
+                LavaDelay = 0.08f;   // 几乎同时起步，火贴着生长锋面
+                LavaGrowMul = 1.0f;  // 与裂缝同速爬完
+            }
+            else
+            {
+                FadeIn = 0.08f;
+                LavaDelay = 0.65f;
+                LavaGrowMul = 1.45f;
+            }
             ApplyCardWidth();
         }
 
@@ -138,25 +156,59 @@ namespace ClientBattle.VFX
         float _flickerPhase;     // 熔岩明灭相位
         float _lavaFadeSeed;     // 本发灭点噪声种子（每发不同，全局才不会齐灭）
 
+        // ------------------------------------------ 外部驱动生长（弹道裂地专用）
+        //
+        // 弹道裂地的推进必须跟**弹道飞行进度**，不能跟自己的时钟：自走时末段总在
+        // 弹道抵达之后才长完，命中拍（命中特效/受击抖动/命中裂地）被拖开半拍。
+        // 进度由 StrikeSync → GroundCrackService.PathDriver 逐帧喂入（P-62）。
+        //
+        // 只接管「裂缝张开」这一条轴：透明度生命周期与熔岩仍走自身时钟，
+        // 每发现摇的差异（_growMul/_lavaXxx）照旧保留，不退回齐刷刷的机关感（P-56）。
+        float _drivenGrowth = -1f; // <0＝自走时钟（命中/场心）；>=0＝外部驱动
+
+        /// <summary>切到驱动式生长（出场后调用一次）。同时取消出场错峰——
+        /// 错峰会让贴花在弹道飞过它时还压着 alpha=0，看着像漏了一段。</summary>
+        public void EnableFlightDriven()
+        {
+            _drivenGrowth = 0f;
+            _startDelay = 0f;
+        }
+
+        /// <summary>喂入本段生长进度（0~1，来自弹道飞行进度）。</summary>
+        public void DriveGrowth(float progress01) => _drivenGrowth = Mathf.Clamp01(progress01);
+
         void Roll()
         {
-            // 区间放宽到「两发之间一眼能看出快慢不同」：一次群攻同时落 3~5 处，
-            // 窄区间（±20%）在全局一看仍是同一个节奏（2026-07-26 二次打回）
-            _growMul = Random.Range(0.55f, 1.9f);
-            // 生长要紧跟骨架：起步/爬速只小幅抖动；不同步主要交给熄灭灭点 + 错峰起裂
-            _lavaDelayMul = Random.Range(0.7f, 1.35f);
-            _lavaGrowMul = Random.Range(0.85f, 1.3f);
-            _lavaLifeMul = Random.Range(0.7f, 1.3f);
-            // 上限 1.05：存活时长由 StrengthSpec.Duration 定，抖太多会被回池截断
-            _holdMul = Random.Range(0.7f, 1.05f);
-            // 整体错峰：连裂开那一刻都不同时，全局才不会读成一次齐射
-            _startDelay = Random.Range(0f, 0.22f);
+            bool impact = GrowthMode < 0.5f;
+            // 命中档必须与 HitKey / HitReact 同拍起步；错峰只给弹道多段用
+            // （群攻齐裂读成机关，弹道沿途错峰才像地面被撕开）
+            if (impact)
+            {
+                _growMul = Random.Range(0.9f, 1.15f);
+                _lavaDelayMul = Random.Range(0.95f, 1.1f);
+                _lavaGrowMul = Random.Range(0.95f, 1.1f);
+                _lavaLifeMul = Random.Range(0.85f, 1.15f);
+                _holdMul = Random.Range(0.85f, 1.05f);
+                _startDelay = 0f;
+            }
+            else
+            {
+                // 区间放宽到「两发之间一眼能看出快慢不同」：一次群攻同时落 3~5 处，
+                // 窄区间（±20%）在全局一看仍是同一个节奏（2026-07-26 二次打回）
+                _growMul = Random.Range(0.55f, 1.9f);
+                _lavaDelayMul = Random.Range(0.9f, 1.15f);
+                _lavaGrowMul = Random.Range(0.9f, 1.15f);
+                _lavaLifeMul = Random.Range(0.7f, 1.3f);
+                // 上限 1.05：存活时长由 StrengthSpec.Duration 定，抖太多会被回池截断
+                _holdMul = Random.Range(0.7f, 1.05f);
+                _startDelay = Random.Range(0f, 0.22f);
+            }
             _burstPhase = Random.Range(0f, Mathf.PI * 2f);
             _flickerPhase = Random.Range(0f, Mathf.PI * 2f);
             _lavaFadeSeed = Random.Range(0f, 64f);
             if (_lavaLag != null)
                 for (int i = 0; i < _lavaLag.Length; i++)
-                    _lavaLag[i] = Random.Range(0f, 0.45f);
+                    _lavaLag[i] = impact ? Random.Range(0f, 0.12f) : Random.Range(0f, 0.45f);
         }
 
         /// <summary>把线性进度揉成「一阵一顿」：裂缝是脆性扩展，走走停停，
@@ -200,6 +252,7 @@ namespace ClientBattle.VFX
         {
             Collect(); // 池化复用时 Awake 只走过一次
             _elapsed = 0f;
+            _drivenGrowth = -1f; // 池化复用：上一发若是驱动式，这一发必须先回自走
             Roll(); // 池化复用：每次出场重摇，否则同一实例反复播同一段动画
             ApplyCardWidth();
             // 平躺基准必须是 Euler(90,0,·)：禁止读改 localEulerAngles（俯仰 90°
@@ -294,6 +347,13 @@ namespace ClientBattle.VFX
             // 1.47＝1.25（覆盖 shader 抖动项）+ 最大层间滞后 0.22，
             // 否则挂了滞后的毛刺层永远差一口气长不满
             const float full = 1.47f;
+            if (_drivenGrowth >= 0f)
+            {
+                // 进度到顶必须给足 full：Burst 抖动在末端会差一口气，
+                // 那口气正好是「弹道到了缝还没裂完」的半拍
+                if (_drivenGrowth >= 0.999f) return full;
+                return Mathf.SmoothStep(0f, full, Burst(_drivenGrowth, _burstPhase));
+            }
             float span = GrowTime * _growMul;
             if (span <= 0f) return full;
             float t = Burst(Mathf.Clamp01(_elapsed / span), _burstPhase);
@@ -303,7 +363,7 @@ namespace ClientBattle.VFX
         float LavaStart => GrowTime * _growMul * Mathf.Max(0f, LavaDelay) * _lavaDelayMul;
 
         /// <summary>熔岩自己的推进阈值（喂 `_GlowGrowth`）：比裂缝晚 LavaDelay 起步、
-        /// 慢 LavaGrowMul 倍爬完，于是火是「顺着已经裂开的缝爬进去」。</summary>
+        /// 慢 LavaGrowMul 倍爬完 —— 先看见黑缝张开，再看见火顺着缝爬。</summary>
         float GlowGrowth()
         {
             // 熔岩要多推一截：层间滞后 0.22+0.28 与 shader 火口散布 ±0.2 都从这里扣

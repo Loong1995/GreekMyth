@@ -22,10 +22,11 @@ namespace ClientBattle.VFX
     ///      碰撞体是"被罩住的人形"（2.0×2.5）而不是罩子（2.89×8.66），按它定径会让
     ///      罩子高出卡顶三倍多 —— 在陡俯角下就读作"一根指着相机的柱子"。
     ///   3) **等比缩放**，系数取两条约束的**较大者**；**原点放定位圆心（贴地）**。
-        ///      - 横向：结构件（壳 + 地面贴花）缩到定位圆直径 × WidthOvershoot —— 罩壁
-    ///        要在卡两侧露出一圈才有包裹感；
+        ///      - 横向：结构件（壳 + 地面贴花）初算到定位圆直径 × WidthOvershoot；
+    ///        **随后 Decal 单独钉死＝定位圆直径**（`PinGroundRingToCardCircle`），
+    ///        竖向补高不得把地板圈撑出圆外；
     ///      - 竖向：**下限**是可见主体（壳以外的火/烟/电）顶到卡牌上边缘 × TopOvershoot；
-    ///        与横向冲突时竖向优先，但横向溢出封顶 OverflowCap。
+    ///        与横向冲突时竖向优先，但横向溢出封顶 OverflowCap（只影响壳，贴花已钉死）。
     ///      高度**不另行压缩**：曾按"顶部＝卡上缘"把 y 单独缩到 0.29（壳 8.66 高、
     ///      卡只有 2.48 高），结果竖柱被压成一张薄饼，一眼就看出"这不是竖直的罩子"，
     ///      与同一件在棋盘中心等比展示时的观感完全不一致。厂包本身也是这个比例
@@ -101,8 +102,40 @@ namespace ClientBattle.VFX
             instance.transform.localScale *= k;
             instance.transform.position = ArenaSlotLayout.CardCircleCenter(cardAnchor);
 
+            // 地板圈（Decal）严格＝定位圆：整件等比缩放常被竖向补高撑大，
+            // 贴花会溢出圆外；单独把 Decal 反缩到直径＝CardCircleDiameter。
+            PinGroundRingToCardCircle(instance);
+
             EnsureShellVisible(shell);
             Restart(instance);
+        }
+
+        /// <summary>地面贴花/圈严格锚定定位圆：圆心已由根节点对齐；
+        /// 仅把 Decal 类非粒子渲染器的水平尺寸钉成 <see cref="ArenaSlotLayout.CardCircleDiameter"/>。
+        /// 壳/火/烟仍保持整件等比，不受影响。可对外调用（跟随位移后重钉一次）。</summary>
+        public static void PinGroundRingToCardCircle(GameObject instance)
+        {
+            float target = ArenaSlotLayout.CardCircleDiameter;
+            if (target < 0.001f || instance == null) return;
+
+            foreach (var r in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || !r.enabled || r is ParticleSystemRenderer) continue;
+                if (r.gameObject.name.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) < 0
+                    && r.name.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+
+                float w = Mathf.Max(r.bounds.size.x, r.bounds.size.z);
+                if (w < 0.001f) continue;
+                float s = target / w;
+                r.transform.localScale = new Vector3(
+                    r.transform.localScale.x * s,
+                    r.transform.localScale.y,
+                    r.transform.localScale.z * s);
+
+                var local = r.transform.localPosition;
+                r.transform.localPosition = new Vector3(0f, local.y, 0f);
+            }
         }
 
         /// <summary>量「结构件」的水平最大边 —— 定径基准。

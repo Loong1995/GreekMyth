@@ -86,8 +86,10 @@ PilotPitchDeg= 45  （= CardPitchDeg，光轴垂直卡面）
 - 所有「落在某张卡脚下」的演出（裂地、法阵、脚下光环、地面命中件、
   罩身件水平切面）的唯一定位与定径基准。
 
-**罩身类特效**（`VfxShroudFitter`）：世界竖直、等比、水平切面对齐定位圆、
-底面坐地；按件内 **Y 向最高渲染器**定径。细则见原验收与 pitfalls。
+**罩身类特效**：
+- 定径/摆位规格：`VfxShroudFitter.Fit`（世界竖直、原点＝定位圆心、Decal 严格＝定位圆直径）。
+- **运行期跟随（通用）**：`VfxShroudFollower` —— melee / 平时一律钉
+  `CardCircleCenter(持有者 transform)`；个案显隐等各自挂组件，不写进 Follower。
 
 ## 五、约束与已废弃方案（勿复踩）
 

@@ -81,7 +81,7 @@ simulate(battle_setup, seed)                          battle/api.py
 | 控制状态交互矩阵 | 缄默×准备、石化×暴击、犹豫×冥锁等逐格结算，逐格配测试 | B3 落地 | [status_interactions.md](status_interactions.md) |
 | 武将池 v4 | 四阵营 **32** 将（奥林匹斯 7/英雄 10/海域 7/冥界 8），每人性格+自带+拆解战法；四维=基础+成长×(等级-1) | Phase 4 A4 落地 | `battle/roster.py`、战法 `battle/skills_{gods,men,sea,underworld}.py` |
 | 连发 + 协击 + 站位 1~6 | 主动战法可配连发率（伪随机、同窗硬上限 7、burst_no 事件化）；on_ally_basic_attack 钩子 + 协击原语（普攻口径、不连击、可追击、不连锁）；position 1~6（4~6 后排） | Phase 4 A1 落地 | [burst_coordination.md](burst_coordination.md) |
-| 四轨势能 | 每武将四轨按类型跨技能累计；满 5 当次起同轨 cut_in、4 分客户端闪光；自身行动窗清零；metadata 门控（默认开） | Phase 4 A1 落地 | [momentum.md](momentum.md) |
+| 四轨势能 | 每武将四轨按类型跨技能累计；满 5 当次起同轨 cut_in、4 分客户端闪光；**每回合 round_start 全体清零**；metadata 门控（默认开） | Phase 4 A1 落地 | [momentum.md](momentum.md) |
 | 经理人战术 | 注册表驱动（集火/保护/攻守倾向）；回合头逐队结算、变更最早第 2 回合、每方 2 次上限；tactic_applied 事件（1.4.1）；变更重算=同 seed 从头重模拟（前缀逐字节等价） | Phase 4 P4-C 落地 | [manager_tactics.md](manager_tactics.md) |
 | A2 原语 | 新状态（恐惧/诅咒/必胜/清醒）+ 格挡上限；连发率三来源（战法+状态+性格）；约战注册表（傲慢应战/好战搦战/谋深拒战）；新性格钩子（忠烈/号召/并辔壳已注册） | Phase 4 A2 落地（A3 接线到武将） | [statuses.md](statuses.md) §7、[traits.md](traits.md) §5、[duel.md](duel.md) §5 |
 

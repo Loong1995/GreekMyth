@@ -142,4 +142,7 @@ group_id 语义打架的部分。以下均为**可选字段/新语义的加法�
 2. **新播放序语义**：新增 `IEventProcessor`（在 WorldBuilder 注册，注意链序）。
 3. **全新演出形态**：派生 `SkillPerformance` + 新 `PerformanceTemplate` 枚举。
 4. **新 cut-in 触发**：只改 `CutInPolicy`。
-5. 禁止：在 Director/EventApplyService 里堆技能 id 特判。
+5. **要跟弹道飞行进度的表现**：实现 `VFX/IFlightDriven` + `StrikeSync.Attach`
+   （出手时间轴唯一真源：飞行段 → 抵达 → 命中拍）。
+6. 禁止：在 Director/EventApplyService 里堆技能 id 特判；
+   禁止在模板里用 `WaitForSeconds` 自拼弹道/命中时序。

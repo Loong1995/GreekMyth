@@ -7,9 +7,9 @@ namespace ClientBattle.Units
     // 【第5层 单位表现】MomentumFireController：势能火 + 卡后金光环唯一生命周期。
     //
     // 分档：四轨最高值 <4 无 / ≥4 小 / ≥5 / ≥6 / ≥7 满分大。
-    // 火与金光环同档同灭：Refresh 同挂、Fade 同渐灭、Extinguish/Clear 同撤。
-    // 相位信号见 PlaybackDirector（ActionPause / 回合横幅）。
-    // hold-off：渐灭后抑制同值重挂；值变化立即解除（见历史 g1r5 修复）。
+    // 火与金光环同档同灭：Refresh 同挂、回合边界 Fade 同渐灭、Clear 同撤。
+    // 相位信号见 PlaybackDirector（仅 RoundStart 边界，不再随 ActionPause 熄灭）。
+    // hold-off：渐灭后抑制同值重挂；值变化立即解除。
     // =========================================================================
 
     public class MomentumFireController
@@ -114,19 +114,23 @@ namespace ClientBattle.Units
 
         // ------------------------------------------------------------ 相位信号（棋盘级）
 
-        public static void OnActionPauseBegin(BattleBoardView board, float fadeDuration)
+        /// <summary>行动切换停顿：旧语义已废——火持续到回合结束。
+        /// 保留空实现以免外部误调；真正渐灭见 <see cref="OnRoundBanner"/>。</summary>
+        public static void OnActionPauseBegin(BattleBoardView board, float fadeDuration) { }
+
+        public static void OnActionPauseEnd(BattleBoardView board) { }
+
+        /// <summary>回合边界：场上势能火/金光环渐灭（随后 OnRoundBoundary 清账）。</summary>
+        public static void OnRoundBanner(BattleBoardView board, float fadeDuration)
         {
             if (board == null) return;
             foreach (var u in board.AllUnits) u?.MomentumFire.Fade(fadeDuration);
         }
 
-        public static void OnActionPauseEnd(BattleBoardView board)
+        public static void ExtinguishAll(BattleBoardView board)
         {
             if (board == null) return;
             foreach (var u in board.AllUnits) u?.MomentumFire.Extinguish();
         }
-
-        public static void OnRoundBanner(BattleBoardView board, float fadeDuration) =>
-            OnActionPauseBegin(board, fadeDuration);
     }
 }

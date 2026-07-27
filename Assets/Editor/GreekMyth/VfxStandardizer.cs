@@ -72,9 +72,10 @@ namespace GreekMyth.EditorTools
                     dirty = true;
                 }
 
-                if (root.GetComponent<VfxGroundLayer>() != null)
+                if (root.GetComponent<VfxGroundLayer>() != null
+                    || root.name.StartsWith("shroud_"))
                 {
-                    skipped++; // 地面件尺寸由 GroundCrackDecal 自管
+                    skipped++; // 地面件 / 罩身件尺寸自管（ShroudFitter）
                 }
                 else
                 {

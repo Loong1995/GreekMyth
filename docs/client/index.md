@@ -17,7 +17,7 @@
 | [rendering_layout.md](rendering_layout.md) | **渲染/分辨率/层级**：机型适配、图像槽位缩放（contain/stretch）、sorting 层级总表、棋盘布局摘要 |
 | [battlefield_layout.md](battlefield_layout.md) | **战场分区与站位几何唯一权威**：UI/主战场/隔离带/矩形六等分、六套预设、单体制卡尺 |
 | [arena_stage.md](arena_stage.md) | **近 3D 舞台表现权威**：相机姿态、地/天底图拼接、卡牌姿态/浮空；站位引用 battlefield_layout |
-| [ground_crack_language.md](ground_crack_language.md) | **裂地表现语言权威**：模式×强度+面积；弹道 1/2 无熔岩、档 3 同命中；灭点消退、自烘遮罩、服务边界 |
+| [ground_crack_language.md](ground_crack_language.md) | **裂地表现语言权威**：模式×强度+面积；弹道熔岩＝同档命中×0.78；灭点消退、自烘遮罩、服务边界 |
 | [ground_crack_config.md](ground_crack_config.md) | **裂地技能配置登记表**：准备/瞬发物理群攻默认档、势能加强覆盖、按 skill_id 登记 |
 | [text_system.md](text_system.md) | **文字系统**：飘字（Tuning SO 调参）、台词气泡独占播放、横幅/cut-in、中文名注册表 |
 | [settlement_stats.md](settlement_stats.md) | **战后技能结算表**：分局 Tab、带技能（神谕）归因到施法者技能格、status→skill 映射 |

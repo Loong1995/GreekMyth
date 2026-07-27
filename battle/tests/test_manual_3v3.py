@@ -52,7 +52,7 @@ TEAM_A = [
     # 宙斯：谋略主C——天雷击 + 神使戏言
     {"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest",)},
     # 雅典娜：防御核心——神盾格挡 + 灵蛇之吻
-    {"template": "athena", "extra_skills": ("athena_guard", "asclepius_kiss",)},
+    {"template": "ares", "extra_skills": ("athena_guard", "asclepius_kiss",)},
     # 阿斯克勒庇俄斯：纯奶位
     #{"template": "asclepius", "extra_skills": ("asclepius_kiss", "athena_guard",)},
     # ---- 新武将模板（揭开注释，并注释掉上面一名，保持每队 ≤3）----
@@ -70,10 +70,10 @@ TEAM_A_POSITIONS: list[int] | None = [2, 4, 6]
 TEAM_B = [
     # 哈迪斯：谋略吸取——冥河汲魂 + 死亡凝望
     #{"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
-    #{"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
+    {"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
     # {"template": "hecate", "extra_skills": ("hecate_pyre","athena_guard")},         # 赫卡忒：三火炬+燔祭
     # {"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
-    {"template": "ares", "extra_skills": ("siren_charm", "ajax_bulwark",)},
+    #{"template": "ares", "extra_skills": ("siren_charm", "ajax_bulwark",)},
     # 阿喀琉斯：物理尖刀——怒火突刺 + 战争狂热
     {"template": "achilles", "extra_skills": ("achilles_thrust", "ares_frenzy",)},
     #{"template": "ajax", "extra_skills": ("ajax_bulwark", "athena_guard",)},

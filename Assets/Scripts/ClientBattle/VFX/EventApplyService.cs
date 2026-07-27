@@ -73,9 +73,8 @@ namespace ClientBattle.VFX
                         $"{tactic.TeamId} 队变更战术 →「{ChineseNames.Status(tactic.TacticId)}」",
                         tactic.GroupId);
                     break;
-                case ActionStartEvent action:
-                    // 自身行动窗开始：四轨势能镜像清零（与服务器静默清零同步）
-                    MomentumService.OnActionStart(action.ActorId, ctx.Unit(action.ActorId));
+                case ActionStartEvent:
+                    // 势能按回合清零，action_start 不再动四轨镜像
                     break;
                 case TraitTriggerEvent:
                     // 台词只走 TraitLine 独占组；落账路径不弹气泡，避免重叠

@@ -15,9 +15,9 @@ namespace ClientBattle.Units
     // - 分档：0~3 半亮；≥Flash(4) 首次白闪爆发；≥Full(5) 常驻 rim +
     //   事件 cut_in 驱动切入（服务端 value≥5 带 cut_in）。
     // - 势能火（CFXR3）+ 卡后金光环：四轨最高 —— ≥4 小 / ≥5 / ≥6 / ≥7 满分大；
-    //   同档同灭（行动切换渐灭）。
-    // - 服务器在武将自身行动窗开始时四轨静默清零（不发事件），客户端在
-    //   action_start 落账处调 OnActionStart 同步镜像。
+    //   一旦点着，持续到本回合结束（回合边界渐灭），不随行动切换熄灭。
+    // - 服务器在每回合 round_start 静默清零全体四轨（不发事件）；客户端同步
+    //   OnRoundBoundary。计数单元＝回合（回合内跨技能累计）。
     // =========================================================================
 
     public static class MomentumService
@@ -91,17 +91,17 @@ namespace ClientBattle.Units
             }
         }
 
-        /// <summary>武将自身行动窗开始：四轨镜像清零（与服务器静默清零同步），
-        /// 常驻流光与闪光记录一并撤除。</summary>
-        public static void OnActionStart(string heroId, UnitView unit)
+        /// <summary>回合边界：全体四轨镜像清零（与服务器 round_start 静默清零同步），
+        /// 火/金光环由调用方先渐灭再 Clear；此处撤条与闪光记录。</summary>
+        public static void OnRoundBoundary(BattleBoardView board)
         {
-            if (heroId == null) return;
-            if (Values.TryGetValue(heroId, out var tracks))
-                foreach (var v in tracks.Values) GlobalTotal -= v;
-            Values.Remove(heroId);
-            OverflowShown.Remove(heroId);
-            unit?.ClearMomentum();
-            GlobalMomentumChanged?.Invoke(GlobalTotal);
+            Values.Clear();
+            OverflowShown.Clear();
+            GlobalTotal = 0;
+            GlobalMomentumChanged?.Invoke(0);
+            if (board == null) return;
+            foreach (var u in board.AllUnits)
+                u?.ClearMomentum();
         }
 
         /// <summary>整局/整场重置。</summary>

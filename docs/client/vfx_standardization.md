@@ -105,7 +105,10 @@
 1. `assets_upload_guide.md` §特效表加一行（来源包 + 备注）。
 2. 改 `PerformanceProfile` 字段：`HitVfxKey` / `ProjectileKey` / `AuraKey` /
    `CastVfxKey` / `GroundPathKey` / `GroundHitKey` 等（以实字段为准）。
-3. 罩身：演出实例化后调 `VfxShroudFitter.Fit`（或既有钩子）；禁止 prefab 写死世界尺度。
+3. 罩身：`VfxShroudFitter.Fit` + `VfxShroudFollower.FitAndFollow`（跟随定位圆）。
+   **默认完整件加载，通用类禁止裁层**。去石块/关 Trigger 等只在各技能挂载/
+   Wire 名单里单独写（例：战神之勇 `AresMightStripContains` /
+   `ApplyAresMightStrip`）。禁止 prefab 写死世界尺度。
 4. 加载只经 `VFXManager.PlayAt/PlayOn(key)`。
 
 ### 3.5 验收（完成定义）

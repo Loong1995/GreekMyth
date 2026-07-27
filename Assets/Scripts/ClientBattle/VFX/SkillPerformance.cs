@@ -21,8 +21,9 @@ namespace ClientBattle.VFX
 
         // ---------------------------------------------------------- 公共原语
 
-        /// <summary>结算一条伤害事件的通用表现：命中特效+飘字+掉血+受击顿挫+音效。
-        /// 格挡/反弹/闪避（amount 可为 0）仍播出击命中反馈；仅减弱受击顿挫与震屏。</summary>
+        /// <summary>结算一条伤害的命中拍：裂地 + 命中特效 + 受击抖动（及震屏）同一拍起。
+        /// 格挡/反弹/闪避（amount 可为 0）仍播出击命中反馈；仅减弱受击顿挫与震屏。
+        /// 绕身视觉仍在场时不受击抖动；渐隐后恢复。</summary>
         protected static void SettleDamage(DamageEvent damage, PerformanceProfile profile,
                                            VFXContext ctx, string floatSkillName)
         {
@@ -30,7 +31,9 @@ namespace ClientBattle.VFX
             if (target == null) return;
 
             bool mitigated = !string.IsNullOrEmpty(damage.Mitigation);
-            // 出击命中帧：专属 HitKey 优先；主动默认按伤害类型（物理尖刺 / 魔法电击）
+            // —— 命中拍（同帧）：裂地 / HitKey / HitReact(+震屏) 不得拆到模板或错峰 ——
+            if (GroundCrackService.ShouldPlayHit(damage))
+                GroundCrackService.PlayHit(ctx, profile, target);
             string hitKey = ResolveHitKey(profile, damage);
             if (!string.IsNullOrEmpty(hitKey))
                 ctx.Vfx.PlayAt(hitKey, target.transform.position, ctx.Scaled(0.5f));
@@ -42,9 +45,7 @@ namespace ClientBattle.VFX
             }
             else
             {
-                // 格挡/反弹：轻顿挫，表示打在盾/身上，而非完全无反馈
                 target.HitReact(isCrit: false);
-                // 普通格挡 / 圣盾反伤：卡面中央渐变闪图标（VFX/ 待上传，现色块占位）
                 if (damage.Mitigation == "block")
                     target.FlashOverlayIcon("icon_block",
                         tint: new Color(0.75f, 0.82f, 0.95f), duration: ctx.Scaled(0.65f));
@@ -52,10 +53,11 @@ namespace ClientBattle.VFX
                     target.FlashOverlayIcon("icon_aegis",
                         tint: new Color(1f, 0.88f, 0.45f), duration: ctx.Scaled(0.7f));
             }
+            // —— 命中拍之后：音效 / 飘字 / 镜像兵力 ——
             ctx.Sfx.Play(string.IsNullOrEmpty(profile.HitSfxKey) ? "sfx_hit_default" : profile.HitSfxKey);
             ctx.Floats.ShowDamage(target, floatSkillName, damage.Amount, damage.IsCrit,
                 damage.Mitigation, damage.DamageType);
-            EventApplyService.ApplyDamage(damage, ctx); // 镜像写入统一入口（R-7.4）
+            EventApplyService.ApplyDamage(damage, ctx);
             ctx.OnDamageSettled?.Invoke(damage, floatSkillName);
         }
 

@@ -98,58 +98,56 @@ namespace GreekMyth.EditorTools
             return t * t * (3f - 2f * t);
         }
 
-        /// <summary>弹道遮罩（对齐示意图）：2~4 段主缝沿 +X 错落接力，缝宽贴近命中主缝；
-        /// 树杈式分叉从主缝长出（稀疏、长短不一、看得清）；禁漂浮平行毛刺层。</summary>
+        /// <summary>弹道遮罩（参考图语义）：**一条蜿蜒主缝**贯通全幅 + 树杈细枝网络。
+        /// 主缝写进 R 通道（shader 用它门控熔岩：只有主缝烧），枝杈只有 alpha。</summary>
         static Sprite BakePathMask(string name, int salt)
         {
             const int w = 1024, h = 256;
-            var segs = new List<(Vector2, Vector2, float, float)>();
+            var mainSegs = new List<(Vector2, Vector2, float, float)>();
+            var detailSegs = new List<(Vector2, Vector2, float, float)>();
             float midY = (h - 1) * 0.5f;
 
-            // 命中主缝 UV 宽约 0.016~0.042×512；弹道主缝取同量级像素宽
-            int bigCount = 2 + Mathf.FloorToInt(Hash01(salt, 1) * 3f); // 2/3/4
-            float cursorX = 6f + Hash01(salt, 2) * 40f;
-            float cursorY = midY + (Hash01(salt, 3) - 0.5f) * midY * 0.4f;
+            // 单条蜿蜒主缝：起点靠左缘、贯穿到右缘，±40° 游走
+            float startY = midY + (Hash01(salt, 3) - 0.5f) * midY * 0.6f;
+            float rootW = Mathf.Lerp(7.5f, 11.5f, Hash01(salt, 30));
+            GrowPathCrack(mainSegs, new Vector2(4f + Hash01(salt, 2) * 20f, startY),
+                          w - 20f, rootW, midY, h, seed: salt * 17 + 3, bold: true,
+                          dirSign: Hash01(salt, 4) < 0.5f ? -1f : 1f,
+                          branchSegs: detailSegs);
 
-            for (int i = 0; i < bigCount; i++)
+            // 主缝周遭少量游离细缝（参考图里主缝旁的碎裂纹理），不带熔岩
+            int microCount = 3 + Mathf.FloorToInt(Hash01(salt, 12) * 4f); // 3~6
+            for (int i = 0; i < microCount; i++)
             {
-                float remain = Mathf.Max(80f, w - 18f - cursorX);
-                float slotsLeft = bigCount - i;
-                float share = remain / slotsLeft;
-                float len = i == bigCount - 1
-                    ? Mathf.Clamp(remain * Mathf.Lerp(0.78f, 0.96f, Hash01(salt, 20 + i)),
-                                  w * 0.16f, remain)
-                    : Mathf.Clamp(share * Mathf.Lerp(0.65f, 0.95f, Hash01(salt, 20 + i)),
-                                  w * 0.14f, w * 0.36f);
-                // 主缝：与命中同量级后再抬一档
-                float rootW = Mathf.Lerp(6.5f, 10.5f, Hash01(salt, 30 + i));
-                float dirSign = (i % 2 == 0) ? 1f : -1f;
-                var end = GrowPathCrack(segs, new Vector2(cursorX, cursorY), len, rootW,
-                              midY, h, seed: salt * 17 + i * 41 + 3, bold: true,
-                              dirSign: dirSign);
-
-                // 段与段之间故意留缝/微错位（示意图那种断开的树干感）
-                float gap = Mathf.Lerp(18f, 52f, Hash01(salt, 40 + i));
-                cursorX = Mathf.Clamp(end.x + gap, 4f, w - 90f);
-                cursorY = Mathf.Clamp(
-                    end.y + (Hash01(salt, 50 + i) - 0.5f) * Mathf.Lerp(10f, 28f, Hash01(salt, 55 + i)),
-                    12f, h - 13f);
+                float y0 = midY + (Hash01(salt + i, 13) - 0.5f) * midY * 1.3f;
+                float x0 = 12f + Hash01(salt + i, 14) * w * 0.85f;
+                float len = w * Mathf.Lerp(0.03f, 0.1f, Hash01(salt + i, 15));
+                float mw = Mathf.Lerp(1.2f, 2.6f, Hash01(salt + i, 16));
+                GrowPathCrack(detailSegs, new Vector2(x0, y0), len, mw, midY, h,
+                              salt * 40 + i * 13 + 400, bold: false, dirSign: 1f);
             }
 
-            return WriteMaskSprite(name, w, h, RasterizeSegments(segs, w, h));
+            return WriteMaskSprite(name, w, h,
+                                   RasterizeSegments(mainSegs, detailSegs, w, h));
         }
 
-        /// <summary>弹道单条缝。主缝 ±40°；bold 时稀疏长出树杈分叉（从本体长出、长短不一）。</summary>
+        /// <summary>弹道单条缝。主缝 ±40°；bold 时稀疏长出树杈分叉（从本体长出、长短不一）。
+        /// branchSegs 非空时枝杈写进该表（细节层，无熔岩），主干仍写 segs。</summary>
         static Vector2 GrowPathCrack(List<(Vector2, Vector2, float, float)> segs, Vector2 start,
                                   float length, float rootW, float midY, float h, int seed,
-                                  bool bold, float dirSign = 1f)
+                                  bool bold, float dirSign = 1f,
+                                  List<(Vector2, Vector2, float, float)> branchSegs = null)
         {
+            var branchSink = branchSegs ?? segs;
             int steps = Mathf.Max(4, Mathf.RoundToInt(length / (bold ? 24f : 28f)));
             float dx = length / steps;
             var cur = start;
             float dir = dirSign * (Hash01(seed, 11) - 0.5f) * (bold ? 1.12f : 0.55f);
-            // 每段主缝大约 2~4 根树杈，别密成毛刷
-            int branchBudget = bold ? 2 + Mathf.FloorToInt(Hash01(seed, 5) * 3f) : 0;
+            // 树杈预算随长度摊：全幅主缝约 6~9 根，别密成毛刷
+            int branchBudget = bold
+                ? Mathf.Max(2, Mathf.RoundToInt(length / 140f))
+                  + Mathf.FloorToInt(Hash01(seed, 5) * 3f)
+                : 0;
             int branchesLeft = branchBudget;
 
             for (int k = 0; k < steps; k++)
@@ -187,11 +185,12 @@ namespace GreekMyth.EditorTools
                     bool nearSlot = Mathf.Abs(t - due) < 0.22f || Hash01(seed, 60 + k) < 0.08f;
                     if (nearSlot && Hash01(seed, 61 + k) < 0.55f)
                     {
-                        SpawnTreeBranch(segs, next, dir, wid, h, seed + 800 + k * 3);
+                        SpawnTreeBranch(branchSink, next, dir, wid, h, seed + 800 + k * 3);
                         branchesLeft--;
                         // 偶发交叉成 X/Y（对侧再一根短的）
                         if (Hash01(seed, 88 + k) < 0.28f)
-                            SpawnTreeBranch(segs, next, dir, wid * 0.85f, h, seed + 900 + k * 5,
+                            SpawnTreeBranch(branchSink, next, dir, wid * 0.85f, h,
+                                            seed + 900 + k * 5,
                                             forceOpposite: true, shortBias: true);
                     }
                 }
@@ -239,8 +238,15 @@ namespace GreekMyth.EditorTools
             }
         }
 
-        /// <summary>把像素坐标下的线段表刷成 alpha 图（RGB 恒白）。</summary>
+        /// <summary>把像素坐标下的线段表刷成 alpha 图（R 通道恒 1＝整图可燃）。</summary>
         static Color[] RasterizeSegments(List<(Vector2 a, Vector2 b, float w0, float w1)> segs,
+                                         int w, int h)
+            => RasterizeSegments(segs, null, w, h);
+
+        /// <summary>主/细节双层刷图：alpha＝两层并集；R 通道只写主层覆盖度，
+        /// shader 用 R 门控熔岩 → 只有主缝烧、枝杈保持暗（参考图语义）。</summary>
+        static Color[] RasterizeSegments(List<(Vector2 a, Vector2 b, float w0, float w1)> mainSegs,
+                                         List<(Vector2 a, Vector2 b, float w0, float w1)> detailSegs,
                                          int w, int h)
         {
             var pixels = new Color[w * h];
@@ -248,23 +254,33 @@ namespace GreekMyth.EditorTools
                 for (int x = 0; x < w; x++)
                 {
                     var p = new Vector2(x, y);
-                    float a = 0f;
-                    foreach (var s in segs)
-                    {
-                        float pad = Mathf.Max(s.w0, s.w1) + 1f;
-                        if (p.x < Mathf.Min(s.a.x, s.b.x) - pad ||
-                            p.x > Mathf.Max(s.a.x, s.b.x) + pad ||
-                            p.y < Mathf.Min(s.a.y, s.b.y) - pad ||
-                            p.y > Mathf.Max(s.a.y, s.b.y) + pad) continue;
-                        float t = SegT(p, s.a, s.b);
-                        float d = Vector2.Distance(p, Vector2.Lerp(s.a, s.b, t));
-                        float v = 1f - EdgeSmooth(Mathf.Lerp(s.w0, s.w1, t) * 0.4f,
-                                                  Mathf.Lerp(s.w0, s.w1, t), d);
-                        if (v > a) a = v;
-                    }
-                    pixels[y * w + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(a));
+                    float aMain = Coverage(mainSegs, p);
+                    float aDetail = detailSegs == null ? 0f : Coverage(detailSegs, p);
+                    float a = Mathf.Max(aMain, aDetail);
+                    // 无细节层时 R 恒 1（命中遮罩整图可燃，行为不变）
+                    float r = detailSegs == null ? 1f : Mathf.Clamp01(aMain);
+                    pixels[y * w + x] = new Color(r, 1f, 1f, Mathf.Clamp01(a));
                 }
             return pixels;
+        }
+
+        static float Coverage(List<(Vector2 a, Vector2 b, float w0, float w1)> segs, Vector2 p)
+        {
+            float a = 0f;
+            foreach (var s in segs)
+            {
+                float pad = Mathf.Max(s.w0, s.w1) + 1f;
+                if (p.x < Mathf.Min(s.a.x, s.b.x) - pad ||
+                    p.x > Mathf.Max(s.a.x, s.b.x) + pad ||
+                    p.y < Mathf.Min(s.a.y, s.b.y) - pad ||
+                    p.y > Mathf.Max(s.a.y, s.b.y) + pad) continue;
+                float t = SegT(p, s.a, s.b);
+                float d = Vector2.Distance(p, Vector2.Lerp(s.a, s.b, t));
+                float v = 1f - EdgeSmooth(Mathf.Lerp(s.w0, s.w1, t) * 0.4f,
+                                          Mathf.Lerp(s.w0, s.w1, t), d);
+                if (v > a) a = v;
+            }
+            return a;
         }
 
         static Sprite WriteMaskSprite(string name, int w, int h, Color[] pixels)

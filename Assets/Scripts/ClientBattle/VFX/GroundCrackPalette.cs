@@ -126,15 +126,18 @@ namespace ClientBattle.VFX
             float scale = mode == Mode.Path ? PathDurationScale[i] : ImpactDurationScale[i];
             float hold = LightHold * scale;
             float fade = LightFadeOut * scale;
-            // 缝宽两模式共用；弹道 1/2 档关熔岩，档 3 与命中同亮度；命中三档全开
+            // 缝宽两模式共用；熔岩三档全开，弹道同档比命中稍弱（×0.78）
+            const float pathLava = 0.78f;
             bool path = mode == Mode.Path;
+            float L(float impact) => path ? impact * pathLava : impact;
             return strength switch
             {
                 Strength.Light => new StrengthSpec(1.15f, hold, fade,
-                    path ? 0f : 2.1f, 0.14f, path ? 0f : 0.12f, 1.0f),
+                    L(2.1f), 0.14f, L(0.12f), 1.0f),
                 Strength.Heavy => new StrengthSpec(2.55f, hold, fade,
-                    path ? 0f : 3.6f, 0.20f, path ? 0f : 0.28f, 1.0f),
-                _ => new StrengthSpec(3.1f, hold, fade, 4.4f, 0.24f, 0.34f, 1.35f),
+                    L(3.6f), 0.20f, L(0.28f), 1.0f),
+                _ => new StrengthSpec(3.8f, hold, fade,
+                    L(4.4f), 0.24f, L(0.34f), 1.35f),
             };
         }
 
@@ -198,7 +201,7 @@ namespace ClientBattle.VFX
         /// Key 是兼容别名；实际出场从 <see cref="PathVariantKeys"/> 随机抽。</summary>
         public static readonly ModeSpec PathMode =
             new ModeSpec(Mode.Path, "ground_crack_path", bakedLength: 2.5f, bakedWidth: 1.05f,
-                         growthMode: 1f, growTime: 0.16f, oriented: true,
+                         growthMode: 1f, growTime: 0.22f, oriented: true,
                          spurs: 0, cardWidthFactor: 0f, chunkCount: 0, dust: false);
 
         /// <summary>弹道遮罩变体（G4 烘出）。单遮罩再怎么 Hash 也是一张图，
@@ -244,7 +247,8 @@ namespace ClientBattle.VFX
         /// 碎块/尘雾均关闭——抛飞的大理石碎块俯视下像漂浮烟雾块（2026-07-26）。</summary>
         public static readonly ModeSpec ImpactMode =
             new ModeSpec(Mode.Impact, "ground_crack_hit", bakedLength: 2.0f, bakedWidth: 2.0f,
-                         growthMode: 0f, growTime: 0.28f, oriented: false,
+                         // GrowTime ≈ 非暴击 HitReact 窗（0.18）；与命中特效/抖动同拍张开
+                         growthMode: 0f, growTime: 0.2f, oriented: false,
                          spurs: 0, cardWidthFactor: 1.5f, chunkCount: 0, dust: false);
 
         public static ModeSpec SpecOf(Mode mode) =>

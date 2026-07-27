@@ -358,17 +358,22 @@ namespace ClientBattle.Units
                 .SetEase(ease).SetLink(gameObject);
         }
 
-        /// <summary>受击顿挫：短促位移抖动 + 红闪；结束后重采样休息点（同回位微抖区域）并贴回。</summary>
+        /// <summary>受击顿挫：短促位移抖动 + 红闪；结束后重采样休息点（同回位微抖区域）并贴回。
+        /// 绕身<strong>视觉仍在场</strong>（VfxShroudPresence.IsPresent）时只红闪不抖动；
+        /// 渐隐收干净后恢复抖动。</summary>
         public void HitReact(bool isCrit)
         {
             transform.DOKill(true);
-            transform.DOShakePosition(isCrit ? 0.3f : 0.18f, isCrit ? 0.22f : 0.12f, 20)
-                .SetLink(gameObject)
-                .OnComplete(() =>
-                {
-                    if (Defeated) return;
-                    transform.position = RerollRestPosition();
-                });
+            if (!UnitAuraService.HasShroud(this))
+            {
+                transform.DOShakePosition(isCrit ? 0.3f : 0.18f, isCrit ? 0.22f : 0.12f, 20)
+                    .SetLink(gameObject)
+                    .OnComplete(() =>
+                    {
+                        if (Defeated) return;
+                        transform.position = RerollRestPosition();
+                    });
+            }
             FlashPortrait(isCrit ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 0.55f, 0.55f));
         }
 

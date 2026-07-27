@@ -307,8 +307,8 @@ phase_start（避免每武将两条冗余）。
 
 四轨势能变化（机制见 `docs/mechanics/momentum.md`）。**纯表现记账**：不参与
 任何结算、不消耗 RNG。契约 1.4.0 收口起**默认开启**
-（`setup.metadata.enable_momentum=false` 可关）。该武将自身 `action_start` 时四轨静默清零（不发事件，
-客户端同步清零）。
+（`setup.metadata.enable_momentum=false` 可关）。每回合 `round_start` 时全体四轨静默清零（不发事件，
+客户端同步清零；计数单元＝回合）。
 
 | payload 字段 | pb# | 说明 |
 |---|---|---|

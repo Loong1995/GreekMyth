@@ -109,11 +109,11 @@ namespace ClientBattle.VFX
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
                 // 赫克托尔：走主动默认 Auto（群攻≥2→AoeCenter）；勿写死 AoeCenter，
                 // 否则 prepare（无伤害）也会空跑进中心，像没放技能。
-                // 裂地：自带准备型物理群攻＝档 3；拆解瞬发＝档 1（不配）；
+                // 裂地按类别约定：准备型群攻档 2、瞬发不配（＝档 1）；
                 // 势能加强出手由服务强制档 3 + 命中面积 1.5（见 ground_crack_config）。
                 new() { SkillOrStatusId = "hector_warcry", Template = PerformanceTemplate.Auto,
                         CameraShakeOnHit = true, SfxKey = "sfx_active_default",
-                        GroundStrengthTier = 3 },
+                        GroundStrengthTier = 2 },
                 new() { SkillOrStatusId = "hector_assault", Template = PerformanceTemplate.Auto,
                         CameraShakeOnHit = true },
                 // 神：埃癸斯圣盾——挂身 AllIn1 金描边；反弹命中=Magic Effect17_Collision
@@ -126,12 +126,12 @@ namespace ClientBattle.VFX
                 new() { SkillOrStatusId = "aegis_ward", Template = PerformanceTemplate.StatusTrigger,
                         CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
                         SfxKey = "sfx_aegis_counter" },
-                // 神：战神怒火（自带）——血战卡框红呼吸；战神之勇 Magic Effect18 常驻环
+                // 神：战神怒火（自带）——血战卡框红呼吸；战神之勇 Effect31 罩身（奇偶显隐）
                 new() { SkillOrStatusId = "ares_warfury", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_fire_foot", BoardFilterKey = "filter_bloodlust",
                         Intensity = 0.4f, SfxKey = "sfx_oracle_ares" },
                 new() { SkillOrStatusId = "ares_might", Template = PerformanceTemplate.OracleAura,
-                        AuraKey = "aura_ares_might", Intensity = 1.0f },
+                        AuraKey = "shroud_ares_might", Intensity = 1.0f },
                 // 拆技战争狂热：无挂身火焰（仅数值被动）
                 new() { SkillOrStatusId = "ares_frenzy", Template = PerformanceTemplate.None },
                 new() { SkillOrStatusId = "war_frenzy", Template = PerformanceTemplate.None },

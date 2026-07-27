@@ -15,7 +15,8 @@ namespace ClientBattle.Units
     // 资源：多数光环仍用 Resources/ClientBattle/VFX prefab；
     // 宙斯：Digital Ruby LightningBolt（DrLightningUtil）+ ThunderAuraDriver 调度；
     // 圣盾：All In 1 金色描边+辉光（UnitView.SetAegisAura）；
-    // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect18 常驻盾环（不呼吸）。
+    // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝shroud_* + VfxShroudPresence（显隐策略在注册表）。
+    // 绕身显隐：VfxShroudPresence（IsPresent 闸受击抖动）；时机＝ShroudVisibility / SetShroudVisible。
     // 宙斯雷霆：卡面频繁落劈；触发贯穿见 RemoteStrike
     // 石化：UnitView.SetPetrified → All In 1 灰阶石色
     // 哈迪斯黑雾：强制极低透明度，避免整卡被黑住。
@@ -27,10 +28,38 @@ namespace ClientBattle.Units
         const float UnderworldAlphaMul = 0.12f;
         const float UnderworldSizeMul = 0.75f;
         const string AuraRootPrefix = "AuraMount";
-        const string AresMightAuraKey = "aura_ares_might";
 
         // (unit, statusId) → 光环实例；一单位一状态最多一个
         static readonly Dictionary<(UnitView, string), (string key, GameObject fx)> _active = new();
+
+        /// <summary>当前回合号（round_start 写入）；绕身 Round 策略挂载时立刻对拍。</summary>
+        static int _currentRound;
+
+        /// <summary>回合开始：按注册表 ShroudVisibility 对所有绕身 Presence 自动对拍。</summary>
+        public static void OnRoundStart(int roundNo)
+        {
+            if (roundNo <= 0) return;
+            _currentRound = roundNo;
+            foreach (var pair in _active)
+            {
+                if (pair.Value.fx == null) continue;
+                var mode = Names.StatusPresentationRegistry.ShroudVisibilityOf(pair.Key.Item2);
+                if (mode is Names.ShroudVisibility.Manual) continue;
+                bool? show = EvaluateRoundVisibility(mode, roundNo);
+                if (show == null) continue;
+                var presence = pair.Value.fx.GetComponent<VfxShroudPresence>();
+                presence?.SetShown(show.Value);
+            }
+        }
+
+        static bool? EvaluateRoundVisibility(Names.ShroudVisibility mode, int roundNo) =>
+            mode switch
+            {
+                Names.ShroudVisibility.Always => true,
+                Names.ShroudVisibility.OddRounds => (roundNo & 1) == 1,
+                Names.ShroudVisibility.EvenRounds => (roundNo & 1) == 0,
+                _ => null,
+            };
 
         /// <summary>状态施加：有配置则挂常驻循环光环（去重）。</summary>
         public static void OnStatusApplied(UnitView unit, string statusId)
@@ -41,8 +70,8 @@ namespace ClientBattle.Units
 
             var offset = Names.StatusPresentationRegistry.AuraOffsetOf(statusId);
             GameObject fx;
-            if (key == AresMightAuraKey)
-                fx = MountAresMightAura(unit.transform, offset);
+            if (key.StartsWith("shroud_", System.StringComparison.Ordinal))
+                fx = MountShroud(key, unit, statusId);
             else if (key.StartsWith("aura_fire"))
                 fx = MountAresRage(key, statusId, unit);
             else
@@ -77,6 +106,51 @@ namespace ClientBattle.Units
             foreach (var entry in _active.Values)
                 if (entry.fx != null) Object.Destroy(entry.fx);
             _active.Clear();
+            _currentRound = 0;
+        }
+
+        /// <summary>单位是否有<strong>视觉上仍在场</strong>的绕身罩。
+        /// 渐隐收干净后为 false（受击恢复抖动）；挂载但已隐 ≠ 有罩。
+        /// 无 <see cref="VfxShroudPresence"/> 的 shroud_ 视为常显。</summary>
+        public static bool HasShroud(UnitView unit)
+        {
+            if (unit == null) return false;
+            foreach (var pair in _active)
+            {
+                if (pair.Key.Item1 != unit || pair.Value.fx == null) continue;
+                var key = pair.Value.key;
+                if (string.IsNullOrEmpty(key)
+                    || !key.StartsWith("shroud_", System.StringComparison.Ordinal))
+                    continue;
+                var presence = pair.Value.fx.GetComponent<VfxShroudPresence>();
+                if (presence == null) return true; // 无 Presence＝常显
+                if (presence.IsPresent) return true;
+            }
+            return false;
+        }
+
+        /// <summary>任意时机显隐某状态的绕身（覆盖 Round 策略直到下次自动对拍或再次调用）。</summary>
+        public static void SetShroudVisible(UnitView unit, string statusId, bool shown,
+                                            bool instant = false)
+        {
+            if (unit == null || string.IsNullOrEmpty(statusId)) return;
+            if (!_active.TryGetValue((unit, statusId), out var entry) || entry.fx == null) return;
+            var presence = entry.fx.GetComponent<VfxShroudPresence>();
+            presence?.SetShown(shown, instant);
+        }
+
+        /// <summary>任意时机显隐该单位全部绕身。</summary>
+        public static void SetAllShroudsVisible(UnitView unit, bool shown, bool instant = false)
+        {
+            if (unit == null) return;
+            foreach (var pair in _active)
+            {
+                if (pair.Key.Item1 != unit || pair.Value.fx == null) continue;
+                if (string.IsNullOrEmpty(pair.Value.key)
+                    || !pair.Value.key.StartsWith("shroud_", System.StringComparison.Ordinal))
+                    continue;
+                pair.Value.fx.GetComponent<VfxShroudPresence>()?.SetShown(shown, instant);
+            }
         }
 
         // ---------------------------------------------------------- 挂载
@@ -187,33 +261,41 @@ namespace ClientBattle.Units
             return root;
         }
 
-        /// <summary>战神之勇：Magic Effect18 全件挂卡（URP 未补丁时 Fringe 可能不可见，
-        /// 必须保留 FireBack/Particle 层，否则会「完全没特效」）。</summary>
-        static GameObject MountAresMightAura(Transform host, Vector3 offset)
+        /// <summary>通用绕身挂载：Fit+Follow + <see cref="VfxShroudPresence"/>。
+        /// 初始显隐按注册表 ShroudVisibility 与当前回合对拍。</summary>
+        static GameObject MountShroud(string key, UnitView unit, string statusId)
         {
-            var root = NewRoot(AresMightAuraKey, host, offset);
+            var root = NewRoot(key, unit != null ? unit.transform : null, Vector3.zero);
             root.transform.localRotation = Quaternion.identity;
 
-            // scale 乘数作用在 prefab 根 0.22 上：2.8 → 约 0.62，卡面可读
-            var cell = SpawnCell(AresMightAuraKey, root.transform, Vector3.zero, 2.8f);
-            if (cell == null)
+            var prefab = Resources.Load<GameObject>($"ClientBattle/VFX/{key}");
+            if (prefab == null)
             {
-                FallbackPlaceholder(AresMightAuraKey, root.transform);
+                FallbackPlaceholder(key, root.transform);
                 return root;
             }
 
-            // 只关音效与超大地面贴花；保留 FireBack + Shield*（可见性兜底）
-            foreach (var t in cell.GetComponentsInChildren<Transform>(true))
-            {
-                if (t == null || t.gameObject == cell) continue;
-                string n = t.name;
-                if (n.IndexOf("Audio", System.StringComparison.OrdinalIgnoreCase) >= 0
-                    || n.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    t.gameObject.SetActive(false);
-            }
-            foreach (var light in cell.GetComponentsInChildren<Light>(true))
-                light.enabled = false;
+            var cell = Object.Instantiate(prefab, root.transform);
+            cell.name = key;
+            cell.transform.localPosition = Vector3.zero;
+            cell.transform.localRotation = Quaternion.identity;
+            cell.transform.localScale = prefab.transform.localScale;
 
+            DisableAutoLifecycle(cell);
+
+            var follower = VfxShroudFollower.FitAndFollow(unit, cell, root.transform);
+            var presence = root.AddComponent<VfxShroudPresence>();
+            presence.Bind(follower);
+
+            var mode = Names.StatusPresentationRegistry.ShroudVisibilityOf(statusId);
+            bool showNow = mode switch
+            {
+                Names.ShroudVisibility.Always => true,
+                Names.ShroudVisibility.OddRounds => _currentRound > 0 && (_currentRound & 1) == 1,
+                Names.ShroudVisibility.EvenRounds => _currentRound > 0 && (_currentRound & 1) == 0,
+                _ => false, // Manual
+            };
+            presence.SetShown(showNow, instant: true);
             return root;
         }
 

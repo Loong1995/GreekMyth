@@ -63,9 +63,9 @@
 
 | 机制 | 一句话 | 代码 |
 |---|---|---|
-| 势能镜像 | momentum_change → 四轨分值镜像账本（value 取事件权威值，零客户端加法）；action_start 该武将四轨清零（与服务器静默清零同步） | `Units/MomentumService.cs` |
+| 势能镜像 | momentum_change → 四轨分值镜像账本（value 取事件权威值，零客户端加法）；**round_start 全体清零**（与服务器静默清零同步；计数单元＝回合） | `Units/MomentumService.cs` |
 | 势能条 | **已取消展示（2026-07-25）**：不再画四轨迷你条，势能表现只保留火/金光环/溢出白闪；账本（`TrackTable` 按轨类型跨技能累计）与 `SetMomentum` 接口保留、空转 | `UnitView.SetMomentum` |
-| 势能火 | 四轨最高 ≥4 小 / ≥5 / ≥6 / ≥7 满分大；`momentum_fire`←CFXR3 Fire；**ActionPauseSeconds 渐灭**（条仍待自身下次 action_start 清）。生命周期收拢进控制器，Runner 只发相位信号（OnActionPauseBegin/End/OnRoundBanner）；hold-off 语义=**抑制同值重挂**——任何值变化的 momentum_change 即解除抑制按新档点火（2026-07-22 修 g1r5 响应涨势能无火 bug） | `Units/MomentumFireController.cs` |
+| 势能火 | 四轨最高 ≥4 小 / ≥5 / ≥6 / ≥7 满分大；`momentum_fire`←CFXR3 Fire；**一旦点着持续到回合结束**，下回合 `round_start` 前渐灭。生命周期收拢进控制器；hold-off＝抑制同值重挂（值变化即重新点火） | `Units/MomentumFireController.cs` |
 | 闪光档（4） | 某轨首次 `value≥Flash(4)`：白闪爆发帧 + punch 缩放（**乙案已定稿**；不采购专属 overflow 包） | `MomentumService.Apply` → `PlayMomentumOverflow` |
 | 满档（5）/闪光（4）+ | 四轨最高 ≥4 起挂：**卡上缘火** + **卡后 LightGlow A（无星点）**；同分档轻抬、行动切换同渐灭；≥5 起服务端 `cut_in` | `MomentumFireController` / `MountMomentumGlow` |
 | cut-in 通道 | **全屏单人 cut-in**（2026-07-21 升级）：暗幕 + 阵营色斜带甩入 + 巨幅立绘反向滑入 + 大字标题，约 0.8s 甩出；触发源①满档轨（见下行语义）②高伤 >3000 ③行动窗内追伤第 5 次（②③非阻塞不占时间轴）；**同一播放组只播 1 次**去重，不做回合级限流（C10 定案）。无主体的播报（战术变更）回退 OnGUI 文字横幅。请求入口与组去重收口 `CutInService.Request` | `VFX/CutInService.Request/PlaySolo`；回退 `VFX/BannerService.ShowTextCutIn` |
@@ -83,7 +83,7 @@
 | 飘字手调 | 字体/字号/颜色/上浮曲线全参数收进 SO（`Resources/ClientBattle/FloatingTextTuning.asset`，缺失用代码默认）；字体放 `Resources/ClientBattle/Fonts/` 填名即换 | `Units/FloatingTextTuning.cs`；操作文档 [floating_text_tuning.md](floating_text_tuning.md) |
 | 头像标（皇卡 C1） | profile.PortraitMarkKey：受影响单位头顶短暂浮现指定武将头像——宙斯落雷 `thunder`→zeus（RemoteStrike 落雷节拍内挂）、哈迪斯吸统 `hades_command_drain`→hades | `UnitView.ShowPortraitMark` + `DefaultPerformance` |
 | 圣盾反弹/回血（C1） | 反伤 → `icon_aegis`；格挡 → `icon_block`；`aegis_shield` Melee；挂身 AllIn1 金描边；反制闪=`hit_shield_counter`（Effect17_Collision）；重击回血 `icon_aegis_heal` | `MountAegisAura` + `FlashOverlayIcon` |
-| 战神之勇光环 | `ares_might` → Magic Effect18 常驻卡面（`aura_ares_might`），**无卡框呼吸**；血战仍红呼吸 | `MountAresMightAura` / `SetAresRage` |
+| 战神之勇光环 | `ares_might` → Effect31 罩身；跟随＝`VfxShroudFollower`；显隐＝通用 `VfxShroudPresence` + 注册表 `OddRounds`；`HasShroud` 看 `IsPresent`（渐隐后恢复抖动） | `MountShroud` / `SetShroudVisible` |
 | 回位微抖 | 每次位移回位或受击顿挫结束重采样 `RestPosition`：边长=区域宽/5，半边由 `StanceLayout.RestJitterHalf` 约束（与卡面尺寸一并反算，保证邻格不叠）；突进/落雷瞄当前休息点 | `UnitView.DOMoveReturnHome` / `HitReact`；`StanceLayout` |
 | 高光回放（C2） | 终局扫描：我方行动窗按**观感分**（伤害 + 满势能 cut_in×3000）取最高窗整段重播（窗前静默落账、窗内正常演出；避免「伤害略高但无满势能切入」抢走真高光）；选窗为纯函数，重播复用主循环 `PlaybackDirector.PlayGroupsRange`；入口 `PerformanceRunner.PlayHighlight`；Tester 播放完成后出「高光回放」按钮 | `VFX/HighlightSelector.cs` + `PerformanceRunner.PlayHighlight` |
 
@@ -92,8 +92,9 @@
 | 模板 | 触发条件 | 演出 | 代码 |
 |---|---|---|---|
 | Melee 普攻/近身 | GroupKind=NormalAttack；单体追击；反制类 / 单体近战主动（如镜盾闪击）特殊配置 | 施法者冲至被打者近身 → 命中帧在**被打者身上闪斩击** → 回位（休息点重采样） | `DefaultPerformance.PlayMelee` |
-| AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样）。**物理群攻 + 近 3D 地面**（仅 `ArenaSlotLayout.GroundActive`）：弹道分 3 段 `ground_crack_path` + 命中 `ground_crack_hit`（直径卡宽×1.5×面积）。档位/面积见 [ground_crack_config.md](ground_crack_config.md)：准备型物理群攻档 2、瞬发档 1；`EmpoweredStrike` 强制档 3 弹道+面积×1.5 命中，并叠场心大裂地。**唯一入口 `GroundCrackService`**（亦接 PerSegment / Melee，见 P-46） | `DefaultPerformance.PlayAoeCenter` / `PlayPerSegment` / `PlayMelee` → `VFX/GroundCrackService.cs` |
-| PerSegment 逐段 | 单体主动/多段 | 每段一个节拍：弹道 → 命中掉血 | `DefaultPerformance.PlayPerSegment` |
+| AoeCenter 群攻 | 主动且互异目标 ≥2 | 施法者移动到棋盘中心 → N 道刀光/魔法光齐射 → 同帧掉血 → 回位（休息点重采样）。**物理群攻 + 近 3D 地面**（仅 `ArenaSlotLayout.GroundActive`）：弹道裂地分 3 段 `ground_crack_path`，**起裂与生长都由 `StrikeSync` 的弹道飞行进度驱动**，末段推满＝弹道抵达；命中裂地与 HitKey 在 `SettleDamage` **同帧** `ground_crack_hit`（直径卡宽×1.5×面积）。档位/面积见 [ground_crack_config.md](ground_crack_config.md)：准备型物理群攻档 2、瞬发档 1；`EmpoweredStrike` 强制档 3 弹道+面积×1.5 命中，并叠场心大裂地。**唯一入口 `GroundCrackService`**（亦接 PerSegment / Melee，见 P-46） | `DefaultPerformance.PlayAoeCenter` / `PlayPerSegment` / `PlayMelee` → `SettleDamage` → `VFX/GroundCrackService.cs` |
+| PerSegment 逐段 | 单体主动/多段 | 每段一个节拍：弹道（同走 `StrikeSync`）→ 抵达同帧命中掉血 | `DefaultPerformance.PlayPerSegment` |
+| **出手同步（跨模板）** | 任何带弹道的模板 | 一次出手＝**飞行段 + 命中拍**：`StrikeSync.Fly(from, projectiles, aims, flight)` 逐帧广播弹道真实进度给挂上来的 `IFlightDriven`（现有裂地一家），`Run()` 返回＝进度推满＝弹道抵达，调用方**同帧**开命中拍 `SettleDamage`。禁止模板各自 `WaitForSeconds` 拼时序；新表现想跟弹道走只需实现 `IFlightDriven` 并 `Attach` | `VFX/StrikeSync.cs` + `GroundCrackService.PathDriver` |
 | RemoteStrike 远程落击 | 雷霆 / 宙斯拆技天雷击 | **施法者不位移**；`thunder`/`zeus_bolt`：DR **单道**竖雷 + `hit_lightning`（Magic Effect19_Collision）+ 宙斯头像标。**禁 RFX4** | `DefaultPerformance.PlayRemoteStrike` |
 | 主动默认（按伤害类型） | 全部未专配主动 | **物理** Proj=`proj_bolt200` + Hit=`hit_clash`；**魔法** Proj=`magic_bolt` + Hit=`hit_lightning`。**默认不播 Cast** | `ProjectileKeyOf` / `ResolveHitKey` |
 | StatusTrigger | 状态触发组 | 默认按目标数走中心齐射/逐段；可特殊配置为 Melee / RemoteStrike | 同上（模板内分派） |
@@ -123,7 +124,7 @@
 | 机制 | 一句话 | 代码 |
 |---|---|---|
 | 卡牌结构 | 卡框(阵营色染色，支持 CardFrames/frame.png)+立绘+血条+名字 | `Units/UnitView.cs` |
-| 受击表现 | 抖动+红闪（暴击更强）+相机震动（profile 可关）；震动为 trauma 噪声模型，连抖叠加封顶不瞬移 | `UnitView.HitReact` + `VFX/CameraShaker.cs` |
+| 受击表现 | **命中拍**＝裂地+HitKey+抖动(+震屏)同帧；**绕身 `IsPresent` 时只红闪**，渐隐收干净后恢复抖动 | `SettleDamage` → `HitReact` + `UnitAuraService.HasShroud`（=`VfxShroudPresence.IsPresent`） |
 | 待机呼吸 | 存活卡牌立绘正弦浮动，相位按位置错开；阵亡停止 | `UnitView.Update` |
 | 兵力刷新 | 恒取事件 troops_after 权威值，客户端零计算 | `UnitView.SetTroops` |
 | 状态图标 | 硬控/冥火卡顶外侧横排（宽≈卡宽 1/5）+ 抖动；**先攻/犹豫不展示图标**；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` + `StatusPresentationRegistry` |

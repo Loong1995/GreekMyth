@@ -1,5 +1,86 @@
 # Changelog
 
+## 2026-07-27 出手同步器 StrikeSync：飞行段 → 抵达 → 命中拍
+- 新增 `VFX/StrikeSync.cs` + `IFlightDriven`：一次出手的时间轴唯一真源，
+  逐帧广播弹道**真实位置**换算的进度，`Run()` 返回＝抵达；模板不再自拼时序。
+- `GroundCrackService.PlayPath`（协程）→ `PathDriver`（`IFlightDriven`）：
+  第 i 段在进度区间 [(i-1)/3, i/3] 内起裂并**推满生长**，末段推满＝弹道抵达。
+- `GroundCrackDecal` 加驱动式生长（`EnableFlightDriven`/`DriveGrowth`）：
+  弹道贴花不再自走时钟，只接管裂缝张开轴，熔岩与淡出仍各自现摇。
+- 命中拍（命中特效+受击抖动+命中裂地）与抵达同帧；踩坑记 P-62。
+
+## 2026-07-26 绕身显隐通用化：Presence + IsPresent
+- 新增 `VfxShroudPresence`（出现/渐隐唯一实现）；删 `AresMightShroudPulse`。
+- 注册表 `ShroudVisibility`（Always/OddRounds/EvenRounds/Manual）+ `SetShroudVisible`。
+- `HasShroud` 改为看 `IsPresent`：渐隐后恢复受击抖动。
+
+## 2026-07-26 势能按回合累计；战神之勇再显完整
+- 势能清零改 `round_start` 全体静默；火/金光环点着后持续到回合结束。
+- 战神之勇：基色只锁一次，偶数隐后再显不再残缺；挂载按当前回合奇偶对拍。
+- schema/mechanics/客户端文档同步；golden 需 `--write`（value 序列变化）。
+
+## 2026-07-26 命中拍：裂地＝特效＝抖动同拍
+- 命中档取消 `_startDelay` / FadeIn；GrowTime 0.2s 对齐 HitReact。
+- `SettleDamage` 明确命中拍（裂地+HitKey+抖动）；RemoteStrike 不再提前 HitKey。
+
+## 2026-07-26 弹道/命中裂地时序对齐 + 绕身不抖
+- `PlayPath`：按弹道实时进度过阈值起裂（跟球），不再墙钟等分时刻戳缝。
+- 命中裂地收进 `SettleDamage`，与 HitKey 同帧；模板去掉重复 `PlayHit`。
+- 持有 `shroud_*` 时 `HitReact` 只红闪不抖动（`UnitAuraService.HasShroud`）。
+
+## 2026-07-26 战神之勇罩身恢复完整件，只留渐隐
+- `shroud_ares_might` 重拷 Effect31 全层（含 Rock/Trigger/Audio）；挂载不再裁层。
+- `AresMightShroudPulse`：渐隐收干净时 `SetActive(false)`，满显清 MPB。
+
+## 2026-07-26 罩身默认完整加载；裁层仅个案名单
+- `WireShroudEffect.CopyFull`：同构厂包件默认不删任何成分；strip 仅可选参数。
+- 去 Rock / 关 Trigger·Audio 只留在战神之勇 Wire/Mount 名单；Follower/Fitter 不裁层。
+
+## 2026-07-26 罩身跟随收进通用 VfxShroudFollower
+- 新增 `VfxShroudFollower`：Fit 后世界空间钉定位圆，melee/平时一律跟随持有者。
+- 战神之勇只留 `AresMightShroudPulse` 奇偶显隐；挂载走 `FitAndFollow`。
+
+## 2026-07-26 战神之勇罩身跟 melee 移动 + 渐隐清黑雾
+- 罩身 cell 脱父到世界空间，`LateUpdate` 钉 `CardCircleCenter(unit.position)`，melee 整件跟随。
+- 渐隐：粒子 startColor/emission 同步压；t=0 时 `StopEmittingAndClear` + 关 Renderer，杜绝 Smoke 残雾。
+
+## 2026-07-26 罩身地面圈严格锚定定位圆
+- `VfxShroudFitter.Fit` 后 `PinGroundRingToCardCircle`：Decal 水平直径钉死
+  `CardCircleDiameter`、xz 收至圆心；壳/火仍可按竖向补高，不被连带缩小。
+
+## 2026-07-26 战神之勇罩身去掉漂浮石块
+- `shroud_ares_might` 删除 `RockParticles1/2`；壳/火/烟/电/贴花保留。接线脚本同步。
+
+## 2026-07-26 战神之勇改挂 Effect31 罩身（画廊原样）+ 奇偶回合显隐
+- `shroud_ares_might` ← Magic Effect31 完整件**原样拷贝**（画廊 2/8·25/61）；挂载路径
+  与画廊一致：Instantiate → `VfxShroudFitter.Fit` → ForcePlay → 排序抬升。
+- 奇数回合渐显、偶数渐隐（`AresMightShroudPulse`；满显清 MPB 不改厂包材质）。
+- 取代常驻 `aura_ares_might`（Effect18）；Registry / Profile / olympus 同步。
+
+## 2026-07-26 命中熔岩跟随裂缝生长（弹道仍先裂后烧）
+- 命中：`LavaDelay` 0.08、`LavaGrowMul` 1.0 —— 火贴着放射锋面与缝同长。
+- 弹道仍 0.65 / 1.45；`ApplyStrength` 按 Mode 分流写入。
+
+## 2026-07-26 弹道三档全面开熔岩（同档命中 ×0.78）
+- 弹道 Light/Heavy 不再关熔岩；`GlowPeak`/`Ember`＝同档命中 ×0.78（约 1.64/2.81/3.43）。
+- 主缝 R 门控不变；language / index / assets_upload 同步。
+
+## 2026-07-26 裂地先裂后烧时序拉长（弹道/命中共用）
+- `LavaDelay` 0.12→**0.65**、`LavaGrowMul` 1.15→**1.45**：裂缝过半才点火，火爬得更慢。
+- GrowTime 弹道 0.16→0.22、命中 0.28→0.36；`ApplyStrength` 运行时刷写，防 prefab 旧值。
+
+## 2026-07-26 弹道裂地终点落到原站位点；战吼取消档 3 特例
+- `PlayPath` 终点改用目标 `HomePosition` 脚点；末段强制 progress=1（节拍改
+  `s/PathSteps`），裂痕带到卡牌原站位点，不再停在半路或跟 Rest 微抖。
+- `hector_warcry` 取消档 3 特例，按准备型约定回档 2；config / language 同步。
+
+## 2026-07-26 弹道改单条蜿蜒主缝 + 熔岩 R 通道门控 + 档 3 再加宽
+- 弹道遮罩重做（参考图语义）：一条蜿蜒主缝贯通全幅（7.5~11.5px，±40° 游走），
+  树杈分叉 6~9 根 + 3~6 条游离细缝；不再是 2~4 段接力。
+- 遮罩 R 通道＝熔岩门：主缝写 1、枝杈写 0，`GroundCrack.shader` 用 texel.r
+  门控 heat → 熔岩只顺主缝烧；命中遮罩 R 恒 1 行为不变。
+- 档 3 `_MaskGain` 3.1→**3.8**。重跑 G4，ground_crack_language 同步。
+
 ## 2026-07-26 弹道 1/2 关熔岩 + 档 1 变细 + 战吼档 3
 - 弹道 Light/Heavy `GlowPeak`/`Ember`=0；档 3 仍与命中同亮（4.4）。
 - `_MaskGain` 档 1：1.55→**1.15**；档 2 仍 2.55。`hector_warcry`→档 3。

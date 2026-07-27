@@ -841,6 +841,11 @@ class SeriesEngine:
         self.writer.set_time(game_no, round_no, PHASE_ROUND_START, 0)
         round_start_seq = self.writer.emit("round_start", {"round_no": round_no})
 
+        # Phase 4：回合头静默清零全体四轨势能（计数单元＝回合；不发事件；
+        # 客户端 OnRoundBoundary 同步，见 docs/mechanics/momentum.md）
+        if self.momentum_enabled:
+            self.momentum = {}
+
         # 经理人战术（P4-C）：各队当前生效战术在回合头结算（setup 队伍序），
         # 变更生效回合先发 tactic_applied（schema 1.4.1）；机制文档 manager_tactics.md
         self._apply_tactics(round_no, round_start_seq)
@@ -1040,10 +1045,6 @@ class SeriesEngine:
         action_seq = self.writer.emit("action_start", payload)
         self._acted_this_round.add(hero.hero_id)
         self._status_voice_said = set()  # 本窗状态台词去重
-        # Phase 4：自身行动窗开始清零四轨势能（静默不发事件；客户端在
-        # action_start 同步清零，见 docs/mechanics/momentum.md）
-        if self.momentum_enabled:
-            self.momentum[hero.hero_id] = {}
 
         # 先攻：本回合因先攻改写了行动序 → 临行动窗执行前弹台词
         if hero.hero_id in self._first_strike_voice:

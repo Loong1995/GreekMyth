@@ -571,4 +571,53 @@ HLSL `smoothstep(edge0, edge1, x)` 才是「低于 edge0 为 0、高于 edge1 �
 （脆性扩展是走走停停）+ **层间滞后**（附属层晚于主体）。
 同理：几何骨架靠「N 条等长直线」一定读作图标，要递归分叉 + 粗细起伏。
 
+## P-57 弹道裂地按墙钟等分 ≠ 跟球走
+
+现象：落点用了弹道实时投影，但起裂时刻仍是 `WaitForSeconds(flight * s/N)`，
+缓动/错峰下裂缝领先或落后球；命中裂地又在模板里先于 HitKey 单独 PlayHit，
+观感「先裂后炸」或双拍。
+根因：把「进度用来算落点」和「进度用来触发」拆开；命中裂地未收进 SettleDamage。
+正确做法：`PlayPath` 每帧读弹道进度，越过 1/N…阈值才戳；`PlayHit` 只在
+`SettleDamage` 与 HitKey 同帧；模板勿再单独 PlayHit。
+
+## P-58 绕身罩存在时受击抖动会拖罩乱晃
+
+现象：战神之勇等 `shroud_*` 钉定位圆跟随，受击 `DOShakePosition` 把卡牌抖开，
+罩身 LateUpdate 追着抖，读作「罩在甩」。
+正确做法：`UnitAuraService.HasShroud`（=`VfxShroudPresence.IsPresent`）为真时
+`HitReact` 只红闪；**渐隐收干净后 IsPresent=false，恢复抖动**（勿用「状态仍挂着」当闸）。
+
+## P-59 命中裂地随机错峰会拆开命中拍
+
+现象：SettleDamage 同帧调了 PlayHit / HitKey / HitReact，但裂地晚出 0~0.22s。
+根因：`GroundCrackDecal.Roll` 的 `_startDelay` 本为弹道多段去齐射感，命中档也吃了。
+正确做法：Impact `_startDelay=0`、`FadeIn=0`、GrowTime≈HitReact；错峰只留给 Path。
+
+## P-60 战神之勇偶数隐后奇数再显「残缺」
+
+现象：第 3 回合（奇数）绕身只剩薄雾/半透壳，不像画廊完整件。
+根因：渐隐把粒子 `startColor` alpha 压到 0 后 `SetActive(false)`；再显时
+`Cache()` 把已压暗颜色锁成新基色。
+正确做法：基色只锁一次；隐前 `RestoreBases`；再显只刷新组件引用不重锁基色。
+回合中途挂载按 `_currentRound` 奇偶立刻 `SetShown`。
+
+## P-61 势能火随行动窗灭 ≠ 回合计数单元
+
+现象：火苗刚起，换人行动就灭；用户要求「回合内累计、回合结束才清」。
+根因：清零挂在 `action_start`，火挂在 `ActionPause` 渐灭。
+正确做法：`round_start` 全体静默清零；火仅回合边界渐灭；行动切换只留节奏停顿。
+
+## P-62 「起裂时刻跟球」不等于「生长跟球」
+
+现象：P-57 已把**起裂时刻**改成读弹道实时进度，观感仍是「球先到、缝后裂」。
+根因：只管了戳缝的时刻，贴花**生长仍走自己的时钟**（GrowTime 0.22s + 出场
+错峰 0~0.22s）。末段在弹道抵达那一刻才刚起裂，等它长完，命中特效/受击抖动/
+命中裂地早已过去半拍——同步的是「开始」，不是「结束」。
+正确做法：时间轴收进唯一真源 `StrikeSync`（飞行段广播进度 → 抵达 → 命中拍），
+弹道贴花切 `EnableFlightDriven`，第 i 段生长 = `InverseLerp((i-1)/N, i/N, 进度)`，
+末段推满那一刻＝弹道抵达＝`SettleDamage` 同帧。驱动式必须把 `_startDelay` 清 0，
+且进度到顶要直接给足 `full`（Burst 抖动在末端会差一口气，那口气就是半拍）。
+教训：对「同步」类需求，先问同步的是**起点还是终点**；跨模板的时序一律收成
+一个可 Attach 的同步器，别在各模板里 `WaitForSeconds` 拼。
+
 

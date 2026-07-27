@@ -71,6 +71,7 @@
 | `VFX/PerformanceDatabase.cs` | 配置库 SO；缺资产时代码内置全部特殊战法配置 |
 | `VFX/SkillPerformance.cs` | 演出抽象基类 + 结算事件→表现公共原语；跨层通知走 `VFXContext.OnDamageSettled/OnCutInRequested` 回调（禁止反向引用 Runner 单例） |
 | `VFX/Performances/DefaultPerformance.cs` | 默认策略族（AOE 中心/逐段/近身/状态触发） |
+| `VFX/StrikeSync.cs` | **出手时间轴唯一真源**：飞行段按弹道真实位置广播进度给 `IFlightDriven`，`Run()` 返回＝抵达＝调用方同帧开命中拍。裂地经 `GroundCrackService.PathDriver` 挂上；细则见 ground_crack_language / performance_mechanisms |
 | `VFX/Performances/OracleAuraPerformance.cs` | 神谕整单元宣告 + 程序化整盘滤镜 BoardFilterOverlay（Intensity 可调；光环本体由 UnitAuraService 按状态挂） |
 | `VFX/Performances/DuelPerformance.cs` | 单挑播放单元（压暗/号角/duel_* 台词/裂缝交错 cut-in/胜负横幅/败者惩罚落账），2026-07-22 自 Runner 拆出 |
 | `VFX/EventApplyService.cs` | **唯一落账入口**（R-7.4）：`Apply(ev, ctx, animated)` 刷视图镜像；`ApplyDamage/ApplyHeal` 为伤疗兵力写入唯一实现（演出路径 SettleDamage/SettleHeal 亦经此，静默/演出写账同源） |
@@ -82,8 +83,8 @@
 | `VFX/HighlightSelector.cs` | 高光选窗纯函数（观感分=伤害+满势能 cut_in×3000），重播复用 `PlaybackDirector.PlayGroupsRange` |
 | `Units/MomentumFireController.cs` | **势能火生命周期唯一管理**：Refresh/Fade/Extinguish/Clear + 棋盘级相位信号；hold-off=抑制同值重挂（值变化即重新点火，2026-07-22 修 g1r5） |
 | `Test/SettlementPanel.cs` | 战后结算面板 OnGUI 绘制（三谋式分队/分局 Tab），2026-07-22 自 Runner 拆出 |
-| `Units/UnitAuraService.cs` | **状态常驻光环表**：status_id→aura key+偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记）；粒子强制循环+补密度+半透明 |
-| `Units/MomentumService.cs` | **四轨势能镜像账本**（Phase 4 B1/B2）：momentum_change 落账、TrackTable 注册表（轨→tint/标签）、满档溢出触发、action_start 清零；BGM 经 `GlobalMomentumChanged` 回调解耦；细则见 performance_mechanisms §一b |
+| `Units/UnitAuraService.cs` | **状态常驻光环**：注册表驱动；`shroud_*` → `MountShroud` + `VfxShroudPresence`；`HasShroud`＝视觉 `IsPresent`；`SetShroudVisible` 任意时机 |
+| `Units/MomentumService.cs` | **四轨势能镜像账本**（Phase 4 B1/B2）：momentum_change 落账、TrackTable 注册表（轨→tint/标签）、满档溢出触发、**round_start 全体清零**；BGM 经 `GlobalMomentumChanged` 回调解耦；细则见 performance_mechanisms §一b |
 | `VFX/PerformanceRunner.cs` | **播放控制器**（2026-07-23 瘦身）：PlaybackState 状态机、Play/Replay/Skip/Teardown/Highlight/Stop 全部入口、唯一协程宿主、HardStop 硬停止单一实现；主循环/建世界/策略已拆出 |
 | `VFX/VFXManager.cs` | 特效池 + 离屏实渲预热（Prewarm：全部 prefab 在离屏 RT 相机前实渲 3 帧，shader 编译/贴图上传压进加载期，PlayLoop 等 PrewarmComplete 再开播） |
 | `VFX/CameraShaker.cs` | trauma 噪声模型震动：连抖累加封顶、Perlin 偏移、衰减自动复位（升级点：Cinemachine Impulse） |
@@ -100,7 +101,7 @@
 | `Units/FloatingTextTuning.cs` | 飘字调参 SO（B4）：字体/字号/颜色/上浮曲线，Inspector 实时调；操作文档 floating_text_tuning.md |
 | `Placeholder/PlaceholderFactory.cs` | 占位资源三级回退最后一层（程序化色块/合成音） |
 | `Names/ChineseNames.cs` | 战法/状态/属性中文名（与 battle/names.py 同步维护） |
-| `Names/StatusPresentationRegistry.cs` | **状态表现注册表**（2026-07-20 收口）：一状态一行配置光环 key/控制大图标/结算归因战法/集体齐发；UnitAuraService、StatusIconPanel、StatsAggregator、CollectiveTriggerMerge 只读本表 |
+| `Names/StatusPresentationRegistry.cs` | **状态表现注册表**：光环 key/控制图标/结算归因/集体齐发/`ShroudVisibility`；各服务只读本表 |
 | `Test/BattleReportTester.cs` | 测试入口：文件或粘贴 JSON、调速/跳过/重播按钮；vSync/后台运行/窗口化基线、ESC 退出（新 Input System） |
 | `Test/FrameSpikeProbe.cs` | 诊断（默认关）：帧尖峰日志 + 心跳转子；性能验证以独立版探针数据为准 |
 

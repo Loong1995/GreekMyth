@@ -72,23 +72,25 @@ namespace ClientBattle.VFX
                     ApplyGroupSilently(s, group);
                     continue;
                 }
-                // 势能火相位信号：回合横幅前提前开渐灭（末位行动→下回合之间
-                // 往往没有立刻 ActionStart）
+                // 势能火：仅在回合边界渐灭（计数单元＝回合；行动切换不熄）
                 if (group.Root is RoundStartEvent && actedSinceActionStart)
-                    MomentumFireController.OnRoundBanner(
-                        s.Board, Wait01(Mathf.Max(0.2f, _pacing.ActionPauseSeconds)));
-                // 上一行动窗已打出过行动类单元 → 进入下一 action_start 前 ActionPause：
-                // 场上势能火在此停顿内渐灭（不依赖 lastActionActor；避免借刀/响应归账漏灭）
+                {
+                    float fade = Wait01(Mathf.Max(0.2f, _pacing.ActionPauseSeconds));
+                    if (_pacing.ActionPauseSeconds > 0f)
+                    {
+                        MomentumFireController.OnRoundBanner(s.Board, fade);
+                        yield return Wait(_pacing.ActionPauseSeconds);
+                    }
+                    MomentumFireController.ExtinguishAll(s.Board);
+                    MomentumService.OnRoundBoundary(s.Board);
+                    actedSinceActionStart = false;
+                }
+                // 行动窗切换停顿（纯节奏；不再熄势能火）
                 if (group.Root is ActionStartEvent && actedSinceActionStart)
                 {
                     actedSinceActionStart = false;
                     if (_pacing.ActionPauseSeconds > 0f)
-                    {
-                        MomentumFireController.OnActionPauseBegin(
-                            s.Board, Wait01(_pacing.ActionPauseSeconds));
                         yield return Wait(_pacing.ActionPauseSeconds);
-                    }
-                    MomentumFireController.OnActionPauseEnd(s.Board);
                 }
                 yield return PlayGroup(s, group);
                 if (IsActionKind(group.Kind))
@@ -200,10 +202,13 @@ namespace ClientBattle.VFX
             {
                 case RoundStartEvent round when round.RoundNo > 0:
                     ctx.OnBanner?.Invoke($"第 {round.RoundNo} 回合");
+                    // 回合头清账：若上方已在边界做过（有上一回合行动），此处再清为空操作
+                    MomentumService.OnRoundBoundary(s.Board);
+                    Units.UnitAuraService.OnRoundStart(round.RoundNo);
                     break;
                 case ActionStartEvent action:
                     var unit = ctx.Unit(action.ActorId);
-                    // 自身行动窗开始：四轨势能镜像清零（EventApplyService 统一落账）
+                    // 势能改按回合清零，action_start 不再清四轨
                     EventApplyService.Apply(action, ctx, animated: true);
                     s.PursuitCountInWindow = 0;
                     if (unit != null && action.Skipped)
@@ -226,6 +231,11 @@ namespace ClientBattle.VFX
 
         public static void ApplyGroupSilently(PlaybackSession s, EventGroup group)
         {
+            if (group.Root is RoundStartEvent rs && rs.RoundNo > 0)
+            {
+                MomentumService.OnRoundBoundary(s.Board);
+                Units.UnitAuraService.OnRoundStart(rs.RoundNo);
+            }
             foreach (var ev in group.Events)
                 EventApplyService.Apply(ev, s.Ctx, animated: false);
         }

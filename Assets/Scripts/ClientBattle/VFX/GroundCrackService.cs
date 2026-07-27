@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using ClientBattle.Events;
 using UnityEngine;
@@ -17,7 +16,7 @@ namespace ClientBattle.VFX
     // 关停整套都只改本文件。
     //
     // 分层职责：
-    //   本服务      触发条件 / 落点 / 朝向 / 分段节拍
+    //   本服务      触发条件 / 落点 / 朝向 / 分段（节拍由 StrikeSync 的飞行进度给）
     //   GroundCrackPalette  颜色 / 强度三档 / 模式两类（唯一真源）
     //   GroundCrackDecal    单实例的生长/熔岩/淡出
     //   GroundCrackComposer 编辑期烘 prefab（G4）
@@ -43,6 +42,12 @@ namespace ClientBattle.VFX
         /// <summary>本组伤害是否该出裂地：总开关 + 物理 + 近 3D 地面存在。</summary>
         public static bool Active(List<DamageEvent> damages) =>
             Enabled && IsPhysical(damages) && Units.ArenaSlotLayout.GroundActive;
+
+        /// <summary>单条伤害是否该出命中裂地（与 <see cref="Active"/> 同判据）。
+        /// 由 SettleDamage 与 HitKey 同帧调用，模板勿再单独 PlayHit。</summary>
+        public static bool ShouldPlayHit(DamageEvent damage) =>
+            Enabled && damage != null && damage.DamageType != "magic"
+            && Units.ArenaSlotLayout.GroundActive;
 
         /// <summary>势能全开加强出手时，命中类面积倍率（在卡宽×1.5 上再乘）。</summary>
         const float EmpoweredHitArea = 1.5f;
@@ -78,54 +83,118 @@ namespace ClientBattle.VFX
                  ResolveStrength(profile, ctx), AreaOf(profile, ctx));
         }
 
-        /// <summary>T1 弹道裂地：飞行途中分 PathSteps 段，沿「施法者接地中心 →
-        /// 受击者接地中心」连线起裂，朝向锁定弹道方向，终点即 T2 圆心。
+        /// <summary>T1 弹道裂地驱动器：挂到 <see cref="StrikeSync"/> 的飞行段上，
+        /// 沿途起裂并**按弹道飞行进度推进生长**——第 i 段覆盖进度区间
+        /// [(i-1)/N, i/N]，在该区间内推满；末段推满那一刻＝弹道抵达＝命中拍开始。
         ///
-        /// 进度取弹道实例的实时位置而非等分插值：弹道走带缓动的二次贝塞尔弧线、
-        /// 且各道有起飞错峰，等分插值与眼睛看到的球对不上。
-        /// 落点不用弹道正下方：弹道飞向竖立卡牌的卡心，其正下方比接地中心深
-        /// halfCardH·sin(俯角)，直接投影会让裂痕带停在 T2 圆心后方、断成两截。
+        /// 禁止回到「按墙钟等分戳缝 + 贴花各自自走生长」：那样末段总在弹道抵达
+        /// 之后才长完，命中拍被拖开半拍（P-57 / P-62）。
         ///
-        /// 本协程**同时承担飞行期的等待**（总时长 = flight），调用方不要再另垫。</summary>
-        public static IEnumerator PlayPath(VFXContext ctx, PerformanceProfile profile,
-                                           Vector3 from, List<DamageEvent> damages,
-                                           Transform[] projectiles, float flight)
+        /// 不该出裂地时返回 null（<see cref="StrikeSync.Attach"/> 对 null 免疫）。
+        /// lane 序 ＝ damages 序 ＝ StrikeSync 的 projectiles/aims 序。</summary>
+        public static IFlightDriven PathDriver(VFXContext ctx, PerformanceProfile profile,
+                                               Vector3 from, List<DamageEvent> damages)
         {
-            var mode = GroundCrackPalette.PathMode;
-            // 专配优先；否则每段各抽不同变体 —— 同一 key 连戳三段＝「两道大缝复读到终点」
-            var stepKeys = GroundCrackPalette.PickPathKeys(profile?.GroundPathKey, PathSteps);
-            var strength = ResolveStrength(profile, ctx);
-            // 出膛点按卡心投影（弹道实例就生在卡心，用于量飞行进度）；
-            // 裂地线段两端按接地中心，与命中裂地 T2 的圆心同源
-            var launchGround = Units.ArenaSlotLayout.GroundUnder(from);
-            var fromFoot = Units.ArenaSlotLayout.GroundFoot(from);
-            float elapsed = 0f;
-            for (int s = 1; s <= PathSteps; s++)
+            if (ctx == null || !Active(damages)) return null;
+            return new FlightPathCracks(ctx, profile, from, damages);
+        }
+
+        /// <summary>一段已出场的弹道裂地：出场时缓存贴花，供逐帧驱动生长
+        /// （禁止每帧 GetComponentsInChildren —— Update 内零 alloc 红线）。</summary>
+        sealed class Stamp
+        {
+            readonly GroundCrackDecal[] _decals;
+
+            public Stamp(GroundCrackDecal[] decals)
             {
-                float when = flight * s / (PathSteps + 1f);
-                if (when > elapsed)
+                _decals = decals;
+                for (int i = 0; i < _decals.Length; i++)
+                    if (_decals[i] != null) _decals[i].EnableFlightDriven();
+            }
+
+            public void Drive(float growth01)
+            {
+                for (int i = 0; i < _decals.Length; i++)
+                    if (_decals[i] != null) _decals[i].DriveGrowth(growth01);
+            }
+        }
+
+        sealed class FlightPathCracks : IFlightDriven
+        {
+            readonly VFXContext _ctx;
+            readonly Vector3 _fromFoot;
+            readonly Vector3[] _toFoot;
+            readonly bool[] _hasTarget;
+            readonly string[] _stepKeys;
+            readonly GroundCrackPalette.Strength _strength;
+            readonly Stamp[] _stamps; // [lane * PathSteps + step]，null＝该段还没起裂
+
+            public FlightPathCracks(VFXContext ctx, PerformanceProfile profile,
+                                    Vector3 from, List<DamageEvent> damages)
+            {
+                _ctx = ctx;
+                // 专配优先；否则每段各抽不同变体 —— 同一 key 连戳三段＝「一道缝复读」
+                _stepKeys = GroundCrackPalette.PickPathKeys(profile?.GroundPathKey, PathSteps);
+                _strength = ResolveStrength(profile, ctx);
+                _fromFoot = Units.ArenaSlotLayout.GroundFoot(from);
+
+                int lanes = damages.Count;
+                _toFoot = new Vector3[lanes];
+                _hasTarget = new bool[lanes];
+                _stamps = new Stamp[lanes * PathSteps];
+                for (int lane = 0; lane < lanes; lane++)
                 {
-                    yield return new WaitForSeconds(when - elapsed);
-                    elapsed = when;
-                }
-                string key = stepKeys[s - 1];
-                for (int i = 0; i < damages.Count; i++)
-                {
-                    var projectile = i < projectiles.Length ? projectiles[i] : null;
-                    var target = ctx.UnitTransform(damages[i].TargetId);
-                    if (projectile == null || target == null) continue;
-                    var aimGround = Units.ArenaSlotLayout.GroundUnder(target.position);
-                    var atGround = Units.ArenaSlotLayout.GroundUnder(projectile.position);
-                    float progress = Progress(launchGround, aimGround, atGround);
-                    // 错峰未起飞的弹道仍停在施法点，此时起裂会在施法者脚下堆一坨
-                    if (progress < 0.05f) continue;
-                    var toFoot = Units.ArenaSlotLayout.GroundFoot(target.position);
-                    // 弹道类不吃面积倍率：它的长度由弹道两端拉出来，放大只会溢出赛道
-                    Play(ctx, mode, key, Vector3.Lerp(fromFoot, toFoot, progress),
-                         YawAlong(fromFoot, toFoot), strength, area: 1f);
+                    // 终点用原站位点，不跟 RestPosition 微抖；与定位圆同源
+                    var unit = ctx.Unit(damages[lane].TargetId);
+                    if (unit == null) continue;
+                    _hasTarget[lane] = true;
+                    _toFoot[lane] = Units.ArenaSlotLayout.GroundFoot(unit.HomePosition);
                 }
             }
-            if (flight > elapsed) yield return new WaitForSeconds(flight - elapsed);
+
+            public void OnFlightProgress(int lane, float progress01)
+            {
+                if (lane < 0 || lane >= _hasTarget.Length || !_hasTarget[lane]) return;
+                for (int step = 0; step < PathSteps; step++)
+                {
+                    float start = step / (float)PathSteps;
+                    // 起飞错峰期间弹道还停在出膛点：不许起裂，否则在施法者脚下堆一坨
+                    if (progress01 < Mathf.Max(start, StrikeSync.LaunchedProgress)) break;
+                    int slot = lane * PathSteps + step;
+                    _stamps[slot] ??= Spawn(lane, step);
+                    _stamps[slot].Drive(Mathf.InverseLerp(start, (step + 1) / (float)PathSteps,
+                                                          progress01));
+                }
+            }
+
+            public void OnFlightArrived()
+            {
+                // 兜底：弹道缺失/被提前回收时补齐整条路径并收满，禁止半截裂痕
+                for (int lane = 0; lane < _hasTarget.Length; lane++)
+                {
+                    if (!_hasTarget[lane]) continue;
+                    for (int step = 0; step < PathSteps; step++)
+                    {
+                        int slot = lane * PathSteps + step;
+                        _stamps[slot] ??= Spawn(lane, step);
+                        _stamps[slot].Drive(1f);
+                    }
+                }
+            }
+
+            /// <summary>第 step 段落在其区间末（＝弹道走到的位置），朝向锁定弹道方向。
+            /// 弹道类不吃面积倍率：长度由弹道两端拉出来，放大只会溢出赛道。</summary>
+            Stamp Spawn(int lane, int step)
+            {
+                var toFoot = _toFoot[lane];
+                Vector3 at = Vector3.Lerp(_fromFoot, toFoot, (step + 1) / (float)PathSteps);
+                var instance = Play(_ctx, GroundCrackPalette.PathMode,
+                                    _stepKeys[Mathf.Clamp(step, 0, _stepKeys.Length - 1)],
+                                    at, YawAlong(_fromFoot, toFoot), _strength, area: 1f);
+                return new Stamp(instance != null
+                    ? instance.GetComponentsInChildren<GroundCrackDecal>(true)
+                    : System.Array.Empty<GroundCrackDecal>());
+            }
         }
 
         // ------------------------------------------------------------ 内部
@@ -168,11 +237,11 @@ namespace ClientBattle.VFX
         /// 存续**故意不吃倍速**（只吃 DurationMul 放慢倍率）：裂地是留在地上的
         /// 痕迹、不 yield 不阻塞节拍，4 倍速下若同比压缩，整段只剩 ~0.4s，
         /// 肉眼等于没播（2026-07-26 赫克托尔群攻实测）。快进时痕迹以常速淡出。</summary>
-        static void Play(VFXContext ctx, GroundCrackPalette.ModeSpec mode, string key,
-                         Vector3 groundPos, float? yaw,
-                         GroundCrackPalette.Strength strength, float area)
+        static GameObject Play(VFXContext ctx, GroundCrackPalette.ModeSpec mode, string key,
+                               Vector3 groundPos, float? yaw,
+                               GroundCrackPalette.Strength strength, float area)
         {
-            if (!Enabled || ctx?.Vfx == null) return;
+            if (!Enabled || ctx?.Vfx == null) return null;
             var spec = GroundCrackPalette.SpecOf(strength, mode.Kind);
             float pace = Mathf.Max(0.5f, ctx.DurationMul);
             float life = spec.Duration * pace;
@@ -193,6 +262,7 @@ namespace ClientBattle.VFX
             if (LogTriggers)
                 Debug.Log($"[GroundCrack] {key} @{groundPos} yaw={(yaw.HasValue ? yaw.Value : 0f)} " +
                           $"strength={strength} area={area:F2} life={life:F2}s");
+            return instance;
         }
 
         /// <summary>地面平面内 from→to 的偏航角（度）。遮罩长轴在 prefab 里是
@@ -202,16 +272,6 @@ namespace ClientBattle.VFX
             Vector3 d = to - from;
             if (d.sqrMagnitude < 1e-8f) return 0f;
             return -Mathf.Atan2(d.z, d.x) * Mathf.Rad2Deg;
-        }
-
-        /// <summary>弹道当前地面投影点在「出膛点→瞄准点」上走过的比例（0~1）。
-        /// 取投影分量而非直线距离：弹道弧线的水平分量才代表推进程度。</summary>
-        static float Progress(Vector3 launch, Vector3 aim, Vector3 at)
-        {
-            Vector3 axis = aim - launch;
-            float len2 = axis.sqrMagnitude;
-            if (len2 < 1e-6f) return 1f;
-            return Mathf.Clamp01(Vector3.Dot(at - launch, axis) / len2);
         }
     }
 }
