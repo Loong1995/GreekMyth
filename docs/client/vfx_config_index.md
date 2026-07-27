@@ -58,6 +58,25 @@ SpecialProfiles[skill/status id]
 **改默认命中**：改 `PerformanceDatabase` 对应字段，或改 `ResolveHitKey` 分支；
 同步本文件 §〇/§二 + [assets_upload_guide](assets_upload_guide.md) 对应 key 行。
 
+## 一b、弹道 key 解析顺序（唯一，**逐条伤害**）
+
+```
+1. profile.ProjectileKey 非空 → 专配优先（珀尔修斯飞剑、海神浪…）
+2. damage_type == "magic" → magic_bolt（画廊 1/8 件 54/62）；**不带弹道裂地**
+3. 其余（物理）        → proj_bolt200；**带弹道裂地**（档位见 ground_crack_config）
+```
+
+实现：`DefaultPerformance.ProjectileKeyOf(profile, damage)`；近身斩击同构走
+`StrikeKeyOf`（物理 `slash` / 魔法 `magic_bolt`）。
+
+- **主动技能的默认弹道即物理系**（`proj_bolt200`），物理系主动才有「弹道 +
+  默认裂地」这一整套；纯魔法伤害的主动走 `magic_bolt`，**全程无裂地**
+  （裂地是「砸在地上」的语言，见 `GroundCrackService.IsPhysical`）。
+- **逐条判、不按组第一条判**（2026-07-27 改）：同组混合伤害时，魔法那一路飞
+  `magic_bolt` 且不出裂缝，物理那一路飞 `proj_bolt200` 且出裂缝。弹道裂地侧
+  由 `FlightPathCracks` 逐 lane 同判据把魔法 lane 整条跳过。
+- 远程落击（雷霆）无 `ProjectileKey` 时走程序化竖雷，不套本表。
+
 ## 二、常用默认一览（卡面 / 弹道）
 
 | 场景 | 弹道 / 斩击 | 卡面命中 HitKey |
@@ -65,8 +84,8 @@ SpecialProfiles[skill/status id]
 | **巨伤（重创横幅）** | 按原模板 | **`hit_massive`**＋强制震屏＋**档3×1.5命中裂地**；命中拍先露脸再 cut-in（P-72） |
 | 普攻近身 | `slash`×1.0（Melee 命中帧） | **`hit_generic`** |
 | 追击（同步主动） | 群攻走主动、单体近身 | 按伤害类型：`hit_sword` / `hit_petrify` |
-| 主动·物理（未专配） | `proj_bolt200` | `hit_sword` |
-| 主动·魔法（未专配） | `magic_bolt` | `hit_petrify` |
+| 主动·物理（未专配） | `proj_bolt200`＋弹道裂地 | `hit_sword` |
+| 主动·魔法（未专配） | `magic_bolt`（1/8 件 54/62）**无裂地** | `hit_petrify` |
 | 神谕产生的伤害 | 按模板 | `hit_wave`（`OracleDefault.HitKey`） |
 | 雷霆 / 天雷击 | DR 竖雷（无弹道） | `hit_lightning`（Special；被巨伤覆盖时除外） |
 | 治疗 | — | `heal_generic`（`SettleHeal` 写死） |
@@ -78,7 +97,7 @@ SpecialProfiles[skill/status id]
 
 | 想查什么 | 去哪 | 性质 |
 |---|---|---|
-| **命中/弹道默认、解析顺序、普攻是谁** | **本文** | 总索引 |
+| **命中/弹道默认、解析顺序、普攻是谁** | **本文**（§一 命中 · §一b 弹道） | 总索引 |
 | 某 key 原料/路径/画廊序号 | [assets_upload_guide.md](assets_upload_guide.md) | key 登记唯一清单 |
 | 三级 Profile / 专配列表 | `Assets/Scripts/ClientBattle/VFX/PerformanceDatabase.cs` | **代码真源** |
 | 解析 API | `VFXResolver.cs` + `SkillPerformance.ResolveHitKey` | 代码 |

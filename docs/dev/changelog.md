@@ -1,6 +1,19 @@
 
 # Changelog
 
+## 2026-07-27 罩身定径修正（P-74）+ 弹道逐条解析
+- 罩身「没罩住」根因：`VfxShroudFitter.Measure` 把 **Decal**（随后必被 Pin 钉死）
+  与**纯折射层**算进定径。Effect18 的 Decal2 宽 8.97、Distortion 6.34 宽，
+  把 k 压到 0.52 → 可见壳顶 1.49 < 卡上缘 2.16。
+- 修：定径只取**可见壳粒子**（跳过 shader 含 Distortion，全折射时回落），
+  Decal 一律排除；bodyTop 同步跳过折射层。实测 k=1.20、顶 3.45、横向 2.60
+  ≈投影圆×1.21。新增坑 P-74。
+- 弹道解析改**逐条伤害**：`ProjectileKeyOf(profile, damage)`——专配 >
+  魔法 `magic_bolt`（画廊 1/8 件 54/62，无裂地）> 物理 `proj_bolt200`（带裂地）。
+- 裂地同步逐 lane：`Active` 改为「本组有无物理」，`FlightPathCracks` 逐 lane
+  判物理，混合组里魔法那一路整条跳过（原按 `damages[0]` 整组走）。
+- 文档：vfx_config_index 新增 §一b 弹道解析；ground_crack_config 补逐条判定。
+
 ## 2026-07-27 战神之勇罩身改接画廊 2/8·10/61（Effect18）
 - `shroud_ares_might` 原料由 Magic Effect31 改为 **Effect18**（画廊 Ordinal 10/61）；
   `WireAresMightShroud` 完整件重拷 + AutoHeal；挂载 key / OddRounds 不变。

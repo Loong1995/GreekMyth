@@ -33,7 +33,12 @@
 - 势能加强时**覆盖**专配：即使技能配了档 2，加强出手仍强制档 3 + 面积 1.5。
 - **场心大裂地只跟势能加强**（命中骨架 + 档 3 + 面积 3.2），巨伤不单独叠——
   那是「势能全开」的专属语言，巨伤靠轨迹＋命中拉满表达。
-- 魔法伤害不裂地（`GroundCrackService.Active`；轨迹 T4 同判据）。
+- 魔法伤害不裂地（`GroundCrackService.IsPhysical`；轨迹 T4 同判据）。**逐条判**：
+  `Active(damages)` 只回答「本组有没有物理伤害」，具体哪一路出裂地由
+  `FlightPathCracks` **逐 lane** 判（2026-07-27 改）。曾只看 `damages[0]`，
+  混合组会整组跟第一条走——纯魔法那一路也拖出裂缝。
+  纯魔法主动＝`magic_bolt` 弹道 + 全程无裂地（弹道解析见
+  [vfx_config_index §一b](vfx_config_index.md)）。
 
 
 

@@ -121,9 +121,7 @@ namespace ClientBattle.VFX
             foreach (var r in instance.GetComponentsInChildren<Renderer>(true))
             {
                 if (r == null || !r.enabled || r is ParticleSystemRenderer) continue;
-                if (r.gameObject.name.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) < 0
-                    && r.name.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) < 0)
-                    continue;
+                if (!IsDecal(r)) continue;
 
                 float w = Mathf.Max(r.bounds.size.x, r.bounds.size.z);
                 if (w < 0.001f) continue;
@@ -140,22 +138,29 @@ namespace ClientBattle.VFX
 
         /// <summary>量「结构件」的水平最大边 —— 定径基准。
         ///
-        /// 结构件 = **最高的那个粒子渲染器（＝壳）** ＋ **所有非粒子渲染器**
-        /// （地面贴花这类固定网格）。其余粒子（烟、碎石）是碎屑，一律不算：
-        /// 它们世界空间模拟 + 重力飞散，包围盒随时间暴涨（Effect31 的 Smoke 4.44 宽、
-        /// 本地高度后期涨到 ~30），算进来会把主体挤瘪。
+        /// 结构件 = **最高的那个可见壳粒子渲染器**。其余粒子（烟、碎石）是碎屑，
+        /// 一律不算：它们世界空间模拟 + 重力飞散，包围盒随时间暴涨
+        /// （Effect31 的 Smoke 4.44 宽、本地高度后期涨到 ~30），算进来会把主体挤瘪。
         ///
-        /// 为什么贴花必须算：它是**落在地面上的痕迹**，一旦超出投影圆就直接读作
-        /// "特效的地面变化跑出圈外"。Effect31 贴花 3.4 比壳 2.89 还宽，
-        /// 只按壳定径必然溢出。
+        /// 【两类层被排除在定径之外（2026-07-27 加，Effect18 实战）】
+        ///   - **Decal 类网格**：它随后会被 <see cref="PinGroundRingToProjectionCircle"/>
+        ///     单独钉死成投影圆直径，让一个「反正会被强制重设尺寸」的层决定整件缩放
+        ///     上限是自相矛盾的。Effect18 的 `Decal2` 宽达 **8.97**（Effect31 才 3.4），
+        ///     算进来 kFit 被压到约 0.3，竖向补高又受 OverflowCap 限制，
+        ///     结果壳顶只到 1.7 米、卡上缘 3.3 米——就是「没罩住身」。
+        ///   - **纯折射层**（shader 名含 Distortion 且**不是**唯一壳候选）：
+        ///     它在我们的低频舞台上几乎不可见（详见 <see cref="EnsureShellVisible"/>），
+        ///     却往往比可见壳大一大圈（Effect18 的 `Distortion` 7.42 宽 / 顶 4.48，
+        ///     可见壳 `ShieldAdd` 只有 2.16 宽 / 顶 2.89）。拿它定径或当覆盖基准，
+        ///     等于按「看不见的东西」判断「有没有罩住」。
         ///
-        /// 同时输出 <paramref name="bodyTop"/> ＝ **除壳以外**的可见层（火/烟/电/碎石）
-        /// 顶面高出根原点多少 ＝ 竖向覆盖基准，以及 <paramref name="shell"/> 本体
-        /// （供补轮廓用）。
+        /// 同时输出 <paramref name="bodyTop"/> ＝ **除壳与折射层以外**的可见层
+        /// （火/烟/电/发光壳面）顶面高出根原点多少 ＝ 竖向覆盖基准，
+        /// 以及 <paramref name="shell"/> 本体（供补轮廓用）。
         ///
-        /// 为什么竖向不拿壳算：壳是折射壳，屏幕上贡献极弱（见 EnsureShellVisible）。
-        /// Effect31 实测壳顶已在地面上方 6.5 米、卡上缘只有 3.3 米，按壳算"早就够了"，
-        /// 而人眼看到的火/烟只到 3.0 米 —— 于是连续两轮被判"高度就是没到上边缘"。</summary>
+        /// 为什么竖向不拿壳算：壳多为折射壳，屏幕上贡献极弱。Effect31 实测壳顶已在
+        /// 地面上方 6.5 米、卡上缘只有 3.3 米，按壳算"早就够了"，而人眼看到的火/烟
+        /// 只到 3.0 米 —— 于是连续两轮被判"高度就是没到上边缘"。</summary>
         static void Measure(GameObject instance, out float width,
             out float bodyTop, out Renderer shell)
         {
@@ -167,12 +172,9 @@ namespace ClientBattle.VFX
 
             var renderers = instance.GetComponentsInChildren<Renderer>(true);
 
-            shell = null;
-            foreach (var r in renderers)
-            {
-                if (!r.enabled || !(r is ParticleSystemRenderer)) continue;
-                if (shell == null || r.bounds.size.y > shell.bounds.size.y) shell = r;
-            }
+            // 壳＝可见粒子中最高者；全是折射层时才退回用折射层当壳（否则没壳可补轮廓）
+            shell = TallestParticle(renderers, skipRefraction: true)
+                    ?? TallestParticle(renderers, skipRefraction: false);
 
             float originY = instance.transform.position.y;
             width = 0f;
@@ -182,14 +184,40 @@ namespace ClientBattle.VFX
                 if (!r.enabled) continue;
                 if (r is ParticleSystemRenderer)
                 {
-                    if (r != shell) bodyTop = Mathf.Max(bodyTop, r.bounds.max.y - originY);
+                    if (r != shell && !IsRefraction(r))
+                        bodyTop = Mathf.Max(bodyTop, r.bounds.max.y - originY);
                     continue;
                 }
+                if (IsDecal(r)) continue; // 由 Pin 钉死，不参与定径
                 width = Mathf.Max(width, r.bounds.size.x, r.bounds.size.z);
             }
             if (shell != null)
                 width = Mathf.Max(width, shell.bounds.size.x, shell.bounds.size.z);
         }
+
+        static Renderer TallestParticle(Renderer[] renderers, bool skipRefraction)
+        {
+            Renderer best = null;
+            foreach (var r in renderers)
+            {
+                if (!r.enabled || r is not ParticleSystemRenderer) continue;
+                if (skipRefraction && IsRefraction(r)) continue;
+                if (best == null || r.bounds.size.y > best.bounds.size.y) best = r;
+            }
+            return best;
+        }
+
+        /// <summary>纯折射层（KriptoFX/RFX*/Distortion 等）：低频舞台上近乎不可见。</summary>
+        static bool IsRefraction(Renderer r)
+        {
+            var shader = r.sharedMaterial != null ? r.sharedMaterial.shader : null;
+            return shader != null &&
+                   shader.name.IndexOf("Distortion", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        static bool IsDecal(Renderer r) =>
+            r.gameObject.name.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+            r.name.IndexOf("Decal", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>给折射壳补一层菲涅尔轮廓 —— 罩身件"看着高度不够"的真因。
         ///

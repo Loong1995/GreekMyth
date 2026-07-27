@@ -36,12 +36,21 @@ namespace ClientBattle.VFX
         const int PathSteps = 3;
 
         /// <summary>魔法伤害不裂地（裂地是「砸在地上」的语言）。</summary>
-        static bool IsPhysical(List<DamageEvent> damages) =>
-            damages != null && damages.Count > 0 && damages[0].DamageType != "magic";
+        static bool IsPhysical(DamageEvent damage) =>
+            damage != null && damage.DamageType != "magic";
 
-        /// <summary>本组伤害是否该出裂地：总开关 + 物理 + 近 3D 地面存在。</summary>
-        public static bool Active(List<DamageEvent> damages) =>
-            Enabled && IsPhysical(damages) && Units.ArenaSlotLayout.GroundActive;
+        /// <summary>本组是否**有任一条**物理伤害该出裂地：总开关 + 物理 + 近 3D 地面。
+        ///
+        /// 只判「有没有」，具体哪一路出裂地由 <see cref="FlightPathCracks"/> **逐 lane**
+        /// 判（2026-07-27 改）。曾只看 `damages[0]`，混合伤害组会整组跟着第一条走——
+        /// 纯魔法那一路也拖出裂缝，或物理那一路反而没有。</summary>
+        public static bool Active(List<DamageEvent> damages)
+        {
+            if (!Enabled || !Units.ArenaSlotLayout.GroundActive || damages == null) return false;
+            foreach (var d in damages)
+                if (IsPhysical(d)) return true;
+            return false;
+        }
 
         /// <summary>单条伤害是否该出命中裂地（与 <see cref="Active"/> 同判据）。
         /// 由 SettleDamage 与 HitKey 同帧调用，模板勿再单独 PlayHit。</summary>
@@ -214,6 +223,8 @@ namespace ClientBattle.VFX
                 _stamps = new Stamp[lanes * PathSteps];
                 for (int lane = 0; lane < lanes; lane++)
                 {
+                    // 逐 lane 判物理：同组里魔法那一路不出裂地（纯魔法弹道无裂地）
+                    if (!IsPhysical(damages[lane])) continue;
                     // 终点用原站位点，不跟 RestPosition 微抖；与定位圆同源
                     var unit = ctx.Unit(damages[lane].TargetId);
                     if (unit == null) continue;

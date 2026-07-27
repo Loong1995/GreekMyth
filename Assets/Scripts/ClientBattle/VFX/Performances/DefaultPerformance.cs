@@ -221,7 +221,6 @@ namespace ClientBattle.VFX
                 yield return StrikeBeats.Advance(ctx, actor, ctx.BoardCenter, damages);
 
             // N 道弹道错峰起飞、同时段抵达 → 抵达帧同帧结算掉血
-            string projectileKey = ProjectileKeyOf(profile, damages);
             Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
             float flightBase = ctx.Scaled(0.38f);
             float stagger = damages.Count > 1 ? ctx.Scaled(0.045f) : 0f;
@@ -233,8 +232,9 @@ namespace ClientBattle.VFX
                 if (target == null) continue;
                 float delay = i * stagger;
                 aims[i] = target.position;
-                var launched = LaunchProjectile(ctx, projectileKey, from, aims[i],
-                    flightBase - delay, delay);
+                // 弹道件逐路解析：魔法那一路飞 magic_bolt（无裂地），物理飞 proj_bolt200
+                var launched = LaunchProjectile(ctx, ProjectileKeyOf(profile, damages[i]),
+                    from, aims[i], flightBase - delay, delay);
                 projectiles[i] = launched != null ? launched.transform : null;
             }
             // T3 全局大裂地：势能全开的加强出手，逻辑圆量级主缝从场心劈开。
@@ -299,7 +299,6 @@ namespace ClientBattle.VFX
         IEnumerator PlayPerSegment(EventGroup group, PerformanceProfile profile, VFXContext ctx,
                                    Units.UnitView actor, List<DamageEvent> damages, string floatName)
         {
-            string projectileKey = ProjectileKeyOf(profile, damages);
             // 单体弹道同样出裂地（与群攻同一套服务与同步器）：一段一条，朝向沿本段弹道
             var single = new List<DamageEvent>(1) { null };
             var projectile = new Transform[1];
@@ -312,7 +311,8 @@ namespace ClientBattle.VFX
                     float flight = ctx.Scaled(0.30f);
                     Vector3 from = actor != null ? actor.transform.position : ctx.BoardCenter;
                     aim[0] = target.position;
-                    var launched = LaunchProjectile(ctx, projectileKey, from, aim[0], flight);
+                    var launched = LaunchProjectile(
+                        ctx, ProjectileKeyOf(profile, damage), from, aim[0], flight);
                     single[0] = damage;
                     projectile[0] = launched != null ? launched.transform : null;
                     yield return StrikeSync.Fly(from, projectile, aim, flight)
@@ -394,12 +394,17 @@ namespace ClientBattle.VFX
             return magic ? "magic_bolt" : "slash";
         }
 
-        /// <summary>主动飞行弹道默认：物理 proj_bolt200、魔法 magic_bolt。</summary>
-        static string ProjectileKeyOf(PerformanceProfile profile, List<DamageEvent> damages)
+        /// <summary>主动飞行弹道默认（**逐条伤害**解析，文档 vfx_config_index.md §二）：
+        ///   ① `profile.ProjectileKey` 非空 → 专配优先；
+        ///   ② 魔法伤害 → <c>magic_bolt</c>（画廊 1/8 件 54/62），**不带弹道裂地**；
+        ///   ③ 其余（物理）→ <c>proj_bolt200</c>，带弹道裂地（档位见 ground_crack_config）。
+        ///
+        /// 为什么按条而不按组：同组混合伤害时按 `damages[0]` 会让魔法那一路也飞物理弹、
+        /// 或反之。裂地侧同样逐 lane 判（`FlightPathCracks`）。</summary>
+        static string ProjectileKeyOf(PerformanceProfile profile, DamageEvent damage)
         {
             if (!string.IsNullOrEmpty(profile.ProjectileKey)) return profile.ProjectileKey;
-            bool magic = damages.Count > 0 && damages[0].DamageType == "magic";
-            return magic ? "magic_bolt" : "proj_bolt200";
+            return damage != null && damage.DamageType == "magic" ? "magic_bolt" : "proj_bolt200";
         }
 
         static int CountDistinctTargets(List<DamageEvent> damages)
