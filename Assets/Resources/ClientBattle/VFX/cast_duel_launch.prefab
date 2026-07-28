@@ -199,6 +199,7 @@ GameObject:
   - component: {fileID: 4996986778761352}
   - component: {fileID: 108131243985114284}
   - component: {fileID: 114126598845304542}
+  - component: {fileID: 2884597678276536053}
   m_Layer: 0
   m_Name: Point light
   m_TagString: Untagged
@@ -327,6 +328,20 @@ MonoBehaviour:
   IsLoop: 0
   UseShadowsIfPossible: 0
   canUpdate: 0
+--- !u!114 &2884597678276536053
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1132177481232930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 2
+  MinTier: 0
 --- !u!1 &1190770181260410
 GameObject:
   m_ObjectHideFlags: 0
@@ -14691,6 +14706,7 @@ GameObject:
   - component: {fileID: 4612746945712396}
   - component: {fileID: 198485176473552800}
   - component: {fileID: 199832992304744248}
+  - component: {fileID: 7332491846003791196}
   m_Layer: 8
   m_Name: DistortRing
   m_TagString: Untagged
@@ -19322,6 +19338,20 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!114 &7332491846003791196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1787589098686400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 1
+  MinTier: 0
 --- !u!1 &1932033835880442
 GameObject:
   m_ObjectHideFlags: 0
@@ -22829,7 +22859,7 @@ ParticleSystem:
         m_NumAlphaKeys: 2
     range: {x: 0, y: 1}
   CollisionModule:
-    enabled: 1
+    enabled: 0
     serializedVersion: 4
     type: 0
     collisionMode: 0
@@ -24071,6 +24101,7 @@ GameObject:
   - component: {fileID: 114731434624371152}
   - component: {fileID: 1794773497026008861}
   - component: {fileID: 4367269179243026290}
+  - component: {fileID: 7823482406618621582}
   m_Layer: 0
   m_Name: cast_duel_launch
   m_TagString: Untagged
@@ -24154,6 +24185,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6e4df5bdf5eb48498edf84eaadb5bed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxFreshInstance
+--- !u!114 &7823482406618621582
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1967491460922094}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 0
+  MinTier: 0
 --- !u!1 &1970635589370690
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,6 +1,6 @@
 # cut-in 横幅机制（权威 · 客户端）
 
-> 一切 cut-in 横幅（满档 / **巨伤「重创」** / 追击不止 / 战术变更）的触发判据、
+> 一切 cut-in 横幅（**专属高光** / 满档 / **巨伤「重创」** / 追击不止 / 战术变更）的触发判据、
 > 编排形状、运镜与参数，全部登记在本文。改 cut-in 只改本文所列的两个文件：
 > `Events/CutInPlanner.cs`（判据，编译期注记）与 `VFX/CutInStage.cs`（编排），
 > 禁止在演出层/编排层散落门槛判断。
@@ -27,13 +27,20 @@ cut-in 只有一种形状，与单挑同构，**整段独占播放单元**：
 
 | 源 | 判据 | 标题 | 加强出手 |
 |---|---|---|---|
+| **武将专属高光** | 组根 `skill_trigger.kind="highlight"` 且 `hint.cut_in="highlight"`（服务点名，schema 1.5.1）；客户端**不设阈值** | 高光归因 id 的中文名 + `！`（如「神罚！」） | 否（`Highlight`） |
 | 满档轨 | 某轨镜像已 ≥5（Full）后，本组同轨 `momentum_change.cut_in=true` 再次进账；刚满 5 的当次不切 | 即将造成伤害的技能中文名 + `！` | 是（`EmpoweredStrike`） |
 | **巨伤「重创」** | 组内首条 `damage.amount > 3000`（`HighDamageThreshold`）且 `mitigation` 为空（被格挡/反弹的 0 伤不算） | `技能名 重创 目标！-伤害` | 否 |
 | 追击不止 | 行动窗内第 5 个追击单元（`PursuitCutInAt`） | `追击不止！` | 否 |
 | 战术变更 | 无主体武将 → 无运镜，回退 OnGUI 文字横幅（`BannerService.ShowTextCutIn`） | 播报文本 | 否 |
 
-- **优先级**：满档 > 巨伤 > 追击第 5 次；**一组最多切 1 次**（去重在
+- **优先级**：专属高光 > 满档 > 巨伤 > 追击第 5 次；**一组最多切 1 次**（去重在
   `CutInService`，`AlreadyPlayed(groupId)`）。
+- **专属高光的完整节拍**：core 在高光组**之前**单发一条
+  `trait_trigger(effect="highlight")`（独立组根）→ 客户端抽成 TraitLine 单元，
+  台词播完再进高光组的 cut-in。所以观感是「台词 → 推镜 → 横幅 → 这一下 → 撤镜」。
+  首例＝宙斯【神罚】（`zeus_divine_punishment`，见 `../skills/olympus.md`）；
+  后续核心卡逐个加，客户端**不需要改代码**，只要 core 打注记、中文名进
+  `ChineseNames`、（可选）在 `PerformanceDatabase` 加一条专属演出配置。
 - **为什么必须播组前预判**：客户端在播一组之前就持有整组事件，能提前知道
   「这一下会打出巨额伤害」。旧的事后回调式（`NotifyDamageSettled` 请求）既
   做不到「伤害前推镜」，暗幕（sorting 80）还会盖住同帧起播的 `hit_massive`

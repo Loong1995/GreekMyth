@@ -64,14 +64,40 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 114263579187577752, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 1048112411660466, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3764905182567619733}
+    - targetCorrespondingSourceObject: {fileID: 1048112411660466, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4694176164999641506}
+    - targetCorrespondingSourceObject: {fileID: 1073639650322498, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1496162652216951395}
   m_SourcePrefab: {fileID: 100100000, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
+--- !u!1 &6497600946392543389 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1073639650322498, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
+  m_PrefabInstance: {fileID: 6498639126592575711}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1496162652216951395
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6497600946392543389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 1
+  MinTier: 0
 --- !u!1 &6497696567564830829 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1048112411660466, guid: b790ca162f1f3044bb4b45f3e40e684f, type: 3}
@@ -92,3 +118,17 @@ MonoBehaviour:
   Reference: 0
   Factor: 1
   BakedBasis: 1.3409793
+--- !u!114 &4694176164999641506
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6497696567564830829}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 0
+  MinTier: 0

@@ -4630,6 +4630,7 @@ GameObject:
   - component: {fileID: 4238007895832902}
   - component: {fileID: 4098001310071229143}
   - component: {fileID: 1007091407878712342}
+  - component: {fileID: 2162483392365464288}
   m_Layer: 0
   m_Name: ground_lava_bloom
   m_TagString: Untagged
@@ -4682,6 +4683,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6e4df5bdf5eb48498edf84eaadb5bed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxFreshInstance
+--- !u!114 &2162483392365464288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1220124946045798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 0
+  MinTier: 0
 --- !u!1 &1287680616320834
 GameObject:
   m_ObjectHideFlags: 0
@@ -9296,6 +9311,7 @@ GameObject:
   - component: {fileID: 4826934928316604}
   - component: {fileID: 198767820742102220}
   - component: {fileID: 199753615313946186}
+  - component: {fileID: 2017445701469468409}
   m_Layer: 0
   m_Name: Distortion
   m_TagString: Untagged
@@ -13877,6 +13893,20 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!114 &2017445701469468409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1350182826111476}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 1
+  MinTier: 0
 --- !u!1 &1402163822194954
 GameObject:
   m_ObjectHideFlags: 0
@@ -17373,7 +17403,7 @@ ParticleSystem:
         m_NumAlphaKeys: 2
     range: {x: 0, y: 1}
   CollisionModule:
-    enabled: 1
+    enabled: 0
     serializedVersion: 4
     type: 1
     collisionMode: 0
@@ -18673,6 +18703,7 @@ GameObject:
   - component: {fileID: 4658374644818566}
   - component: {fileID: 108696719355346978}
   - component: {fileID: 114717389060626378}
+  - component: {fileID: 4488299174078205554}
   m_Layer: 0
   m_Name: Light
   m_TagString: Untagged
@@ -18818,3 +18849,17 @@ MonoBehaviour:
   GraphIntensityMultiplier: 4
   IsLoop: 0
   canUpdate: 0
+--- !u!114 &4488299174078205554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1963555592111894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 2
+  MinTier: 0

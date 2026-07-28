@@ -24,8 +24,9 @@
                                      （段→响应→追伤→下一段；谓词由 PlaybackWorldBuilder 注入）
      ReactionRegroupProcessor        把组内 status_tick 子链（雷霆/圣盾/试炼/震荡…）
                                      摘出为独立 StatusTrigger 组，追加在主单元之后
-     CollectiveTriggerMergeProcessor 相邻同状态同来源的 StatusTrigger 组合并
-                                     （白名单：thunder，雷霆集体齐发一次播出）
+     BatchTriggerMergeProcessor      同因果批次同状态的 StatusTrigger 组并成一个
+                                     播放单元（落雷齐发；标签真源＝战报头
+                                     status_catalog，1.5.2）
      TraitLineExtractProcessor       台词抽成独占 TraitLine 组（拆组保 Root）
      AchillesPierceTagProcessor      傲慢贯穿 TraitLine → 后续追伤组 PierceBoost 标记
      NodeMergeProcessor              纯节点组标记 ParallelWithNext（静默落账不占节拍）

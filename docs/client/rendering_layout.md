@@ -19,6 +19,9 @@
 | 近 3D 站位落地 | Arena 生效时站位由 `ArenaSlotLayout.SlotCenter`（矩形六等分格心 + 下缘贴地）；**权威** [battlefield_layout.md](battlefield_layout.md) | `BattlefieldLayout` / `ArenaSlotLayout` / `BattleBoardView` |
 | 背景铺满 | cover 模式：等比放大到两边都盖住（超出裁切），跟随相机每帧算 | `BattleBoardView.BackgroundFitter` |
 | OnGUI 缩放 | 横幅/按钮/结算表按 `Screen.height/800` 缩放字号与矩形 | `BannerService.OnGUI` / `SettlementPanel.OnGUI` 等 |
+| 渲染器类型 | **URP Universal Renderer（3D 前向）**，非 2D Renderer（2026-07-28 核实更正）。深度缓冲是活依赖（`CardDepthProxy` 排罩身前后、折射取不透明拷贝），故不可换 2D Renderer | `Assets/Settings/{PC,Mobile}_Renderer.asset` |
+| 管线资产 | 两套成对维护，只允许 `RenderScale` 一项有差（真机 0.8 / 编辑器 1.0）；实时阴影两套全关（场上无投影物）。差异表见 [vfx_pack_integration.md](vfx_pack_integration.md) §2.1 | `Assets/Settings/{PC,Mobile}_RPAsset.asset` |
+| 镜头层（Bloom） | 强制 HDR+Bloom（厂包峰值与熔岩锋面靠它成光），**强度按画质档**，见 [vfx_mobile_budget.md](vfx_mobile_budget.md) §二b | `VFX/BattlePostFx.cs` + `VFX/VfxQuality.cs` |
 | 禁止事项 | 表现层不得写死 orthoSize / 像素坐标 / 分辨率假设 | — |
 
 ## 三、图像槽位缩放（随站位格反算）

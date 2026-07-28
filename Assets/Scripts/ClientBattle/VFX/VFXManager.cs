@@ -151,6 +151,9 @@ namespace ClientBattle.VFX
             int i = 0;
             foreach (var prefab in prefabs)
             {
+                // 备份/过渡件不应在 Resources；若漏网则跳过预热，避免占池、顶偏画廊序号。
+                if (prefab == null || !VfxResourcesFilter.IsOursGalleryItem(prefab.name))
+                    continue;
                 _prefabCache[prefab.name] = prefab;
                 // 同会话内重播：池里已有实例说明上一场已渲染过，shader/贴图已热
                 if (_pool.TryGetValue(prefab.name, out var pooled) && pooled.Count > 0) continue;

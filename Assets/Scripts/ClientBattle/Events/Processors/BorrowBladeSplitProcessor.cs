@@ -76,7 +76,7 @@ namespace ClientBattle.Events
         static List<EventGroup> SplitBySegment(EventGroup group)
         {
             var segments = new List<EventGroup>();
-            var current = new EventGroup { Root = group.Root, Kind = group.Kind };
+            var current = group.Fork();
             bool currentHasDamage = false;
             foreach (var ev in group.Events)
             {
@@ -84,7 +84,7 @@ namespace ClientBattle.Events
                 if (isSegmentDamage && currentHasDamage)
                 {
                     segments.Add(current);
-                    current = new EventGroup { Root = group.Root, Kind = group.Kind };
+                    current = group.Fork();
                     currentHasDamage = false;
                 }
                 current.Events.Add(ev);

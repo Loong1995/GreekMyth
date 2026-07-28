@@ -136,7 +136,11 @@
 
 ### 4. 购买红线（沿用 assets_upload_guide §三）
 
-- 本项目是 **URP 2D Renderer**：商店页写明不支持 2D render pipeline 的不买；
+- 本项目是 **URP Universal Renderer（3D 前向）**，**不是** 2D Renderer
+  （2026-07-28 核实 `Assets/Settings/{PC,Mobile}_Renderer.asset`＝`UniversalRendererData`；
+  舞台是透视长焦立体布景，深度缓冲被 `CardDepthProxy` 与折射/贴花依赖）。
+  故采购口径是「支持 URP」而非「支持 2D 管线」；标着 3D-only 的包**不必**因此排除，
+  真正的筛选红线是 §四.0 风格与本节其余各条。历史文档里"URP 2D Renderer"的表述已作废；
   依赖场景深度图的屏幕空间方案（Screen Space God Rays 类）兼容风险高，
   光效走 Lumen 网格式方案。Realistic Effects Pack 4 **购后先导 URP patch
   并在 2D 场景实测**（评价区确认 Unity 6.3 + URP 可用），跑不通再退而用

@@ -33,7 +33,7 @@ namespace ClientBattle.Events
     public static class PlaybackCompiler
     {
         /// <summary>标准 processor 链（唯一登记处，链序即语义，改动须过评审）：
-        /// 借刀分段 → 响应后置 → 集体触发合并 → 台词独占抽取 → 贯穿标记 → 节点合并。
+        /// 借刀分段 → 响应后置 → 批次触发合并 → 台词独占抽取 → 贯穿标记 → 节点合并。
         /// <paramref name="borrowBlade"/> 为 L3 注入的借刀判定谓词
         /// （L2 不得直接引用 PerformanceProfile）。</summary>
         public static EventPipeline BuildPipeline(BattleReport report,
@@ -44,7 +44,9 @@ namespace ClientBattle.Events
                 // 段1(借手)→响应→追伤→段2…（不拆会三刀连劈再补账）
                 .Register(new BorrowBladeSplitProcessor(borrowBlade))
                 .Register(new ReactionRegroupProcessor())        // 状态触发摘出，排主单元之后
-                .Register(new CollectiveTriggerMergeProcessor()) // 雷霆等合并为一次集体齐发
+                // 同批次同状态的触发并成一个播放单元（落雷齐发）；标签真源在
+                // 服务端 status_catalog（1.5.2），旧战报回落客户端注册表
+                .Register(new BatchTriggerMergeProcessor(report))
                 .Register(new TraitLineExtractProcessor())       // 台词拆成独占 TraitLine 组
                 .Register(new AchillesPierceTagProcessor())      // 傲慢贯穿 → 裂甲图标闸门
                 .Register(new NodeMergeProcessor());

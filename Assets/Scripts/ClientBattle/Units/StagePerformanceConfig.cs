@@ -79,9 +79,10 @@ namespace ClientBattle.Units
 
         /// <summary>受击颤动峰值振幅，× 微调圆半径。颤动＝击退**落定后**围绕落点
         /// 沿同一条受击线的前后颤，纯动画、结束回到落点，不改定位点。
-        /// （旋转式抖动已废：近正面卡的面内自旋不改轮廓、俯仰被投影吃掉，读不出来。）</summary>
-        public static float HitTrembleAmpCrit = 0.22f;
-        public static float HitTrembleAmpNormal = 0.13f;
+        /// （旋转式抖动已废：近正面卡的面内自旋不改轮廓、俯仰被投影吃掉，读不出来。）
+        /// 2026-07-28：实测「只看得见击退、看不出震」，振幅**翻倍**。</summary>
+        public static float HitTrembleAmpCrit = 0.44f;
+        public static float HitTrembleAmpNormal = 0.26f;
 
         /// <summary>受击颤动时长（秒）。从击退落定那一刻起算。</summary>
         public static float HitTrembleSecondsCrit = 0.36f;
@@ -240,6 +241,20 @@ namespace ClientBattle.Units
         /// 这里只需极短一停给运镜收尾。</summary>
         public static float CutInCameraHoldSeconds = 0.08f;
 
+        // ---------------------------------------------- 罩身错相位（shroud_*）
+        //
+        // 同一件挂在多人身上时，几份实例是同一帧创建的，会逐帧同步地闪，
+        // 读作"一个动画被复制了几份"。挂载时快进一段随机时间 + 给一点速度失谐，
+        // 各自就有了自己的节奏（与卡面呼吸的互质频率失谐同源）。
+
+        /// <summary>挂载时随机快进的上限（秒）。要盖过件里最长的循环周期才能真正错开；
+        /// 太大则"挂上就已经播了半天"，循环件无所谓、一次性层会被跳过。</summary>
+        public static float ShroudDesyncSeconds = 1.6f;
+
+        /// <summary>播放速度失谐（±比例）。只有预演没有失谐时，相位差是固定的，
+        /// 长时间看仍是"整齐地错开"。0.12 ≈ 人眼刚好读不出快慢差。</summary>
+        public static float ShroudSpeedJitter = 0.12f;
+
         // ---------------------------------------------- 场域氛围件（ambient_*）
         //
         // 【这是哪一类】不挂任何一张卡、源点钉在**主战场地面中心**、靠世界尺度
@@ -254,8 +269,66 @@ namespace ClientBattle.Units
         public static float AmbientFieldScale = 3.5f;
 
         /// <summary>源点相对地面中心抬高（世界单位）。0＝贴地；抬高一点让游离元素
-        /// 从卡牌之间穿过而不是全埋在地里。</summary>
+        /// 从卡牌之间穿过而不是全埋在地里。单个源可用 <see cref="AmbientFieldSource.Lift"/>
+        /// 覆盖（`float.NaN`＝沿用本值）。</summary>
         public static float AmbientFieldLift = 0.4f;
+
+        /// <summary>全局密度倍数：作用在**所有**场域源的粒子发射量上（rate 与 burst）。
+        /// 想整体"雷更密/更稀"只调这一个数；单源的疏密走 <see cref="AmbientFieldSource.Density"/>。
+        ///
+        /// 与画质档是两回事：档位是**设备**维度（同一观感在弱机上变稀），
+        /// 密度是**演出**维度（这场雷暴该有多凶）。两者相乘，互不干扰。</summary>
+        public static float AmbientFieldDensity = 1.8f;
+
+        /// <summary>一个场域源＝这件氛围的一处发生地。
+        ///
+        /// 【为什么要多源】单源钉死在地面中心的雷暴，看久了是"中心一团一直在闪"——
+        /// 观众读到的是一个循环动画，不是一场雷暴。雷暴的观感来自**发生地不断变**
+        /// 且**远近有层次**：近处往战场里劈、远处天边闷闪。所以拆成一组源，
+        /// 每个源自己的位置/尺度/疏密/游走都能单独配。</summary>
+        public struct AmbientFieldSource
+        {
+            /// <summary>只用于层级里的节点名，方便在 Hierarchy 里认出是哪一处。</summary>
+            public string Name;
+            /// <summary>横向偏移，× <c>BattlefieldLayout.MainHalfWidth</c>（0＝正中）。</summary>
+            public float X;
+            /// <summary>纵深偏移，× 主战场半纵深（正＝往后院/远景推，>1 即出主战场）。</summary>
+            public float Z;
+            /// <summary>抬高（世界单位）。`NaN`＝用 <see cref="AmbientFieldLift"/>。</summary>
+            public float Lift;
+            /// <summary>尺度，× <see cref="AmbientFieldScale"/>。远景源要大一点才有天幕感。</summary>
+            public float Scale;
+            /// <summary>疏密，× <see cref="AmbientFieldDensity"/>。</summary>
+            public float Density;
+            /// <summary>随机换点半径，× <c>MainHalfWidth</c>；0＝钉死不动。
+            /// 这是"多发生在这一带"的实现：源在自己的圈里跳，而不是每次都在同一点。</summary>
+            public float WanderRadius;
+            /// <summary>换点间隔（秒）。太短会读成抖动，太长又回到"钉死"。</summary>
+            public float WanderInterval;
+            /// <summary>绕 Y 轴自转（度）。多个源用同一件时，转一下角度就不会看出
+            /// 是同一个动画在三个地方复读。</summary>
+            public float Yaw;
+            /// <summary>本源要关掉的层（按节点名前缀匹配，大小写不敏感）。
+            /// 用途是**语义不成立的层**，不是省性能：悬在天上的源不该有地面接触痕
+            /// （`ImpactDecal` 会变成半空中的一块光斑）。省性能走档位与密度。</summary>
+            public string[] HideLayers;
+        }
+
+        /// <summary>场域源清单（默认两处：战场一处、背景一处，**都是自上而下劈**）。
+        /// 加/删一处就是往这个数组里加/删一行，挂载与释放自动跟着走。
+        ///
+        /// 默认值的取法：两处的游走半径都给到 ≥1 倍主战场半宽，即**落点铺满各自那一带**
+        /// 而不是围着一个点小幅晃——雷暴的观感来自"到处都在劈"，钉在一小圈里
+        /// 反而会被读成一台在原地循环的机器。背景那处推到主战场之外并抬高，
+        /// 尺度更大、疏密略低、换点更勤，读作更远更零星；层序仍是负值不盖卡面。</summary>
+        public static AmbientFieldSource[] AmbientFieldSources =
+        {
+            new() { Name = "战场", X = 0f, Z = 0f, Lift = float.NaN, Scale = 1f,
+                    Density = 1f, WanderRadius = 1.3f, WanderInterval = 0.5f },
+            new() { Name = "背景", X = 0f, Z = 1.7f, Lift = 7f, Scale = 1.35f,
+                    Density = 0.7f, WanderRadius = 2.0f, WanderInterval = 0.45f, Yaw = 180f,
+                    HideLayers = new[] { "ImpactDecal" } },
+        };
 
         /// <summary>渲染层序。氛围是**背景**：压到卡牌之下（负值），否则满屏元素
         /// 盖在卡面前会把主体（立绘/兵力）糊掉，读作"看不清在打什么"。</summary>

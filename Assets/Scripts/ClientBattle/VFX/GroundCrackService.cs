@@ -52,11 +52,14 @@ namespace ClientBattle.VFX
             return false;
         }
 
-        /// <summary>单条伤害是否该出命中裂地（与 <see cref="Active"/> 同判据）。
-        /// 由 SettleDamage 与 HitKey 同帧调用，模板勿再单独 PlayHit。</summary>
-        public static bool ShouldPlayHit(DamageEvent damage) =>
-            Enabled && damage != null && damage.DamageType != "magic"
-            && Units.ArenaSlotLayout.GroundActive;
+        /// <summary>单条伤害是否该出命中裂地。
+        /// 默认与 <see cref="Active"/> 同判据（魔法不裂）；特例：profile 显式配了
+        /// <c>GroundStrengthTier ≥ 1</c> 时魔法也出命中裂地（神罚等，见
+        /// ground_crack_config）。由 SettleDamage 与 HitKey 同帧调用，模板勿再单独 PlayHit。</summary>
+        public static bool ShouldPlayHit(DamageEvent damage, PerformanceProfile profile = null) =>
+            Enabled && damage != null && Units.ArenaSlotLayout.GroundActive
+            && (IsPhysical(damage)
+                || (profile != null && profile.GroundStrengthTier >= 1));
 
         /// <summary>势能全开加强出手时，命中类面积倍率（在卡宽×1.5 上再乘）。</summary>
         const float EmpoweredHitArea = 1.5f;

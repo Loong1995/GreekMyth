@@ -47,7 +47,7 @@ namespace ClientBattle.VFX
             bool mitigated = !string.IsNullOrEmpty(damage.Mitigation);
             bool massive = CutInPlanner.IsHighDamage(damage); // 与「重创」横幅同判据同帧
             // —— 命中拍（同帧）：裂地 / HitKey / HitReact(+震屏) 不得拆到模板或错峰 ——
-            if (GroundCrackService.ShouldPlayHit(damage))
+            if (GroundCrackService.ShouldPlayHit(damage, profile))
                 GroundCrackService.PlayHit(ctx, profile, target, massive);
             string hitKey = ResolveHitKey(profile, damage);
             if (!string.IsNullOrEmpty(hitKey))
@@ -58,7 +58,9 @@ namespace ClientBattle.VFX
                 // 命中不阻塞时间轴，只是让实例活到自然放完，节拍不受影响。
                 float hitLife = Mathf.Max(ctx.Scaled(0.5f),
                     ctx.Vfx.EmitWindow(hitKey, HitVfxWindowCap));
-                ctx.Vfx.PlayAt(hitKey, target.transform.position, hitLife);
+                // 挂卡根中心：跟受击位移/颤动走；世界坐标定点会在击退时留在原地。
+                // 尺寸由标准件 VfxCircleFit（投影圆 × Factor，物理/魔法默认 2.5）决定。
+                ctx.Vfx.PlayOn(hitKey, target.transform, hitLife);
             }
             // 受击方向取伤害来源的**站位中心**，不是 transform.position——攻击方
             // 突进后就贴在身边，用实时位置算出的击退方向会乱跳甚至反向。
@@ -72,7 +74,15 @@ namespace ClientBattle.VFX
             {
                 target.HitReact(damage.IsCrit, fromHome);
                 if (!massive && profile.CameraShakeOnHit)
-                    ctx.Shake(damage.IsCrit ? 0.2f : 0.08f, 0.22f);
+                {
+                    float amp = profile.CameraShakeAmp > 0f
+                        ? profile.CameraShakeAmp
+                        : (damage.IsCrit ? 0.2f : 0.08f);
+                    float sec = profile.CameraShakeSeconds > 0f
+                        ? profile.CameraShakeSeconds
+                        : 0.22f;
+                    ctx.Shake(amp, sec);
+                }
             }
             else
             {
@@ -108,17 +118,18 @@ namespace ClientBattle.VFX
         protected static void SettleSideEvent(BattleEvent ev, VFXContext ctx) =>
             EventApplyService.Apply(ev, ctx, animated: true);
 
-        /// <summary>命中特效解析（唯一入口，四级；文档 vfx_config_index.md §一）：
+        /// <summary>命中特效解析（唯一入口；文档 vfx_config_index.md §一）：
         /// ① 巨伤覆盖——触发「重创」横幅的伤害一律 <c>hit_massive</c>
         ///   （RFX4 Effect15_Collision），压过一切专配；
-        /// ② Profile.HitKey 非空（专配战法 / 组默认，如普攻 hit_generic、
-        ///   神谕伤害 hit_wave）；
-        /// ③ 按 damage_type：魔法 <c>hit_petrify</c>（画廊 1/8 件 41/61）、
-        ///   其余 <c>hit_sword</c>（件 45/61）——主动与追击默认都落到这里；
-        /// ④ damage 缺失 → <c>hit_generic</c> 兜底。</summary>
+        /// ② Profile.HitKey == <c>none</c> → 明确不要卡面命中件（宙斯雷系：
+        ///   绕身 shroud_thunder 已够，禁止再叠 hit_lightning / 魔法默认）；
+        /// ③ Profile.HitKey 其它非空（专配 / 组默认，如普攻 hit_generic）；
+        /// ④ 按 damage_type：魔法 <c>hit_petrify</c>、其余 <c>hit_sword</c>；
+        /// ⑤ damage 缺失 → <c>hit_generic</c> 兜底。</summary>
         protected static string ResolveHitKey(PerformanceProfile profile, DamageEvent damage)
         {
             if (CutInPlanner.IsHighDamage(damage)) return MassiveHitKey;
+            if (profile != null && profile.HitKey == "none") return "";
             if (profile != null && !string.IsNullOrEmpty(profile.HitKey)) return profile.HitKey;
             if (damage == null) return "hit_generic";
             return damage.DamageType == "magic" ? "hit_petrify" : "hit_sword";

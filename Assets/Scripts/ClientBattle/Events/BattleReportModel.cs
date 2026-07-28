@@ -25,6 +25,18 @@ namespace ClientBattle.Events
         public List<string> Tags = new();
     }
 
+    /// <summary>状态播放标签条目（schema 1.5.2 `status_catalog`）。服务端在
+    /// `StatusDef.playback_tags` 定义处声明，客户端编译层直读，决定该状态的触发
+    /// 能否与同批次的其它触发并成一个播放单元。未知 tags 必须忽略。</summary>
+    public class StatusCatalogEntry
+    {
+        public string Name = "";
+        /// <summary>simultaneous＝跨持有者可齐发并组；sequential＝必须逐次成单元。</summary>
+        public List<string> Tags = new();
+
+        public bool Has(string tag) => Tags.Contains(tag);
+    }
+
     public class HeroSnapshot
     {
         public string HeroId, TemplateId;
@@ -68,6 +80,16 @@ namespace ClientBattle.Events
         public List<HeroSeriesStats> HeroStats = new();
         /// <summary>出场战法标签目录（1.5.0 可选；旧战报为空表，编译层回退启发式并告警）。</summary>
         public Dictionary<string, SkillCatalogEntry> SkillCatalog = new();
+
+        /// <summary>带播放标签的状态目录（1.5.2 可选；旧战报为空表，
+        /// 编译层回落客户端 StatusPresentationRegistry 的集体标记）。</summary>
+        public Dictionary<string, StatusCatalogEntry> StatusCatalog = new();
+
+        /// <summary>状态是否带某播放标签；旧战报（无目录）一律 false，
+        /// 调用方自行回落。</summary>
+        public bool StatusHasTag(string statusId, string tag) =>
+            !string.IsNullOrEmpty(statusId)
+            && StatusCatalog.TryGetValue(statusId, out var e) && e.Has(tag);
 
         /// <summary>目录查询（无条目返回 null；调用方必须容忍旧战报缺目录）。</summary>
         public SkillCatalogEntry CatalogOf(string skillId) =>
@@ -125,6 +147,18 @@ namespace ClientBattle.Events
                     if (tags != null)
                         foreach (var t in tags) entry.Tags.Add((string)t);
                     report.SkillCatalog[prop.Name] = entry;
+                }
+
+            var statusCatalogJson = root.Value<JObject>("status_catalog");
+            if (statusCatalogJson != null)
+                foreach (var prop in statusCatalogJson.Properties())
+                {
+                    var e = (JObject)prop.Value;
+                    var entry = new StatusCatalogEntry { Name = e.Value<string>("name") ?? "" };
+                    var tags = e.Value<JArray>("tags");
+                    if (tags != null)
+                        foreach (var t in tags) entry.Tags.Add((string)t);
+                    report.StatusCatalog[prop.Name] = entry;
                 }
 
             foreach (var teamJson in root.Value<JArray>("teams"))

@@ -25,27 +25,28 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | key | 用途 | 备注 |
 |---|---|---|
 | `slash` | 近身斩击 Burst | 普攻×1.0、追击×1.5；**不作飞行弹道** |
-| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | **030-DualBolt100** Orange / Purple |
+| `blade_bolt` / `magic_bolt` | 默认物理/魔法飞行弹道（AoeCenter/PerSegment） | blade＝**030-DualBolt100** Orange；**magic＝Magic Pack Effect1**（`VfxUsage.Projectile`，`WireMagicBolt`） |
 | `proj_bolt200` | （可选）粗束弹道 029；战吼已改走默认 `blade_bolt` | **029-Bolt200** Orange |
 | `lightning_projectile` | （备选）宙斯竖劈弹道 | Vefects LP02 Directional；当前 `thunder`/`zeus_bolt` 已改走 DR，未用 |
 | `hit_generic` / `heal_generic` | 普攻等兜底命中 / 治疗命中 | hit ← **Vefects Hit_05 Once** |
-| `hit_petrify` | **魔法伤害默认**命中（卡面）；亦美杜莎石化反噬 | 画廊 **[1/8] 我方标准件**（序号随入库漂移，以 key 为准） |
-| `hit_sword` | **物理伤害默认**命中（卡面）；亦珀尔修斯飞剑命中 | 画廊 **[1/8] 我方标准件** |
-| `hit_wave` | **神谕产生伤害默认**命中（`OracleDefault.HitKey`）；亦海神水浪命中 | 画廊 **[1/8] 我方标准件** |
+| `hit_petrify` | **魔法伤害默认**命中（卡面）；亦美杜莎石化反噬 | CFXR **Hit Magical Stars (Pink)**（粉紫星芒+刺环）；`VfxCircleFit×2.5`；`WireDefaultHitVfx` |
+| `hit_sword` | **物理伤害默认**命中（卡面）；亦珀尔修斯飞剑命中 | Cartoon Coffee **Impact_Cut_V1**（直线横切金橙刀光，**定稿**）；`VfxCircleFit×2.5`；同上 |
+| `hit_wave` | **神谕产生伤害默认**命中（`OracleDefault.HitKey`）；亦海神水浪命中 | 画廊 **[1/8]**（以 key 为准） |
 | `hit_massive` | **巨伤命中**（>3000 触发「重创」横幅的伤害，覆盖一切专配＋强制震屏） | 原料 **RFX4 Effect15**（画廊 3/8 件 7/54）→ 碰撞子件 **Effect15_Collision**（P-68）；`WireDefaultHitVfx.WireMassive` |
-| `hit_lightning` | 宙斯/雷霆等**专配**命中（`thunder`/`zeus_bolt` HitKey） | Magic Pack **2/8**＝**Effect19_Collision**（非默认） |
+| `hit_lightning` | （库内备用）宙斯卡面雷命中已取消 | Magic Pack **Effect19_Collision**；现行 `thunder`/`zeus_bolt`/`zeus_divine_punishment` 均 `HitKey=none`（绕身够用），本件留库勿再默接 |
 | `hit_zeus_discharge` | （备选）宙斯电击闪 | Vefects Electric_Discharge_02 Bunch（当前宙斯未用） |
 | `cast_warcry` | （可选）物理冲击波，**主动默认已取消 Cast** | Impact_Shockwave v2 |
 | `cast_aoe_burst` | （可选）魔法中心爆，**主动默认已取消 Cast** | Explosion_01_Pivot |
 | `hit_clash` | （库内）Magic Effect22_Collision 标准件；**不再作物理默认** | 画廊 Magic **2/8** 件 45 原料；专配/备用 |
 | `proj_bolt200` | **物理主动默认**弹道 | 029-Bolt200 Orange |
-| `magic_bolt` | **魔法主动默认**弹道 | DualBolt Purple |
+| `magic_bolt` | **魔法主动默认**弹道 | Magic Pack **Effect1** 母件（`VfxUsage.Projectile`；摘 Motion/Target，位移归 LaunchProjectile；定径 ×0.7） |
 | `hit_warcry` | （可选）Radial_Burst 放大命中 | 战吼已改走默认 `hit_sword` |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
 | `aura_fire_foot` / `aura_fire_head` | 阿瑞斯血战（脚） | 仅卡框红呼吸 `SetAresRage`（弱）；`aura_fire_head` 备用 |
 | `aura_ares_might` | （旧）阿瑞斯战神之勇 Effect18 | 已由 `shroud_ares_might` 取代，可留库 |
 | `shroud_ares_might` | 阿瑞斯战神之勇罩身 | 画廊 2/8·**10/61**＝Magic Effect18；落盘 `VfxUsage.Shroud`（摘 Distortion/贴花/PerPlatformSettings，P-77）；挂载 `VfxShroudFollower` + `VfxShroudPresence`（OddRounds） |
-| `ambient_thunder_storm` | 宙斯雷霆神谕**场域氛围**（状态 `thunder`） | 画廊 2/8·**11/61**＝Magic Effect19；`VfxUsage.AmbientField`：摘人形壳层（Distortion/Fringe，卡尺度看不见还费），留世界空间电弧。源点＝主战场地面中心，全场按 key 去重；几何 `StagePerformanceConfig.AmbientField*`。勿与 `hit_lightning`（Collision）混淆 |
+| `shroud_thunder` | 宙斯雷霆神谕**罩身**（状态 `thunder`，现行） | 画廊 2/8·**11/61**＝Magic Effect19；落盘 `Standardize(..., VfxUsage.Shroud, keep: ["Fringe"], drop: ["Particles","Point","Fog","ImpactDecal"])`（`WireThunderShroud`）。成品＝`ShieldAdd3`（贴罩面电流）+ `ShieldFringe`（边环），与 `shroud_ares_might` 同构＝**只罩住、不外喷**。摘掉的：折射壳（糊卡面，P-77 实证）、游离电弧（P-78）、一次性喷射爆发（往外喷会读成"正在放技能"，罩身表达的是常驻态）。挂载时按 `StagePerformanceConfig.ShroudDesync*` 错相位（多人同挂不同步闪） |
+| `ambient_thunder_storm` | （备用）雷霆**场域氛围**参考件 | 宙斯已改罩身，本件当前未接线，保留为 `VfxUsage.AmbientField` 的参考实现。画廊 2/8·**11/61**＝Magic Effect19；`VfxUsage.AmbientField`：摘人形壳层（Distortion/Fringe，卡尺度看不见还费），留世界空间电弧。全场按 key 去重；源点是**一组**（`AmbientFieldSources`，默认战场一处 + 背景一处，均自上而下、落点大范围游走），几何 `StagePerformanceConfig.AmbientField*`。电弧层轴向由 `WireThunderStorm.OrientAsStorm` 重定为自上而下（原料是护罩朝向，水平层会读成"往镜头劈"）。勿与 `hit_lightning`（Collision）混淆 |
 | `cast_duel_launch` | 单挑出阵：双方**定位圆**地面（Effect28） | **RFX4 Effect28**（画廊 3/8 包 19/54 件）；RFX4 深度贴花层 URP 画不出、标准化时摘除（P-33） |
 | `aura_duel_victory` | 单挑加冕：胜者**卡面**；亦作出阵双方**卡面追加**（画廊 1/8 件 8/60） | 原料 **RFX4 Effect23** → 碰撞子件 **Effect23_Explosion**（P-68） |
 | `ground_duel_defeat` | 单挑溃败：败者**定位圆地面** | 原料 **Magic Pack v1 Effect8** → **Effect8_Collision**；挂 `VfxGroundLayer`；贴花 → 自研裂地补 |
@@ -120,7 +121,8 @@ Vefects 雷电弹道 0.9、剑击/穿刺 0.35、slash 0.25、光环 0.9~1.4。�
 （如 `thunder`→`zeus`、`hades_command_drain`→`hades`）调用
 `UnitView.ShowPortraitMark`，从 `Portraits/<key>.png` 取图缩到目标卡头顶短暂浮现。
 上传宙斯立绘后，雷霆落雷会自动显示宙斯小头像；未上传则仍为阵营色占位块。
-雷击本身走 DR 单道竖雷（`thunder`/`zeus_bolt`）+ `hit_lightning`（Electric_Impact_02），
+雷击本身走 DR **主芯+分叉**竖雷（`thunder`/`zeus_bolt`/`zeus_divine_punishment`），
+卡面**不叠** `hit_lightning`（`HitKey=none`，绕身 `shroud_thunder` 已够）；神罚另抬高震屏。
 与头像标分开。RFX4 **禁止**接到宙斯技能（P-25）。
 
 **全屏 cut-in 复用同一路径（无需另传）**：单人 cut-in（斜带+巨幅立绘）与单挑
@@ -234,8 +236,10 @@ kenney.nl UI Pack（CC0）或 Asset Store fantasy card frame（$10~25）改色�
 
 ## 三、采购登记（原 to_purchase.md 并入）
 
-> 红线：本项目是 URP 2D Renderer，商店页写明 "NOT with the 2D render
-> pipeline" 的包一律不买。购买用与工程一致的 Unity ID，购后我在
+> 红线：本项目是 **URP Universal Renderer（3D 前向）**，**不是** 2D Renderer
+> （2026-07-28 核实，见 `docs/client/vfx_pack_integration.md` §二）。采购只要求
+> **支持 URP**；"不支持 2D 管线"不再是排除理由，但依赖屏幕深度/不透明拷贝的
+> 方案要按 §二 的两项开关确认。购买用与工程一致的 Unity ID，购后我在
 > Package Manager > My Assets 拉取导入并登记。
 
 | 资产 | 价格 | 购买日期 | 状态/已用于 |
@@ -245,7 +249,7 @@ kenney.nl UI Pack（CC0）或 Asset Store fantasy card frame（$10~25）改色�
 | 2D Sword Slash VFX | $19.99 | 2026-07-05 | 已导入 `Assets/Cartoon Coffee/`：斩击/穿刺/裂甲 variant |
 | Universal Sound FX | ~$40 | 已购已导入（2026-07-20，`Assets/Universal Sound FX/`） | 按 §二步骤 2 逐 key 挑选接线；三皇音效优先从本包出 |
 | **KriptoFX Realistic Effects Pack 4** | $42 | 2026-07-24 | 已导入；**须** `GreekMyth → RFX4 → 导入 URP Patch（修粉红）`（2026-07-25 已应用；Effect22 全粉即未导）。**禁止用于宙斯/单挑**。仅舞台远景/神像大场面。**可靠预览**：`GreekMyth → RFX4 可靠预览（一键）`；粉红诊断同菜单下「诊断粉红材质」 |
-| **kripto289 Magic Effects Pack 1** | $37 | 2026-07-24 | 已导入；URP patch。宙斯命中=`Effect19_Collision`；战神之勇罩身＝画廊 2/8·10/61 `Effect18`→`shroud_ares_might`（旧环 `aura_ares_might` 可留库）；雅典娜反制=`Effect17_Collision`；圣盾挂身回 AllIn1。**预览**：`GreekMyth → Magic Pack → 可靠预览` |
+| **kripto289 Magic Effects Pack 1** | $37 | 2026-07-24 | 已导入；URP patch。**魔法默认弹道**＝`Effect1`→`magic_bolt`；宙斯命中库内 `Effect19_Collision`（现行未默接）；战神之勇罩身＝画廊 2/8·10/61 `Effect18`→`shroud_ares_might`；雅典娜反制=`Effect17_Collision`；圣盾挂身回 AllIn1。**预览**：`GreekMyth → Magic Pack → 可靠预览` |
 | （候选）magic aura loop 2D 类 | $10~20 | 未购 | 光环族精修备选（步骤 5.2） |
 
 ## 四、维护红线

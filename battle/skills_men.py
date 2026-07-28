@@ -23,6 +23,7 @@ from battle.statuses import (
     BUFF,
     DEBUFF,
     PERMANENT,
+    SEQUENTIAL,
     SPECIAL,
     StatusDef,
     hesitation,
@@ -828,6 +829,9 @@ def _patroclus_standin_on_action_start(engine, status, action_seq):
 PATROCLUS_STANDIN_STATUS = StatusDef(
     status_id="patroclus_standin", kind=SPECIAL, duration_rounds=PERMANENT,
     response_priority=20, on_action_start=_patroclus_standin_on_action_start,
+    # 代战借刀：客户端还要按「借手」把一次触发再切段演（BorrowBladeSplit），
+    # 绝不能先被并成一发（statuses.SEQUENTIAL）。
+    playback_tags=(SEQUENTIAL,),
 )
 
 

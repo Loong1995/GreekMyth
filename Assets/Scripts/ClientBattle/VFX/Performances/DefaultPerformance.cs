@@ -48,8 +48,11 @@ namespace ClientBattle.VFX
             // （否则战吼 prepare 会被专配 AoeCenter 空跑进中心，观感像「没放技能」）
             if (damages.Count == 0 && heals.Count == 0)
             {
-                if (group.Root is SkillTriggerEvent && actor != null)
-                    ctx.Floats.ShowSkillName(actor, floatName);
+                if (group.Root is SkillTriggerEvent st0 && actor != null)
+                    // 准备型战法的**宣告**单元：飘「蓄势·战吼」而不是干飘技能名——
+                    // 否则紧跟在释放单元后面（打完接着蓄下一发）会读成「又放了一次」
+                    ctx.Floats.ShowSkillName(actor,
+                        st0.Kind == "prepare" ? $"蓄势·{floatName}" : floatName);
                 ctx.Sfx.Play(SfxOf(group, profile));
                 foreach (var ev in group.Events)
                     if (ev is not TraitTriggerEvent)
@@ -85,6 +88,12 @@ namespace ClientBattle.VFX
                 template = melee ? PerformanceTemplate.Melee
                     : distinctTargets >= 2 ? PerformanceTemplate.AoeCenter
                                            : PerformanceTemplate.PerSegment;
+                // 战法定义期标签覆盖默认（skill_catalog.tags，编译期注记）：
+                // per_target＝群攻也逐目标演；simultaneous＝多段也并成一拍齐射。
+                // 「群攻＝一个播放单元齐射」的那个「除非特殊配置」口子就是这里。
+                if (!melee && group.ForcePerTarget) template = PerformanceTemplate.PerSegment;
+                else if (!melee && group.ForceSimultaneous && damages.Count > 1)
+                    template = PerformanceTemplate.AoeCenter;
             }
 
             // 满档 cut-in 后的出手（势能全开）：主音效换强化版
@@ -258,9 +267,11 @@ namespace ClientBattle.VFX
         IEnumerator PlayRemoteStrike(EventGroup group, PerformanceProfile profile, VFXContext ctx,
                                      List<DamageEvent> damages, string floatName)
         {
-            // 宙斯雷霆等：目标头顶头像标 + 自上而下贯穿（无 ProjectileKey → DR 程序化雷；
-            // 有 key 时走 VFX 弹道，供其它 RemoteStrike 复用）
-            float strikeTime = ctx.Scaled(0.35f);
+            // 宙斯雷霆等：目标头顶头像标 + 自上而下贯穿（无 ProjectileKey → DR 主+分叉竖雷；
+            // 有 key 时走 VFX 弹道，供其它 RemoteStrike 复用）。
+            // 旧单道 alpha=0.2 / 细线读作「灰线」，改为不透明粗芯 + 两侧分叉。
+            float strikeTime = ctx.Scaled(0.42f);
+            bool divine = profile.SkillOrStatusId == "zeus_divine_punishment";
             foreach (var damage in damages)
             {
                 var target = ctx.Unit(damage.TargetId);
@@ -276,22 +287,80 @@ namespace ClientBattle.VFX
                 if (target == null) continue;
                 var center = target.RestPosition;
                 // FrameSlotH≈2.3：从卡顶上方劈穿到卡底下方
-                var from = center + new Vector3(Random.Range(-0.08f, 0.08f), 1.35f, -0.55f);
-                var to = center + new Vector3(Random.Range(-0.12f, 0.12f), -1.35f, -0.55f);
+                var from = center + new Vector3(Random.Range(-0.08f, 0.08f), 1.45f, -0.55f);
+                var to = center + new Vector3(Random.Range(-0.12f, 0.12f), -1.4f, -0.55f);
                 if (useVfxBolt)
-                    LaunchProjectile(ctx, profile.ProjectileKey, from, to, strikeTime);
+                    LaunchSkyBolt(ctx, profile.ProjectileKey, from, to, strikeTime);
                 else
-                {
-                    var bolt = DrLightningUtil.Spawn(ctx.Vfx.transform, "StrikeBolt");
-                    DrLightningUtil.Fire(bolt, from, to, duration: strikeTime, chaos: 0.22f,
-                                         generations: 6, alpha: 0.2f, widthMul: 0.7f, sortingOrder: 50);
-                    Object.Destroy(bolt.gameObject, strikeTime + 0.05f);
-                }
+                    FireZeusBolt(ctx, from, to, strikeTime, divine);
                 // HitKey / 抖动 / 裂地一律等落劈结束进 SettleDamage，禁止提前炸点
             }
             yield return new WaitForSeconds(strikeTime);
             foreach (var damage in damages)
                 SettleDamage(damage, profile, ctx, floatName);
+        }
+
+        /// <summary>宙斯竖雷：外晕（饱和蓝）+ 细芯（白青）+ 分叉。禁 RFX4。
+        /// 每道带闪烁重 Trigger，避免整段静止灰白线。</summary>
+        static void FireZeusBolt(VFXContext ctx, Vector3 from, Vector3 to, float duration,
+                                 bool divine)
+        {
+            var parent = ctx.Vfx.transform;
+            void One(string name, Vector3 a, Vector3 b, float chaos, int gen,
+                     float alpha, float width, int order, Color tint)
+            {
+                var bolt = DrLightningUtil.Spawn(parent, name);
+                DrLightningUtil.Fire(bolt, a, b, duration: duration, chaos: chaos,
+                                     generations: gen, alpha: alpha, widthMul: width,
+                                     sortingOrder: order, tint: tint, flicker: true);
+                DrLightningUtil.Release(bolt, duration + 0.08f);
+            }
+
+            // 外晕：宽、饱和宝蓝、略低亮 —— 读作「电」而不是灰白带
+            One("StrikeHalo", from, to, chaos: 0.32f, gen: 5,
+                alpha: divine ? 0.38f : 0.32f, width: divine ? 1.05f : 0.9f, order: 50,
+                DrLightningUtil.Halo);
+            // 电芯：细、白青、略亮
+            One("StrikeCore", from, to, chaos: 0.42f, gen: 7,
+                alpha: divine ? 0.62f : 0.55f, width: divine ? 0.32f : 0.26f, order: 56,
+                DrLightningUtil.Core);
+            Vector3 side = Vector3.Cross((to - from).normalized, Vector3.forward);
+            if (side.sqrMagnitude < 1e-6f) side = Vector3.right;
+            side = side.normalized * Random.Range(0.18f, 0.32f);
+            One("StrikeForkL", from + side * 0.35f, to - side * 0.55f,
+                chaos: 0.55f, gen: 6, alpha: 0.36f, width: 0.22f, order: 53,
+                DrLightningUtil.Halo);
+            One("StrikeForkR", from - side * 0.4f, to + side * 0.4f,
+                chaos: 0.5f, gen: 5, alpha: 0.28f, width: 0.18f, order: 52,
+                DrLightningUtil.Halo);
+            if (divine)
+            {
+                One("StrikeForkC", from + side * 0.1f, to - side * 0.15f,
+                    chaos: 0.7f, gen: 6, alpha: 0.45f, width: 0.24f, order: 54,
+                    DrLightningUtil.Core);
+            }
+        }
+
+        /// <summary>RemoteStrike 用厂包竖雷弹道：直线下落（无贝塞尔弧），避免弧飞读成斜射。</summary>
+        static void LaunchSkyBolt(VFXContext ctx, string key, Vector3 from, Vector3 to,
+                                  float flightTime)
+        {
+            float life = flightTime + 0.12f;
+            var go = ctx.Vfx.PlayAt(key, from, life);
+            var t = go.transform;
+            DOTween.Kill(t);
+            var stamp = go.GetComponent<VfxOriginalScale>();
+            Vector3 baseScale = stamp != null ? stamp.Value : Vector3.one;
+            Vector3 delta = to - from;
+            float FaceZ()
+            {
+                if (delta.sqrMagnitude < 1e-8f) return 0f;
+                return Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+            }
+            t.position = from;
+            t.rotation = Quaternion.Euler(0f, 0f, FaceZ());
+            t.localScale = baseScale * 1.15f;
+            t.DOMove(to, flightTime).SetEase(Ease.InQuad).SetLink(go);
         }
 
         // ---------------------------------------------------------- 单体逐段

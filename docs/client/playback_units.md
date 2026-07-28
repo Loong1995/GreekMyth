@@ -21,7 +21,8 @@
 4. 行动单元结束加 `GroupPauseSeconds`（0.35s）；同一武将行动窗内的所有单元
    播完、下一个 action_start 到来前，再加 `ActionPauseSeconds`（0.55s）。
 5. **响应单元**：雷霆落雷、圣盾反弹、试炼反打等状态触发，永远排在
-   引发它的主单元**之后**作为独立单元播出；顺序与事件流一致
+   引发它的主单元**之后**作为独立单元播出；同一批次同状态的多次触发并成
+   **一个**单元（三人身上的落雷一起劈）；顺序与事件流一致
    （引擎先守后攻，见 [response_order.md](../mechanics/response_order.md)）。
 6. **记账节点**（状态增删/属性/势能/阵亡等非行动组）：即时落账不占时间轴。
 
@@ -40,10 +41,47 @@ processor 链（`PlaybackCompiler.BuildPipeline` 登记顺序即执行顺序，
 |---|---|---|
 | 0 | `BorrowBladeSplitProcessor` | 借刀战法（代战/披甲，profile.BorrowBlade）按「组根直接子伤害」切段，每段自成播放单元并按首事件 seq 回插事件流原生位置——段1(借手突进)→响应→追伤→段2…；不拆会三刀连劈再补账（2026-07-22） |
 | 1 | `ReactionRegroupProcessor` | 把主组内的 `status_tick` 子链（按 parent_seq 闭包）摘成独立 StatusTrigger 组，追加在主单元之后（「响应后播」） |
-| 2 | `CollectiveTriggerMergeProcessor` | 相邻同状态同来源 StatusTrigger 组合并为一次集体齐发（白名单：`thunder`）；圣盾等保持逐次 |
-| 3 | `TraitLineExtractProcessor` | 把混在行动/状态组里的 `trait_trigger` 抽成独立 TraitLine；**出击段保留原组 Root**；**跳过 Duel 组**（单挑台词由 `DuelPerformance` 按时点播） |
+| 2 | `BatchTriggerMergeProcessor` | **同批次同状态**的 StatusTrigger 组并成一个播放单元（群攻打三人 → 三人的落雷一起劈）；判据见下节，标签真源在服务端 `status_catalog` |
+| 3 | `TraitLineExtractProcessor` | 把混在行动/状态组里的 `trait_trigger` 抽成独立 TraitLine；**齐射组不切**（台词提到组前/压到组后），逐段组只在**台词处**切段；**出击段保留原组 Root**；**跳过 Duel 组**（单挑台词由 `DuelPerformance` 按时点播） |
 | 4 | `AchillesPierceTagProcessor` | 前邻有傲慢 pierce 台词组时给 `achilles_wrath` 追伤组打 `PierceBoost` 标，供裂甲 ExtraIcon 仅在贯穿成功时播；须在 TraitLineExtract 之后 |
 | 5 | `NodeMergeProcessor` | 纯记账节点标 `ParallelWithNext`，静默落账不占节拍 |
+
+### 因果批次（BatchId）与并组判据
+
+**批次**＝引发这些组的那次行动。`EventPipeline` 编译期给每组算一次
+`EventGroup.BatchId`：组根的 `parent_seq` 落在哪个组里就继承那个组的批次，
+**止于最近的行动组**（parent 是回合/行动节点时本组自成批次）——否则同一行动窗里
+互不相干的两次普攻会被算成一批，各自的落雷会被并到一起。
+processor 拆组一律用 `EventGroup.Fork()` 复制注记，漏带批次会让该并的并不起来。
+
+`BatchTriggerMergeProcessor` 的并组判据（全部满足）：
+
+1. 双方都是 StatusTrigger 组、组根都是 `status_tick`；
+2. 同 `BatchId` + 同 `status_id`（不跨批次，所以不会揉进别的回合/行动）；
+3. 状态未标 `sequential`；
+4. 同持有者，**或**状态标了 `simultaneous`。跨持有者并组对「持有者突进」型演出
+   是致命的（一个人替所有人挥刀），所以默认只并同持有者。
+
+标签在**服务端定义处**声明（`StatusDef.playback_tags` → 战报头 `status_catalog`，
+schema 1.5.2）：落雷 `simultaneous`、圣盾反制与代战借刀 `sequential`，其余默认。
+旧战报（无目录）回落客户端 `StatusPresentationRegistry.CollectiveMerge`。
+
+战法侧的「除非特殊配置」口子同理走定义期标签 `skill_catalog.tags`：
+`per_target`＝群攻也逐目标演，`simultaneous`＝多段强制并成一拍齐射
+（编译期注记到 `EventGroup.ForcePerTarget/ForceSimultaneous`，`DefaultPerformance`
+选模板时读）。
+
+### 台词抽取的切段粒度（2026-07-28 修正）
+
+台词抽取曾按「一条伤害一段」切，于是**只要有人在挨打时说了句话**（受击台词
+落进施法者的组里），一次群攻就被切成 N 段逐个飞——群攻组被打碎的最常见原因。
+现在：
+
+- **齐射组**（互异目标 ≥2 且非近战，或战法标 `simultaneous`）：出击**整组一个单元**
+  不切；台词按位置提到组前（首条伤害之前＝出手前的宣言）或压到组后（之后＝挨打方
+  的反应）。
+- **逐段组**（近战/单体多段，或战法标 `per_target`）：只在**台词处**切段，
+  段内连续伤害留在同一单元。
 
 ### 分组三条红线
 

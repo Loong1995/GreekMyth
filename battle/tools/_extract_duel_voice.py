@@ -8,7 +8,9 @@
 登场友/敌（2026-07-22）：`**hector**（友）` → hector；`**hector**（敌）` → hector_foe。
 未标友/敌的旧行仍写入 plain key（选池跨队会回退）。
 场景：`duel_*` → voice_duel_data；`enter` → voice_enter_data；
-`kill` → voice_kill_data（击杀者→死者，恒敌对，无友/敌分池）。
+`kill` → voice_kill_data（击杀者→死者，恒敌对，无友/敌分池）；
+`highlight` → voice_highlight_data（专属高光，池 key＝高光名如 divine_punishment，
+无对象，回退 generic）。
 """
 from __future__ import annotations
 
@@ -20,7 +22,8 @@ CHAR = ROOT / "docs" / "character"
 
 HERO_RE = re.compile(r"^## (\w+)\s*\u00b7")
 SCENE_RE = re.compile(
-    r"`(duel_\w+|enter|kill)`|(duel_challenge|duel_accept|duel_reject)|登场|击杀"
+    r"`(duel_\w+|enter|kill|highlight)`|(duel_challenge|duel_accept|duel_reject)"
+    r"|登场|击杀|高光"
 )
 # 捕获 **key** 及其后可选括号标签（友/敌/S1 等）；一行可多 key
 KEY_RE = re.compile(
@@ -68,7 +71,8 @@ def _split_lines(body: str) -> tuple[str, ...]:
 
 def _parse_scene(header: str) -> str | None:
     if ("duel_" in header or "`enter`" in header or "登场" in header
-            or "`kill`" in header or "击杀" in header):
+            or "`kill`" in header or "击杀" in header
+            or "`highlight`" in header or "高光" in header):
         sm = SCENE_RE.search(header)
         if not sm:
             return None
@@ -76,7 +80,9 @@ def _parse_scene(header: str) -> str | None:
             return sm.group(1)
         if sm.group(2):
             return sm.group(2)
-        return "kill" if "击杀" in header else "enter"  # 无反引号时按中文标题
+        if "击杀" in header:  # 无反引号时按中文标题
+            return "kill"
+        return "highlight" if "高光" in header else "enter"
     return None
 
 
@@ -108,6 +114,7 @@ def main() -> None:
     duel: dict = {}
     enter: dict = {}
     kill: dict = {}
+    highlight: dict = {}
     for path in sorted(CHAR.glob("*.md")):
         if path.name == "bonds.md":
             continue
@@ -136,6 +143,8 @@ def main() -> None:
                 bucket = duel
             elif scene == "kill":
                 bucket = kill
+            elif scene == "highlight":
+                bucket = highlight
             else:
                 bucket = enter
             pools = bucket.setdefault(hero, {}).setdefault(scene, {})
@@ -160,10 +169,17 @@ def main() -> None:
         kill,
         "击杀台词数据（docs/character 分册抽取）。",
     )
+    nh = _dump(
+        ROOT / "battle" / "voice_highlight_data.py",
+        "HIGHLIGHT_LINES",
+        highlight,
+        "专属高光台词数据（docs/character 分册抽取）。",
+    )
     print(
         f"wrote voice_duel_data heroes={len(duel)} slots={nd}; "
         f"voice_enter_data heroes={len(enter)} slots={ne}; "
-        f"voice_kill_data heroes={len(kill)} slots={nk}"
+        f"voice_kill_data heroes={len(kill)} slots={nk}; "
+        f"voice_highlight_data heroes={len(highlight)} slots={nh}"
     )
 
 

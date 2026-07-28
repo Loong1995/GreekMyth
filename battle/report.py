@@ -8,6 +8,7 @@ from typing import Any
 from battle.engine import SeriesEngine
 from battle.setup import BattleSetup
 from battle.skill_catalog import build_skill_catalog
+from battle.status_catalog import build_status_catalog
 from battle.version import CORE_VERSION, SCHEMA_VERSION
 
 
@@ -82,6 +83,8 @@ def build_report(setup: BattleSetup, seed: int, engine: SeriesEngine, series: di
         "setup_metadata": dict(setup.metadata),
         # 1.5.0 加法字段：出场战法标签目录（定义期声明，客户端播放层直读）
         "skill_catalog": build_skill_catalog(setup),
+        # 1.5.2 加法字段：状态播放标签目录（定义期声明；只收带标签的状态）
+        "status_catalog": build_status_catalog(),
         "teams": build_team_snapshots(setup),
         "games": games,
         "result": {

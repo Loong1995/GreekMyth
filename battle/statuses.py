@@ -57,6 +57,20 @@ FORBID_KEYS = ("forbid_basic", "forbid_active", "forbid_pursuit")
 
 PERMANENT = -1  # duration_rounds=-1：整局有效
 
+# 状态触发的播放语义标签（定义期声明 → 战报头 status_catalog → 客户端编译层）：
+#   simultaneous  与持有者无关的齐发型触发（雷霆落雷：目标头顶落雷，施法者不动）。
+#                 同一因果批次内**跨持有者**也并成一个播放单元。
+#   sequential    必须逐次单独成单元（圣盾反制、代战借刀：演出是持有者突进，
+#                 并组会让一个人替所有人挥刀）。
+# 都不声明＝默认：同批次**同持有者**的多次触发并成一发，跨持有者不并。
+SIMULTANEOUS = "simultaneous"
+SEQUENTIAL = "sequential"
+PLAYBACK_TAGS = frozenset({SIMULTANEOUS, SEQUENTIAL})
+
+# 定义期自注册表（StatusDef.__post_init__ 写入）：status_id → StatusDef。
+# 只服务 status_catalog 导出，禁止结算侧依赖（结算一律走实例 definition）。
+STATUS_DEFS: dict[str, "StatusDef"] = {}
+
 
 @dataclass(frozen=True, slots=True)
 class StatusDef:
@@ -101,6 +115,19 @@ class StatusDef:
                                                  # (engine, source, target, parent_seq)
                                                  # （美杜莎孤怨照影；对自己施加不回调防递归）
     payload: dict[str, Any] = field(default_factory=dict)  # 响应处理器的参数
+    # ---- 播放标签（schema 1.5.2 status_catalog；定义期声明，客户端编译层直读）----
+    # 本状态的触发（status_tick）在客户端如何组播放单元，取值见 PLAYBACK_TAGS。
+    # 不声明＝默认：同一因果批次内、同一持有者的多次触发并成一个播放单元。
+    playback_tags: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for tag in self.playback_tags:
+            if tag not in PLAYBACK_TAGS:
+                raise ValueError(
+                    f"{self.status_id}: playback_tags 非法 {tag!r}，"
+                    f"必须取自 {sorted(PLAYBACK_TAGS)}")
+        # 定义期自注册：status_catalog 从此表导出（同 id 重复定义以首个为准）
+        STATUS_DEFS.setdefault(self.status_id, self)
 
     def is_negative(self) -> bool:
         return self.kind in (DEBUFF, CONTROL)

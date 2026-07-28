@@ -66,8 +66,8 @@ namespace ClientBattle.VFX
                 SfxKey = "sfx_active_default", HitSfxKey = "sfx_hit_default",
             };
             // 主动默认：弹道/命中按伤害类型在 DefaultPerformance 解析（不再默认 Cast）
-            // 物理＝proj_bolt200 + hit_sword（画廊 1/8 件 45/61）；
-            // 魔法＝magic_bolt + hit_petrify（画廊 1/8 件 41/61）
+            // 物理＝proj_bolt200 + hit_sword（Impact_Cut_V1 直线刀光，CircleFit×2.5，定稿）；
+            // 魔法＝magic_bolt + hit_petrify（CFXR Magical Stars Pink，同上）
             // HitKey 留空：SettleDamage → ResolveHitKey 按 damage_type 选。
             db.ActiveDefault = db.GlobalDefault.Clone();
             db.ActiveDefault.HitKey = "";
@@ -95,23 +95,34 @@ namespace ClientBattle.VFX
             {
                 Template = PerformanceTemplate.OracleAura,
                 AuraKey = "aura_generic", SfxKey = "sfx_oracle_default",
-                // 神谕产生的伤害默认命中：hit_wave（画廊 1/8 件 47/61）
+                // 神谕产生的伤害默认命中：hit_wave（[1/8] 以 key 为准）
                 HitKey = "hit_wave",
             };
 
             // ---------------- 特殊配置（client_perform §二~五）----------------
             db.SpecialProfiles = new List<PerformanceProfile>
             {
-                // 神：雷霆神谕——场域氛围件 ambient_thunder_storm（Effect19 电弧铺满全场）；
+                // 神：雷霆神谕——罩身 shroud_thunder（Effect19 电弧缠身，每人一份）；
                 // 触发落雷仍 RemoteStrike
                 new() { SkillOrStatusId = "thunder_oracle", Template = PerformanceTemplate.OracleAura,
-                        AuraKey = "ambient_thunder_storm", SfxKey = "sfx_oracle_thunder" },
-                // 雷霆 / 天雷击：DR 单道竖雷 + Magic Pack Effect19_Collision 命中（无 ProjectileKey；禁 RFX4）
+                        AuraKey = "shroud_thunder", SfxKey = "sfx_oracle_thunder" },
+                // 雷霆落雷：DR 主+分叉竖雷；卡面命中取消（HitKey=none）——
+                // 目标身上 shroud_thunder 已表达雷，勿再叠 hit_lightning / 魔法默认。
+                // 受击仍走 HitReact（击退+沿线颤）+ 默认震屏。
                 new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.RemoteStrike,
-                        HitKey = "hit_lightning",
+                        HitKey = "none",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
+                // 神罚（宙斯专属高光）：同落雷竖雷；无卡面雷粒子；抬高震屏；
+                // 取景 cut-in 由服务 hint 点名。魔法默不裂 → GroundStrengthTier=2。
+                new() { SkillOrStatusId = "zeus_divine_punishment",
+                        Template = PerformanceTemplate.RemoteStrike,
+                        HitKey = "none",
+                        SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus",
+                        CameraShakeOnHit = true, CameraShakeAmp = 0.42f,
+                        CameraShakeSeconds = 0.38f, GroundStrengthTier = 2 },
+                // 天雷击：同落雷竖雷几何；卡面命中同样取消（禁 RFX4）
                 new() { SkillOrStatusId = "zeus_bolt", Template = PerformanceTemplate.RemoteStrike,
-                        HitKey = "hit_lightning",
+                        HitKey = "none",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
                 // 赫克托尔：走主动默认 Auto（群攻≥2→AoeCenter）；勿写死 AoeCenter，
                 // 否则 prepare（无伤害）也会空跑进中心，像没放技能。

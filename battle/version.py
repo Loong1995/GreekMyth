@@ -1,4 +1,6 @@
-SCHEMA_VERSION = "1.5.0"  # 1.5.0: +skill_catalog（战报头战法标签目录，客户端播放直读）
+SCHEMA_VERSION = "1.5.2"  # 1.5.2: +status_catalog（状态播放标签目录，播放单元合并语义）
+# 1.5.1: +skill_trigger.kind=highlight 专属高光 / hint.cut_in 取景注记
+# 1.5.0: +skill_catalog（战报头战法标签目录，客户端播放直读）
 # 1.4.1: +tactic_applied（P4-C 经理人战术）
 # 1.4.0: momentum_change / burst_no / normal_attack.kind / position 1~6
 CORE_VERSION = "battle-0.4.2"  # 0.4.2: 战法定义期标签 damage_type/tags/category

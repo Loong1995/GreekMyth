@@ -17,6 +17,8 @@ SKILL_NAMES: dict[str, str] = {
     "basic_attack": "普攻",
     # ---- 奥林匹斯阵营（battle/skills_gods.py）----
     "thunder_oracle": "雷霆神谕",
+    # 神罚：雷霆神谕的专属高光子效果，只作事件归因（不进 REGISTRY / skill_catalog）
+    "zeus_divine_punishment": "神罚",
     "zeus_bolt": "天雷击",
     "athena_aegis": "埃癸斯圣盾",
     "athena_guard": "神盾格挡",

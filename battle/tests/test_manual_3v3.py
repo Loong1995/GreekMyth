@@ -50,7 +50,7 @@ SEED = 20260722
 
 TEAM_A = [
     # 宙斯：谋略主C——天雷击 + 神使戏言
-    {"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest",)},
+    #{"template": "zeus", "extra_skills": ("zeus_bolt", "hermes_jest",)},
     # 雅典娜：防御核心——神盾格挡 + 灵蛇之吻
     {"template": "ares", "extra_skills": ("athena_guard", "asclepius_kiss",)},
     # 阿斯克勒庇俄斯：纯奶位
@@ -61,6 +61,7 @@ TEAM_A = [
     #{"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
     {"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
     # {"template": "medusa", "extra_skills": ("medusa_glance", "siren_charm",)},
+    {"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
     #{"template": "patroclus", "extra_skills": ("patroclus_armor","siren_charm")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
 ]
 
@@ -70,7 +71,8 @@ TEAM_A_POSITIONS: list[int] | None = [2, 4, 6]
 TEAM_B = [
     # 哈迪斯：谋略吸取——冥河汲魂 + 死亡凝望
     #{"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
-    {"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
+    #{"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
+    {"template": "zeus", "extra_skills": ("zeus_bolt", "medusa_glance",)},
     # {"template": "hecate", "extra_skills": ("hecate_pyre","athena_guard")},         # 赫卡忒：三火炬+燔祭
     # {"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
     #{"template": "ares", "extra_skills": ("siren_charm", "ajax_bulwark",)},
@@ -78,11 +80,11 @@ TEAM_B = [
     {"template": "achilles", "extra_skills": ("achilles_thrust", "ares_frenzy",)},
     #{"template": "ajax", "extra_skills": ("ajax_bulwark", "athena_guard",)},
     # ---- 新武将备选（同样揭开换上）----
-    # {"template": "patroclus", "extra_skills": ("patroclus_armor", "zeus_bolt",)},
+    {"template": "patroclus", "extra_skills": ("thanatos_gaze", "siren_charm",)},
     # {"template": "hecate", "extra_skills": ("hecate_pyre", "thanatos_gaze",)},
     # {"template": "calypso", "extra_skills": ("calypso_rime", "siren_charm",)},
     # {"template": "heracles", "extra_skills": ("heracles_counter", "ajax_bulwark",)},
-    {"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
+    #{"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
     # {"hero_id": "木桩", "force": 70, "command": 300, "speed": 60, "skills": ()},
 ]
 

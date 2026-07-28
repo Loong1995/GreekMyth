@@ -37,9 +37,14 @@ namespace ClientBattle.VFX
             s.OraclePerf = ScriptableObject.CreateInstance<OracleAuraPerformance>();
             s.DuelPerf = ScriptableObject.CreateInstance<DuelPerformance>();
 
+            // 画质档：玩家设置优先，否则按硬件探；编辑器按 VfxQuality.EditorTier
+            // 模拟真机档，好让编辑器 Play 看到的粒子密度/折射/灯/镜头层与真机一致。
+            // **必须先于 BattlePostFx.Ensure**：镜头层（Bloom）按档落，档没定就读到上一场的。
+            VfxQuality.LoadUserPreference();
+
             // 分辨率/宽高比自适配（不同机型统一由 CameraFitter 权威取景）
             CameraFitter.EnsureOn(Camera.main);
-            BattlePostFx.Ensure(); // RFX4 等史诗特效依赖 HDR+Bloom
+            BattlePostFx.Ensure(); // RFX4 等史诗特效依赖 HDR+Bloom；强度按画质档
             board.Build(report);
 
             var vfx = VFXManager.Ensure();

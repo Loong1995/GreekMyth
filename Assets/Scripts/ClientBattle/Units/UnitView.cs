@@ -484,8 +484,10 @@ namespace ClientBattle.Units
         ///   挤压＝**立绘形变**（肉感）。
         /// 颤动排在击退之后而不是同时：同时跑会互相抵消，方向和力度都读不清。
         ///
-        /// 绕身<strong>视觉仍在场</strong>（VfxShroudPresence.IsPresent）时禁一切卡根
-        /// 位移（击退+颤动，位移会把绕身罩甩出去，P-58）；挤压与红闪照给。
+        /// 绕身**默认不影响受击**（2026-07-28 人工定案）：罩由 `VfxShroudFollower`
+        /// 跟着卡走，甩不出去，而"罩身回合完全没有受击反馈"是把打击感整段抹掉。
+        /// 只有注册表显式置了 `shroudLocksHitMotion` 的状态（定身/结界类语义）
+        /// 才禁卡根位移，此时挤压与红闪照给。
         ///
         /// fromHome＝伤害来源的站位中心；省略（环境/状态伤）则不击退，
         /// 原地沿纵深轴起颤+挤压。</summary>
@@ -493,9 +495,8 @@ namespace ClientBattle.Units
         {
             transform.DOKill(true);
             CancelHitTremble();
-            // 绕身在场＝一切卡根位移（含击退与前后颤）都禁：位移会甩飞绕身罩
-            // （P-58）；肉感只剩立绘挤压 + 红闪。
-            if (!UnitAuraService.HasShroud(this) && !KnockBack(isCrit, fromHome))
+            // 只有显式声明"锁受击位移"的罩身才禁卡根位移；其余罩身照常击退+颤动。
+            if (!UnitAuraService.HasHitMotionLock(this) && !KnockBack(isCrit, fromHome))
             {
                 // 没有可用的受击线（环境/状态伤、同格）：原地起颤，方向取
                 // 地面纵深轴（朝观众），围绕当前位置，结束归位。

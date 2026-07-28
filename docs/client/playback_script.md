@@ -23,7 +23,7 @@
 三个消费方读**同一份**编译产物；任何一方再自行跑管线/推断语义即违规。
 SkipToEnd 静默落账走原始事件流（终态等价，与分组无关）。
 
-## 二、skill_catalog（定义期标签，schema 1.5.0）
+## 二、定义期标签：skill_catalog（1.5.0）/ status_catalog（1.5.2）
 
 战法标签在**服务端定义处**声明（`battle.skills.Skill` 的
 `damage_type`/`tags` 字段 + `category` 推导，register 强校验），经
@@ -34,6 +34,12 @@ SkipToEnd 静默落账走原始事件流（终态等价，与分组无关）。
 |---|---|---|
 | 追击 vs 主动分类 | `EventPipeline.Classify` | `category=="pursuit"` 直判，删 parent_seq 启发式（连发/借刀会让 parent 语义打架）|
 | 伤害类型 | 演出层现读 `damage.damage_type`（逐条），目录为聚合视图/配阵页展示 | |
+| 演出粒度特例 | `EventPipeline.AnnotateSkillTags` → `EventGroup.ForcePerTarget/ForceSimultaneous` | 标签 `per_target`＝群攻也逐目标演；`simultaneous`＝多段并成一拍齐射 |
+
+`status_catalog`（1.5.2）同理来自 `StatusDef.playback_tags`，编译层用途只有一个：
+`BatchTriggerMergeProcessor` 判断同批次的多次同状态触发能否并成一个播放单元
+（`simultaneous` 跨持有者可并 / `sequential` 禁并 / 缺省同持有者可并）。
+旧战报无该目录时回落 `StatusPresentationRegistry.CollectiveMerge`。
 
 旧战报（<1.5.0，无目录）回落启发式并 LogWarning 一次；**不做向后兼容承诺**，
 排查前先用 bridge / gen_golden 重新生成战报。
@@ -41,10 +47,10 @@ SkipToEnd 静默落账走原始事件流（终态等价，与分组无关）。
 ## 三、编译期 pass 清单（链序即语义，唯一登记处 `PlaybackCompiler.BuildPipeline`）
 
 ```
-分组（group_id 全量聚合 + Classify）
+分组（group_id 全量聚合 + Classify + 因果批次 BatchId + 战法标签注记）
 → BorrowBladeSplitProcessor      借刀按段拆单元（L3 谓词注入）
 → ReactionRegroupProcessor       响应 tick 摘出后置
-→ CollectiveTriggerMergeProcessor 雷霆等集体齐发合并
+→ BatchTriggerMergeProcessor     同批次同状态触发并成一个播放单元（落雷齐发）
 → TraitLineExtractProcessor      台词独占组抽取
 → AchillesPierceTagProcessor     傲慢贯穿图标闸门
 → NodeMergeProcessor             节点合并
@@ -67,7 +73,8 @@ SkipToEnd 静默落账走原始事件流（终态等价，与分组无关）。
 
 菜单 `GreekMyth → 播放 → 导出 PlaybackScript`：选一份战报 JSON，
 在旁边落 `<名>.playback.json` —— 逐局逐组列出
-kind / root_seq / 配置匹配 key / 事件清单 / cut-in 注记 / 并行与贯穿标记。
+kind / root_seq / **batch（因果批次）** / 配置匹配 key / 事件清单 / cut-in 注记 /
+并行与贯穿标记。排「这两组为什么没并成一个单元」先看 batch 是否相同。
 与运行期完全同源（同一 `Compile` 调用），所见即所播；
 排「为什么这组这么演」先看导出文件，不需要进 Play 模式断点。
 
@@ -78,3 +85,5 @@ kind / root_seq / 配置匹配 key / 事件清单 / cut-in 注记 / 并行与贯
 3. 需要新的编译期决策（预演/快照类）→ 新增独立 pass 类 + 在 `Compile` 登记，
    产物写 EventGroup 注记字段；**禁止**在 Director/演出层运行期推断。
 4. 需要新战法标签 → 服务端 `Skill.tags` 加法演进（客户端未知标签必须忽略）。
+5. 某状态的触发要「一起播 / 必须逐次播」→ 改服务端 `StatusDef.playback_tags`
+   （定义处一行），**不要**在客户端加白名单。

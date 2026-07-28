@@ -115,9 +115,12 @@ namespace ClientBattle.Units
                 duration: life,
                 chaos: chaos,
                 generations: gen,
-                alpha: Random.Range(0.7f, 0.9f),
-                widthMul: Random.Range(0.32f, 0.48f),
-                sortingOrder: 15);
+                // 常驻乱劈：短命、低亮饱和蓝；勿拉灰白
+                alpha: Random.Range(0.38f, 0.52f),
+                widthMul: Random.Range(0.18f, 0.28f),
+                sortingOrder: 15,
+                tint: DrLightningUtil.Halo,
+                flicker: false);
         }
 
         void PickTwoEdges(out Vector3 a, out Vector3 b)

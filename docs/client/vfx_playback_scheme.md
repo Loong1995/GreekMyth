@@ -7,7 +7,7 @@
 
 | 包 | 岗位 | 禁区 |
 |---|---|---|
-| **DigitalRuby Lightning（DR）** | 宙斯 `thunder` / `zeus_bolt` **竖雷几何**（单道） | — |
+| **DigitalRuby Lightning（DR）** | 宙斯 `thunder` / `zeus_bolt` / 神罚 **竖雷几何**（主芯+分叉） | 材质必须 URP/Unlit、亮度走 `_BaseColor` 且封顶 0.65（P-83）；禁 Legacy Particles、禁靠拉亮拉粗求震撼 |
 | **Magic Effects Pack 1**（kripto289） | 卡面命中/圣盾反制/光环；神舞台赫拉光束（待接） | 不当竖雷几何；不替 RFX4 远景 |
 | **RFX4** | 舞台远景/地面大场面 | **禁**宙斯技能、单挑 cut-in（P-25） |
 | Vefects / Cartoon Coffee / 四色弹道 | 其余英雄占位；随 Magic 换代 | — |
@@ -17,9 +17,10 @@
 
 | skill / status | 模板 | 竖雷 | 命中 / 反制 | 挂身 | 资源 key |
 |---|---|---|---|---|---|
-| `thunder` | RemoteStrike | DR 单道 | Magic `Effect19_Collision` | — | Hit=`hit_lightning`；PortraitMark=`zeus` |
-| `zeus_bolt` | RemoteStrike | DR 单道 | 同上 | — | 同上 |
-| `thunder_oracle` | OracleAura | — | — | 全场雷暴（地面中心） | `ambient_thunder_storm`（画廊 2/8·11/61 Effect19） |
+| `thunder` | RemoteStrike | DR 主芯+分叉 | **无**（`HitKey=none`） | — | 绕身已够；PortraitMark=`zeus`；受击仍 HitReact |
+| `zeus_divine_punishment`（神罚·专属高光） | RemoteStrike | 同上（分叉+1） | **无** | — | **抬高震屏**（Amp 0.42）；取景 cut-in；**命中裂地档 2** |
+| `zeus_bolt` | RemoteStrike | DR 主芯+分叉 | **无** | — | 同上（默认震屏） |
+| `thunder_oracle` | OracleAura | — | — | 电弧缠身（每人一份罩身） | `shroud_thunder`（画廊 2/8·11/61 Effect19；豁免电弧层） |
 | `athena_aegis` | OracleAura | — | — | **AllIn1 金描边**（无 Magic 粒子） | Aura=`aura_aegis` |
 | `aegis_shield` | Melee | — | Magic `Effect17_Collision` | 持盾者突进反弹 | Cast/Hit=`hit_shield_counter` |
 | `aegis_ward` | StatusTrigger | — | 同上闪光 | — | 同上 |
@@ -33,8 +34,8 @@
 
 | 伤害类型 | 弹道 | 命中 |
 |---|---|---|
-| 物理 | `proj_bolt200` | `hit_sword`（画廊 [1/8] 件 45/61） |
-| 魔法 | `magic_bolt` | `hit_petrify`（画廊 [1/8] 件 41/61） |
+| 物理 | `proj_bolt200` | `hit_sword`（Impact_Cut 直线刀光，卡心×2.5，定稿） |
+| 魔法 | `magic_bolt`（Magic Effect1） | `hit_petrify`（CFXR Magical Stars Pink，卡心×2.5） |
 
 **默认不播 Cast**。群攻 `Auto`→目标≥2 升 `AoeCenter`。
 

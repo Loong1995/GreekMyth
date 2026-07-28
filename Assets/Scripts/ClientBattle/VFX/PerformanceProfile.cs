@@ -46,7 +46,8 @@ namespace ClientBattle.VFX
         public string GroundPathKey = "";             // 弹道路径地面裂地
         public string GroundHitKey = "";              // 受击者脚下地面命中
         /// <summary>裂地强度档（1 轻 / 2 重 / 3 熔岩）。
-        /// 一档同时定缝宽、持续、亮度。0 = 未配 → 取档 1。
+        /// 一档同时定缝宽、持续、亮度。0 = 未配 → 物理取档 1、魔法仍不裂。
+        /// ≥1 时魔法伤害也出**命中**裂地（弹道裂地仍只跟物理）。
         /// 配置约定见 docs/client/ground_crack_config.md：
         /// 准备型物理主动群攻配 2，瞬发物理主动群攻留 0；
         /// 势能加强出手由服务强制档 3，不受本字段限制。</summary>
@@ -61,6 +62,11 @@ namespace ClientBattle.VFX
         public float ExtraIconScale = 1f;             // 特殊图标缩放（裂甲图标"比一般状态图标大很多"）
         public float StrikeVfxScale = 1f;             // 近身斩击缩放（普攻 1.0 基准、追击组默认更大）
         public bool CameraShakeOnHit = true;
+        /// <summary>命中震屏振幅（世界单位）。0＝用 SettleDamage 默认（暴击 0.2 / 普 0.08）。
+        /// 专属高光（如神罚）可显式抬高。</summary>
+        public float CameraShakeAmp;
+        /// <summary>命中震屏时长（秒）。0＝用 SettleDamage 默认 0.22。</summary>
+        public float CameraShakeSeconds;
         /// <summary>连发（BurstNo≥2）时的组内节拍加速倍率（B1）。</summary>
         public float BurstTempoScale = 1.35f;
         /// <summary>犹豫延迟宣告（kind=delayed）的「延迟」飘字停留秒数。</summary>

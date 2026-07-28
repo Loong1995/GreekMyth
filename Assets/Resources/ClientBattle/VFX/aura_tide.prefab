@@ -59,6 +59,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7567853341870261198, guid: 894b64672f508834fa192114d1fe3118, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1448367110930285261}
+    - targetCorrespondingSourceObject: {fileID: 7567853341870261198, guid: 894b64672f508834fa192114d1fe3118, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8742712750099170510}
+    - targetCorrespondingSourceObject: {fileID: 492225331989066425, guid: 894b64672f508834fa192114d1fe3118, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8011106580663057813}
   m_SourcePrefab: {fileID: 100100000, guid: 894b64672f508834fa192114d1fe3118, type: 3}
 --- !u!1 &837960945814976495 stripped
 GameObject:
@@ -80,3 +86,36 @@ MonoBehaviour:
   Reference: 0
   Factor: 1
   BakedBasis: 1.3409793
+--- !u!114 &8742712750099170510
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 837960945814976495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 0
+  MinTier: 0
+--- !u!1 &7238375154218534552 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 492225331989066425, guid: 894b64672f508834fa192114d1fe3118, type: 3}
+  m_PrefabInstance: {fileID: 7108760002468099105}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8011106580663057813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7238375154218534552}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 2
+  MinTier: 0

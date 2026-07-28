@@ -21,6 +21,9 @@
 | 状态台词 | `status_voice.LINES` + `FORBID_ACTIVE_VOICE` / `FORBID_BASIC_VOICE` / `_SKIP_PRIORITY` | 加 3 条词 + 登记候选序 |
 | 单挑台词 | `voice_duel_data.DUEL_LINES`（分册抽取）+ `voice_lines.emit_duel_line` | 改 `docs/character/*.md` 后重跑 `_extract_duel_voice.py` |
 | 登场台词 | `voice_enter_data.ENTER_LINES` + `voice_lines_enter.emit_enter_dialogues` | 同上抽取；全羁绊单元按序 / 无羁绊主将 generic |
+| **武将专属高光**（台词 + 标准 cut-in） | `voice_highlight_data.HIGHLIGHT_LINES`（分册「高光 highlight」抽取，池 key＝高光名）+ `voice_lines_highlight.emit_highlight_line` + `skill_common.emit_highlight_trigger` | 在触发点先发台词（独立组根），再用 `emit_highlight_trigger(engine, hero, "<高光 id>", targets, parent_seq)` 开高光组（`kind="highlight"` + `hint.cut_in="highlight"`），随后挂伤害。高光 id **不进 REGISTRY / skill_catalog**，只需在 `battle/names.py` 与 `ChineseNames.cs` 各加一条中文名。客户端零改动即生效（首例：宙斯神罚 `zeus_divine_punishment`） |
+| **状态触发的播放粒度** | `StatusDef.playback_tags`（定义处；`simultaneous` / `sequential`）→ 战报头 `status_catalog`（`battle/status_catalog.py` 自动导出） | 默认「同批次同持有者并成一个播放单元」。落雷这种与持有者无关的齐发写 `simultaneous`（跨持有者也并）；必须逐次演的（持有者突进类：圣盾反制、代战借刀）写 `sequential`。客户端零改动 |
+| **战法演出粒度特例** | `Skill.tags` 加 `per_target` / `simultaneous` → `skill_catalog.tags` | 群攻默认「一个单元齐射」；要逐目标演写 `per_target`，多段要并成一拍写 `simultaneous` |
 | 势能归轨 | `engine.MOMENTUM_TRACK_OF_KIND` | kind→轨表项 |
 | 标准控制 | `statuses.py` builder（复用现有 forbid_* 键则引擎零改动） | 新 builder |
 
@@ -39,7 +42,7 @@
 | 战法/状态演出（模板/资源 key/强度） | `PerformanceDatabase`（三级：特殊→组默认→全默认） |
 | 战场分区/卡尺/旋转/浮空微调 | `Units/BattlefieldLayoutConfig.cs`（静态字段） |
 | 裂地档位/触发/关停（三档 T1-T3） | **`VFX/GroundCrackService.cs`**（唯一入口；参数在 `GroundCrackPalette`，演出模板禁止直调） |
-| 某战法的裂地强度（缝宽+持续+亮度，1/2/3） | `PerformanceDatabase` 的 `GroundStrengthTier`；规则与登记表见 `docs/client/ground_crack_config.md`（准备型物理群攻＝2，瞬发＝0→1；势能加强强制 3） |
+| 某战法的裂地强度（缝宽+持续+亮度，1/2/3） | `PerformanceDatabase` 的 `GroundStrengthTier`；规则与登记表见 `docs/client/ground_crack_config.md`（准备型物理群攻＝2，瞬发＝0→1；势能加强强制 3；**魔法默不裂，显式 ≥1 才放行命中裂地**） |
 | 某战法的命中裂地面积倍率 | `GroundHitArea`（0→1＝卡宽×1.5）；势能加强强制 1.5；详见 ground_crack_config |
 | 想让某表现**跟着弹道飞行进度**走（沿途生长/爬升/蓄光…） | 实现 **`VFX/IFlightDriven`** 并 `StrikeSync.Fly(...).Attach(...)`；不改 StrikeSync 与演出模板。飞行段结束＝弹道抵达，调用方同帧开命中拍 `SettleDamage`。禁止在模板里 `WaitForSeconds` 自拼时序 |
 | 给**卡面立绘**加常驻动态（呼吸/晃动/挤压/惯性…） | **`Units/CardIdleMotion.cs`** 加一条通道并在 `Tick` 里合成；**禁止对立绘 Transform 另起 DOTween**（多方写同一组件会互相 Kill，呼吸断掉或立绘停在半路，P-63） |
@@ -55,10 +58,13 @@
 | 飘字观感 | `FloatingTextTuning` SO |
 | 中文名 | `Names/ChineseNames.cs`（与 `battle/names.py` 同步红线） |
 | 事件流改写（拆组/合并/重排） | `EventPipeline.Register` 新 `IEventProcessor`（红线见 [playback_units.md §二](../client/playback_units.md)） |
+| cut-in 取景触发源（含武将专属高光） | **`Events/CutInPlanner.cs`** 一处（编译期注记 `EventGroup.CutIn`）；判据表登记在 [cutin_stage.md](../client/cutin_stage.md) §二。服务点名式高光（`hint.cut_in="highlight"`）客户端**无阈值**，加新卡不改客户端 |
 | 真实资源 | `Resources/ClientBattle/<类别>/<key>`（占位回退，零代码） |
 | 罩身件挂载（定径+跟随**投影圆**） | `VfxShroudFollower.FitAndFollow`（定径 `VfxShroudFitter.Fit`）；挂载期**不裁层**（定径职责）；落盘清洗归 `VfxUsage.Shroud` |
 | 罩身厂包落盘 | **`VfxPackStandardizer.Standardize(src, key, VfxUsage.Shroud)`**（示例 `WireAresMightShroud`）；**禁止** CopyFull / 手拷旁路（P-77） |
-| 移动端性能约束（折射/贴花/粒子总量/碰撞/灯音）| 一律进 **`VfxPackStandardizer.ApplyMobileBudget`（全用途 pass）+ `Verify` 体检项**，禁止只写在某个用途分支里（P-79）；预算数字与替代方案表在 [vfx_mobile_budget.md](../client/vfx_mobile_budget.md)，改数前先看那份实测依据 |
+| 移动端性能约束（折射/粒子量/灯…）| **只降强度不删效果**：落盘挂 `VfxTierScale`（`VfxPackStandardizer.AttachTierScales`，全用途 pass），运行期按 `VfxQuality` 档位系数缩放；死层/污染层才摘。约束一律配 `Verify` 体检项，禁止只写在某个用途分支里（P-79）。档位表与玩家设置项见 [vfx_mobile_budget.md](../client/vfx_mobile_budget.md) |
+| 新增一档画质 / 调平衡点 | 只改 `ClientBattle/VFX/VfxQuality.cs` 的系数表：**逐件三张**（粒子/折射/灯，由 `VfxTierScale` 运行期缩放）+ **镜头层三张**（Bloom 强度/阈值/高质量滤波，由 `BattlePostFx.Apply` 直接写 Volume——全屏 pass 的开销与粒子数无关，逐件缩放管不到它）。全项目同时生效；玩家侧走 `SetUserPreference`，**不得**新增「关闭某类特效」的开关。镜头层同样只降强度不删：低端关高质量滤波、抬阈值，**不关 Bloom**（厂包峰值件与熔岩锋面靠它成光）。表与理由见 `docs/client/vfx_mobile_budget.md` §二b |
+| 管线级设置（RP asset：阴影/深度/不透明拷贝/RenderScale/色彩路径） | `Assets/Settings/{PC,Mobile}_RPAsset.asset`，**两套必须成对改**（编辑器 Play 走 PC 那套，只允许 `RenderScale` 一项有差）。差异表与理由：`docs/client/vfx_pack_integration.md` §2.1；一致性验收：`vfx_mobile_budget.md` §三。渲染器是 **Universal Renderer（3D 前向）**，不是 2D Renderer——禁止再按"是否支持 2D 管线"筛包 |
 | 加一件**全场氛围**（雷暴/风沙/极光…不挂任何卡） | 落盘 **`VfxUsage.AmbientField`**（示例 `WireThunderStorm`：摘人形壳、留世界空间游离层）；key 起 `ambient_` 前缀写进 `StatusPresentationRegistry` 的 `auraKey`，`UnitAuraService` 自动钉主战场地面中心 + 全场按 key 去重（多人同状态只一份，持有者清零才撤）；尺寸/抬高/层序只调 `StagePerformanceConfig.AmbientField*`，**不进演出代码** |
 | 任何要落在「某张卡脚下 / 身上」的**地面圆**定位定径 | **先选对圆**：脚下痕迹（裂地/法阵/地面件）用**定位圆** `ArenaSlotLayout.AnchorCircle*`（心＝接地点，直径＝卡宽）；把整张卡包进去的罩身件用**投影圆** `ProjectionCircle*`（心＝卡心正下方，半径＝影子半对角线，约 1.4 倍且**不同心**）。定义见 `docs/client/arena_stage.md` §四c。旧名 `CardCircle*` 已废止，**禁止再引入不带 Anchor/Projection 前缀的"圆"** |
 | 绕身显隐（出现/渐隐） | **`VfxShroudPresence`** + 注册表 `ShroudVisibility`（Always/OddRounds/EvenRounds/Manual）；任意时机 `UnitAuraService.SetShroudVisible`；`HasShroud`＝`IsPresent`（渐隐后恢复受击抖动） |

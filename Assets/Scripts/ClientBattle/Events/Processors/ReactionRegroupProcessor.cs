@@ -47,7 +47,8 @@ namespace ClientBattle.Events
                 var reactionGroups = new List<EventGroup>();
                 foreach (var tick in tickRoots)
                 {
-                    var reaction = new EventGroup { Root = tick, Kind = GroupKind.StatusTrigger };
+                    // 批次随原组：摘出来的响应仍属于「引发它的那次行动」这一批
+                    var reaction = group.Fork(tick, GroupKind.StatusTrigger);
                     reaction.Events.Add(tick);
                     claimed.Add(tick.Seq);
                     foreach (var ev in group.Events)
@@ -62,7 +63,7 @@ namespace ClientBattle.Events
                     reactionGroups.Add(reaction);
                 }
 
-                var trimmed = new EventGroup { Root = group.Root, Kind = group.Kind };
+                var trimmed = group.Fork();
                 foreach (var ev in group.Events)
                     if (!claimed.Contains(ev.Seq))
                         trimmed.Events.Add(ev);

@@ -97,6 +97,7 @@ round_start 是 ROUND_START 相位结算（伤兵损耗 troops_change、DoT stat
 | `interrupted` | 准备被打断（被缄默/冥锁/石化控制施加时），无子结算事件 |
 | `delayed` | 受犹豫影响延后（`delay_rounds` 固定为 1，D-02 二次修订），实际结算时另发一条 kind=release 的事件 |
 | `assist` | 连携触发的立即释放 |
+| `highlight` | 武将**专属高光**释放（1.5.1）：宙斯神罚等由 core 判定的高光时刻。`skill_id` 为高光归因 id（如 `zeus_divine_punishment`），**不是装配战法、不进 `skill_catalog`**；必带 `hint.cut_in="highlight"`，客户端按主动形演出 + 标准 cut-in 取景，且不计入追击计数 |
 
 | payload 字段 | pb# | 说明 |
 |---|---|---|

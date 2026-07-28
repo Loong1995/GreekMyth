@@ -13,22 +13,34 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from battle.pseudo_random import PseudoRandomParams
-from battle.skill_common import ATTR_DELTA_KEYS, BPS, emit_status_trigger, pick_distinct_enemies
+from battle.skill_common import (
+    ATTR_DELTA_KEYS,
+    BPS,
+    emit_highlight_trigger,
+    emit_status_trigger,
+    lowest_troops_enemies,
+    pick_distinct_enemies,
+)
 from battle.skills import TIMING_PREPARE, TIMING_PURSUIT, Skill, register
 from battle.statuses import (
     BUFF,
     DEBUFF,
     PERMANENT,
+    SEQUENTIAL,
+    SIMULTANEOUS,
     SPECIAL,
     StatusDef,
     disarm,
     hesitation,
     silence,
 )
+from battle.voice_lines_highlight import emit_highlight_line
 
 # =============================================================================
 # 雷霆神谕（宙斯）：己方全体【雷霆】——造成非落雷伤害后 70%（伪随机：失败+9%、
 # 成功-7%、30%~85%、4 次保底）追加落雷（触发者智力 85% 魔法），每人每回合 3 次。
+# 【神罚】每回合内敌方**单个**单位被落雷打满 3 次 → 宙斯对敌方**兵力最低**单位
+# 造成 100% 魔法伤害；发动前走宙斯专属高光台词 + 标准 cut-in 取景。
 # 性格·多情联动：宙斯分神（oracle_suppressed 旗标）本回合全队雷霆不触发。
 # =============================================================================
 
@@ -38,6 +50,12 @@ _THUNDER_PR = PseudoRandomParams(
 )
 THUNDER_RATE_BPS = 7000
 THUNDER_MAX_PER_ROUND = 3
+DIVINE_PUNISH_HITS = 3           # 同一敌方单位本回合被落雷击中满此数 → 神罚
+DIVINE_PUNISH_RATE_BPS = 10000   # 宙斯智力 100% 魔法
+DIVINE_PUNISH_KEY = "divine_punishment"  # 台词池 key（docs/character 高光分场）
+# 事件归因 id：神罚不是装配战法（不进 skill_catalog），只作 skill_trigger 归因，
+# 客户端据此取中文名「神罚」与专属演出配置。
+DIVINE_PUNISH_SKILL_ID = "zeus_divine_punishment"
 
 
 def _thunder_on_damage_dealt(engine, status, ctx):
@@ -59,15 +77,60 @@ def _thunder_on_damage_dealt(engine, status, ctx):
     status.round_counters["lightning"] = status.round_counters.get("lightning", 0) + 1
     owner = engine.hero_by_id(status.owner_id)
     tick_seq = emit_status_trigger(engine, status, ctx["damage_seq"])
-    engine.deal_damage(
+    damage_seq = engine.deal_damage(
         owner, target, damage_type="magic", rate_bps=8500,
         parent_seq=tick_seq, kind="lightning",
+    )
+    _count_for_divine_punishment(engine, status, target, damage_seq or tick_seq)
+
+
+def _zeus_thunder_status(engine, zeus_id: str):
+    """神罚记账挂在宙斯**自己的**【雷霆】实例上：round_counters 由引擎在回合开始
+    统一清零，不必另建回合作用域容器。宙斯阵亡/无雷霆 → None（神罚不判定：
+    神罚是宙斯亲自降下的，不是雷霆状态自身的效果）。"""
+    zeus = engine.heroes.get(zeus_id)
+    if zeus is None or not zeus.is_alive():
+        return None
+    for owned in engine.hero_statuses(zeus_id):
+        if owned.status_id == THUNDER_STATUS.status_id:
+            return owned
+    return None
+
+
+def _count_for_divine_punishment(engine, status, victim, parent_seq: int) -> None:
+    """落雷落地后按**受击者**记账；同一敌方单位本回合满 3 次 → 神罚（每单位每回合
+    一次：只在计数恰好等于阈值那次发动）。"""
+    zeus_status = _zeus_thunder_status(engine, status.source_id)
+    if zeus_status is None:
+        return
+    zeus = engine.hero_by_id(status.source_id)
+    if victim.team_id == zeus.team_id:
+        return  # 魅惑等敌我不分的落雷打到自己人，不计入神罚
+    key = f"punish:{victim.hero_id}"
+    hits = zeus_status.round_counters.get(key, 0) + 1
+    zeus_status.round_counters[key] = hits
+    if hits != DIVINE_PUNISH_HITS or engine.game_over():
+        return
+    targets = lowest_troops_enemies(engine, zeus, 1)
+    if not targets:
+        return
+    # 专属高光：先台词（独立 TraitLine 单元），再 cut-in 取景组
+    emit_highlight_line(engine, zeus, DIVINE_PUNISH_KEY)
+    punish_seq = emit_highlight_trigger(
+        engine, zeus, DIVINE_PUNISH_SKILL_ID, targets, parent_seq,
+    )
+    engine.deal_damage(
+        zeus, targets[0], damage_type="magic", rate_bps=DIVINE_PUNISH_RATE_BPS,
+        parent_seq=punish_seq, kind="lightning",
     )
 
 
 THUNDER_STATUS = StatusDef(
     status_id="thunder", kind=SPECIAL, duration_rounds=PERMANENT,
     response_priority=30, on_damage_dealt=_thunder_on_damage_dealt,
+    # 落雷是「目标头顶劈下」，与持有者无关：同一次群攻引发的多道落雷（哪怕分属
+    # 不同持有者）在客户端并成一个播放单元齐发（statuses.SIMULTANEOUS）。
+    playback_tags=(SIMULTANEOUS,),
 )
 
 
@@ -177,6 +240,9 @@ AEGIS_STATUS = StatusDef(
     payload={"reflect_to_random_enemy": True},
     mitigation_gate=_aegis_mitigation_gate,
     on_damage_taken=_aegis_on_damage_taken,
+    # 圣盾反制/重击回血的演出是**持有者自己动**（反弹突进、回血闪光），
+    # 且语义上要求「逐次触发」——禁止并组（statuses.SEQUENTIAL）。
+    playback_tags=(SEQUENTIAL,),
 )
 
 # 效果 3：雅典娜个人 1 次控制格挡（首控消耗并免疫；耗尽摘除）

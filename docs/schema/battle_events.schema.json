@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "greekmyth://schema/battle_events/1.5.0",
+  "$id": "greekmyth://schema/battle_events/1.5.2",
   "title": "BattleReport",
-  "description": "战斗事件流契约 v1.5.0（1.4.0：momentum_change/burst_no/normal_attack.kind/position 1~6；1.4.1 增 tactic_applied 经理人战术；1.5.0 增 skill_catalog 战法标签目录）。冻结后仅允许加法式演进。pb 字段编号见 x-pb 注记与 md 文档。",
+  "description": "战斗事件流契约 v1.5.2（1.4.0：momentum_change/burst_no/normal_attack.kind/position 1~6；1.4.1 增 tactic_applied 经理人战术；1.5.0 增 skill_catalog 战法标签目录；1.5.1 增 skill_trigger.kind=highlight 专属高光释放与 hint.cut_in 取景注记；1.5.2 增 status_catalog 状态播放标签目录）。冻结后仅允许加法式演进。pb 字段编号见 x-pb 注记与 md 文档。",
   "type": "object",
   "required": ["schema_version", "core_version", "battle_id", "rng_seed", "teams", "games", "result"],
   "properties": {
@@ -15,6 +15,11 @@
       "type": "object",
       "description": "1.5.0 可选：出场战法标签目录（skill_id → 条目，字典序）。定义期声明、客户端播放层直读；含固定条目 basic_attack。加法演进：客户端必须忽略未知键。",
       "additionalProperties": { "$ref": "#/$defs/SkillCatalogEntry" }
+    },
+    "status_catalog": {
+      "type": "object",
+      "description": "1.5.2 可选：状态播放标签目录（status_id → 条目，字典序）。只收带播放标签的状态（StatusDef.playback_tags 定义期声明）；客户端播放编译层据此决定同批次的多次触发能否并成一个播放单元。加法演进：客户端必须忽略未知标签。",
+      "additionalProperties": { "$ref": "#/$defs/StatusCatalogEntry" }
     },
     "teams": {
       "type": "array", "minItems": 2, "maxItems": 2,
@@ -29,7 +34,7 @@
   "x-pb-enums": {
     "phase": { "SERIES_START": 0, "GAME_START": 1, "DUEL": 2, "ROUND_START": 3, "ACTION": 4, "ROUND_END": 5, "GAME_END": 6, "SERIES_END": 7 },
     "damage_type": { "physical": 1, "magic": 2, "true": 3 },
-    "skill_trigger.kind": { "cast": 1, "prepare": 2, "release": 3, "interrupted": 4, "delayed": 5, "assist": 6 },
+    "skill_trigger.kind": { "cast": 1, "prepare": 2, "release": 3, "interrupted": 4, "delayed": 5, "assist": 6, "highlight": 7 },
     "status_remove.reason": { "expired": 1, "dispelled": 2, "source_defeated": 3, "game_end": 4, "exhausted": 5 },
     "attr_change.scope": { "temporary": 1, "game": 2, "series": 3 },
     "troops_change.reason": { "wounded_decay": 1 },
@@ -57,7 +62,20 @@
         "damage_type": { "enum": ["physical", "magic", "mixed", "none"], "description": "本战法（含其状态钩子归因）产生的伤害类型；纯增益/治疗/控制为 none" },
         "is_oracle": { "type": "boolean" },
         "prepare_rounds": { "type": "integer", "minimum": 0 },
-        "tags": { "type": "array", "items": { "type": "string" }, "description": "自由标签位（加法演进，客户端未知标签必须忽略）" }
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "自由标签位（加法演进，客户端未知标签必须忽略）；播放侧已用：per_target（群攻也逐目标演）/ simultaneous（多段并成一拍齐射）" }
+      },
+      "additionalProperties": true
+    },
+    "StatusCatalogEntry": {
+      "type": "object",
+      "required": ["name", "tags"],
+      "properties": {
+        "name": { "type": "string", "description": "状态中文名" },
+        "tags": {
+          "type": "array",
+          "items": { "enum": ["simultaneous", "sequential"] },
+          "description": "播放标签：simultaneous＝该状态的触发与持有者无关，同批次跨持有者也并成一个播放单元（落雷）；sequential＝必须逐次各自成单元（圣盾反制、代战借刀）。都不带＝默认（同批次同持有者才并）"
+        }
       },
       "additionalProperties": true
     },
@@ -158,7 +176,8 @@
     "Hint": {
       "type": "object",
       "properties": {
-        "intensity": { "enum": ["normal", "strong", "ultimate"] }
+        "intensity": { "enum": ["normal", "strong", "ultimate"] },
+        "cut_in": { "enum": ["highlight"] }
       },
       "additionalProperties": true,
       "description": "演出提示，客户端可忽略，不参与结算"
@@ -308,7 +327,7 @@
       "properties": {
         "actor_id": { "type": "string" },
         "skill_id": { "type": "string" },
-        "kind": { "enum": ["cast", "prepare", "release", "interrupted", "delayed", "assist"] },
+        "kind": { "enum": ["cast", "prepare", "release", "interrupted", "delayed", "assist", "highlight"] },
         "target_ids": { "type": "array", "items": { "type": "string" } },
         "delay_rounds": { "type": "integer", "minimum": 1 },
         "interrupted_by": { "$ref": "#/$defs/StatusRef" },

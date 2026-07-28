@@ -5012,6 +5012,7 @@ GameObject:
   - component: {fileID: 4579693214712528}
   - component: {fileID: 198297635613218020}
   - component: {fileID: 199139319771547244}
+  - component: {fileID: 5729790505579825226}
   m_Layer: 0
   m_Name: ShieldCollision
   m_TagString: Untagged
@@ -9909,6 +9910,20 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!114 &5729790505579825226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1722687849869474}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 1
+  MinTier: 0
 --- !u!1 &1757694562255664
 GameObject:
   m_ObjectHideFlags: 0
@@ -9919,6 +9934,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4539384118931380}
   - component: {fileID: 9218345079682474863}
+  - component: {fileID: 723286904204122054}
   m_Layer: 0
   m_Name: hit_clash
   m_TagString: Untagged
@@ -9959,3 +9975,17 @@ MonoBehaviour:
   Reference: 1
   Factor: 1
   RescueIfBuried: 0
+--- !u!114 &723286904204122054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757694562255664}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 0
+  MinTier: 0

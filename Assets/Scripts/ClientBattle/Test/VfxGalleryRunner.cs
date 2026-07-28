@@ -168,13 +168,16 @@ namespace ClientBattle.Test
             }
         }
 
-        /// <summary>我方标准件不经编辑器注入也能自己找到（在 Resources 下）。</summary>
+        /// <summary>我方标准件不经编辑器注入也能自己找到（在 Resources 下）。
+        /// 排除备份/过渡件（<c>_bak_*</c>、<c>*_pre_magic</c>），否则会插进 Ordinal
+        /// 清单把后续序号整体顶偏——人点「件 41」却对不上文档里的 key（P-82）。</summary>
         void EnsureOwnGroup()
         {
             if (Groups.Any(g => g.Ours)) return;
             var ours = new Group { Name = "我方标准件", Ours = true };
             ours.Items.AddRange(Resources.LoadAll<GameObject>("ClientBattle/VFX")
-                .Where(p => p != null).OrderBy(p => p.name, StringComparer.Ordinal));
+                .Where(p => p != null && VfxResourcesFilter.IsOursGalleryItem(p.name))
+                .OrderBy(p => p.name, StringComparer.Ordinal));
             Groups.Insert(0, ours);
         }
 
@@ -788,8 +791,11 @@ namespace ClientBattle.Test
                 ? $"弹道 {unitName} → {(foe != null ? foe.name : "?")}"
                 : $"{AnchorName(_anchor)} @ {unitName}";
 
+            string idxNote = Cur.Ours
+                ? "（[1/8] 序号随入库 Ordinal 插位·点名请用 key）"
+                : "";
             _status =
-                $"包 [{_group + 1}/{Groups.Count}] {Cur.Name}    件 [{_index + 1}/{Cur.Items.Count}]  " +
+                $"包 [{_group + 1}/{Groups.Count}] {Cur.Name}    件 [{_index + 1}/{Cur.Items.Count}]{idxNote}  " +
                 $"{_currentKey} {mark}\n" +
                 $"接线：{usage}{(string.IsNullOrEmpty(warn) ? "" : "    ⚠ " + warn)}\n" +
                 $"当前：{mode}    锚点 {AnchorName(_anchor)}（F）  目标卡（T）  " +

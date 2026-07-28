@@ -44,15 +44,29 @@ namespace ClientBattle.Names
         public readonly Vector3 AuraOffset;
         public readonly bool ControlIcon;
         public readonly string StatsSkillId;
+        /// <summary>**旧战报回落位**（schema &lt; 1.5.2）：该状态的触发可跨持有者
+        /// 齐发并组。新战报的真源是服务端 `StatusDef.playback_tags` → 战报头
+        /// `status_catalog`（BatchTriggerMergeProcessor 优先读它），这里只在
+        /// 无目录时兜底，新状态**不必**再来加行。</summary>
         public readonly bool CollectiveMerge;
         /// <summary>绕身（AuraKey 以 shroud_ 开头）的显隐策略；非绕身忽略。</summary>
         public readonly ShroudVisibility ShroudVisibility;
 
+        /// <summary>本状态的罩身是否**锁住受击位移**（击退 + 沿线颤动）。
+        ///
+        /// **默认 false（2026-07-28 人工定案）**：罩身在场也照常击退与颤动。
+        /// 早先默认是 true，理由是位移会把罩甩出去（P-58）——但罩身有
+        /// `VfxShroudFollower` 跟随，甩不出去；代价却是"罩身回合完全没有受击反馈"，
+        /// 打击感整段消失。真需要"纹丝不动"语义的罩身（如定身/结界类）才置 true。</summary>
+        public readonly bool ShroudLocksHitMotion;
+
         public StatusPresentation(string auraKey = null, bool controlIcon = false,
                                   string statsSkillId = null, bool collectiveMerge = false,
                                   Vector3? auraOffset = null,
-                                  ShroudVisibility shroudVisibility = ShroudVisibility.Always)
+                                  ShroudVisibility shroudVisibility = ShroudVisibility.Always,
+                                  bool shroudLocksHitMotion = false)
         {
+            ShroudLocksHitMotion = shroudLocksHitMotion;
             AuraKey = auraKey;
             AuraOffset = auraOffset ?? DefaultAuraOffset;
             ControlIcon = controlIcon;
@@ -77,10 +91,10 @@ namespace ClientBattle.Names
             ["fear"] = new(controlIcon: true),
 
             // ---- 神谕 / 被动载体（光环 + 结算归因）----
-            // 雷霆：Magic Effect19 **场域氛围件**（画廊 2/8·11/61）——`ambient_` 前缀＝
-            // 不挂卡、钉主战场地面中心铺满全场，全场按 key 去重（多人有【雷霆】只一份雷暴）。
-            // 落雷触发仍走 RemoteStrike。
-            ["thunder"] = new(auraKey: "ambient_thunder_storm", statsSkillId: "thunder_oracle",
+            // 雷霆：Magic Effect19 **罩身**（画廊 2/8·11/61）——每个带【雷霆】的人身上
+            // 各缠一份电弧（`shroud_` 前缀＝MountShroud + Presence）。落雷仍走 RemoteStrike。
+            // 落盘豁免了电弧层（`WireThunderShroud`）：这件罩身的主视觉就是电弧。
+            ["thunder"] = new(auraKey: "shroud_thunder", statsSkillId: "thunder_oracle",
                               collectiveMerge: true),
             ["aegis_shield"] = new(auraKey: "aura_aegis", statsSkillId: "athena_aegis"),
             ["aegis_ward"] = new(statsSkillId: "athena_aegis"),
@@ -142,5 +156,10 @@ namespace ClientBattle.Names
         public static ShroudVisibility ShroudVisibilityOf(string statusId)
             => !string.IsNullOrEmpty(statusId) && Table.TryGetValue(statusId, out var p)
                ? p.ShroudVisibility : ShroudVisibility.Always;
+
+        /// <summary>该状态的罩身是否锁受击位移；未登记默认 **false**（照常击退+颤动）。</summary>
+        public static bool ShroudLocksHitMotion(string statusId)
+            => !string.IsNullOrEmpty(statusId) && Table.TryGetValue(statusId, out var p)
+               && p.ShroudLocksHitMotion;
     }
 }

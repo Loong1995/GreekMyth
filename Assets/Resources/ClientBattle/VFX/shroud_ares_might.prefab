@@ -14282,6 +14282,7 @@ GameObject:
   - component: {fileID: 4654716394096164}
   - component: {fileID: 108562192284640346}
   - component: {fileID: 114544757062848222}
+  - component: {fileID: 1573447099247931929}
   m_Layer: 0
   m_Name: Point light
   m_TagString: Untagged
@@ -14454,6 +14455,20 @@ MonoBehaviour:
   GraphIntensityMultiplier: 2
   IsLoop: 0
   canUpdate: 0
+--- !u!114 &1573447099247931929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1319778489026090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 2
+  MinTier: 0
 --- !u!1 &1366117855764552
 GameObject:
   m_ObjectHideFlags: 0
@@ -14549,6 +14564,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4356941348588242}
   - component: {fileID: 1009405623077842166}
+  - component: {fileID: 7367219191984769167}
   m_Layer: 0
   m_Name: shroud_ares_might
   m_TagString: Untagged
@@ -14593,6 +14609,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6e4df5bdf5eb48498edf84eaadb5bed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxFreshInstance
+--- !u!114 &7367219191984769167
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1563956951038392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4935dd39d027a845aee77628bb915da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxTierScale
+  Target: 0
+  MinTier: 0
 --- !u!1 &1569274846559088
 GameObject:
   m_ObjectHideFlags: 0

@@ -59,6 +59,7 @@ namespace GreekMythEditor
                     {
                         ["kind"] = g.Kind.ToString(),
                         ["root_seq"] = g.RootSeq,
+                        ["batch"] = g.BatchId,
                         ["key"] = VFXResolver.KeyOf(g),
                         ["events"] = events,
                     };
@@ -71,6 +72,7 @@ namespace GreekMythEditor
                             ["title"] = g.CutIn.Title,
                             ["empowered"] = g.CutIn.Empowered,
                             ["massive"] = g.CutIn.Massive,
+                            ["highlight"] = g.CutIn.Highlight,
                         };
                     groupsJson.Add(item);
                 }

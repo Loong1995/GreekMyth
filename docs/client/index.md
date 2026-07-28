@@ -30,7 +30,7 @@
 | [../mechanics/duel.md](../mechanics/duel.md) | **单挑系统总索引（跨端）**：规则/事件契约/服务端实现/客户端舞台 cut-in 分幕/flipbook 素材约定，改单挑任一端先读它 |
 | [vfx_playback_scheme.md](vfx_playback_scheme.md) | **特效播放方案快照**：包分工、宙斯/雅典娜现行接线、预览入口、验收战报 |
 | [vfx_pack_integration.md](vfx_pack_integration.md) | **已购特效包改造与应用方案（权威）**：包内五类渲染层的可用性盘点、两套 RP asset 差异（编辑器≠真机）、改造项 A~E 与成本、接件标准流程与验收清单、分级方案、红线 |
-| [vfx_mobile_budget.md](vfx_mobile_budget.md) | **特效移动端预算与红线（接件前必读）**：TBDR 成本模型、五类高危层（折射/贴花/粒子总量/碰撞/灯音）的处置与替代方案、提示词红线、全局 RP 设置联动、存量排查结论 |
+| [vfx_mobile_budget.md](vfx_mobile_budget.md) | **特效画质分档与移动端纪律（接件前必读）**：只降强度不删效果、三档系数表（`VfxQuality`/`VfxTierScale`）、玩家可选档、编辑器与真机一致、观感需求对照表、存量排查 |
 | [vfx_standardization.md](vfx_standardization.md) | **特效标准化纪律（点名即交付）**：画廊原料→Resources 标准件→Profile 接线；**无 GUI 晋升**；人指出哪件后 AI 默认按清单标准化并加载 |
 | [faction_style.md](faction_style.md) | 四阵营视觉规范（配色同源 `Units/BattleBoardView.cs`） |
 | [manual_setup_panel.md](manual_setup_panel.md) | **手动配阵测试页**：客户端内配阵 → python 结算 → 播战报/百场统计 |

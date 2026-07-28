@@ -8,8 +8,9 @@ namespace ClientBattle.Events
     // 【第2层 事件管线·编译期 pass】CutInPlanner：全部取景 cut-in 的判定与阈值
     // （R-5.2，原 L4 CutInPolicy，2026-07-27 下沉为编译期注记）。
     //
-    // 触发源：满档（服务 cut_in + 势能预演已满轨）、巨伤「重创」（>阈值且真实
-    // 掉血）、行动窗第 5 次追击。判定在**编译期**逐组注记到 EventGroup.CutIn，
+    // 触发源：武将专属高光（服务 hint.cut_in=highlight 点名）、满档（服务 cut_in +
+    // 势能预演已满轨）、巨伤「重创」（>阈值且真实掉血）、行动窗第 5 次追击。
+    // 判定在**编译期**逐组注记到 EventGroup.CutIn，
     // 运行期 Director 只读注记，不再持有追击计数或查势能镜像——
     // 「先播了才知道要切」的回调式表现是 P-72 的结构性根因。
     //
@@ -31,6 +32,8 @@ namespace ClientBattle.Events
         public bool Empowered;
         /// <summary>巨伤「重创」（整组裂地拉满 ×1.5 + 强制震屏）。</summary>
         public bool Massive;
+        /// <summary>武将专属高光（服务 hint.cut_in=highlight 点名取景）。</summary>
+        public bool Highlight;
     }
 
     public static class CutInPlanner
@@ -67,11 +70,19 @@ namespace ClientBattle.Events
             }
         }
 
-        /// <summary>优先级：满档 &gt; 巨伤 &gt; 追击第 N 次；一组最多一次。</summary>
+        /// <summary>优先级：专属高光 &gt; 满档 &gt; 巨伤 &gt; 追击第 N 次；一组最多一次。</summary>
         static CutInPlan Resolve(EventGroup group, int pursuitCount,
                                  Dictionary<(string, string), int> momentum,
                                  Func<string, bool> isKnownTrack)
         {
+            var highlight = FindHighlight(group);
+            if (highlight != null)
+                return new CutInPlan
+                {
+                    HeroId = highlight.ActorId, Title = $"{SkillNameOf(group)}！",
+                    GroupId = highlight.GroupId, Highlight = true,
+                };
+
             var full = FindFullTrackCutIn(group, momentum, isKnownTrack);
             if (full != null)
                 return new CutInPlan
@@ -98,6 +109,12 @@ namespace ClientBattle.Events
                 };
             return null;
         }
+
+        /// <summary>武将专属高光（服务点名取景）：组根 skill_trigger 带
+        /// hint.cut_in="highlight"。阈值不在客户端——「这一下算不算高光」是玩法语义，
+        /// 由 core 判定并注记，客户端只按注记取景（宙斯神罚是第一例，后续核心卡逐个加）。</summary>
+        static SkillTriggerEvent FindHighlight(EventGroup group) =>
+            group.Root is SkillTriggerEvent st && st.HintOf("cut_in") == "highlight" ? st : null;
 
         /// <summary>组内第一条巨额伤害（>阈值且真实掉血）。被格挡/反弹的 0 伤不算：
         /// 那一下没打进去，切「重创」横幅是假的。</summary>

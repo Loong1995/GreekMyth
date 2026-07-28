@@ -157,6 +157,51 @@ def test_thunder_lightning_max_3_per_round_and_no_recursion():
         assert all(v <= 3 for v in per_hero_round.values()), f"seed={seed} 落雷超上限"
 
 
+def test_divine_punishment_after_three_lightning_on_one_enemy():
+    """神罚：敌方单个单位本回合被落雷打满 3 次 → 宙斯对**兵力最低**敌方单位
+    100% 魔法；每单位每回合最多一次；发动前必有专属高光台词 + cut-in 注记。"""
+    setup = vs_dummies(hero_setup("zeus", hero_id="x1", position=0))
+    seen = 0
+    for seed in range(20):
+        report = simulate(setup, seed=seed)
+        events = flat_events(report)
+        by_seq = {e["seq"]: e for e in events}
+        per_victim_round = Counter()   # 落雷受击计数（按局/回合/受击者）
+        punish_round = Counter()       # 神罚发动计数（按局/回合）
+        for event in events:
+            t = (event["t"]["g"], event["t"]["r"])
+            if event["type"] == "damage":
+                cause = by_seq.get(event["parent_seq"])
+                if (cause is not None and cause["type"] == "status_tick"
+                        and cause["payload"]["status"]["status_id"] == "thunder"):
+                    per_victim_round[(t, event["payload"]["target_id"])] += 1
+                continue
+            if not (event["type"] == "skill_trigger"
+                    and event["payload"]["skill_id"] == "zeus_divine_punishment"):
+                continue
+            seen += 1
+            punish_round[t] += 1
+            assert event["payload"]["kind"] == "highlight"
+            assert event["hint"]["cut_in"] == "highlight"
+            assert event["group_id"] == event["seq"], "神罚必须自成播放单元"
+            # 前一条事件是宙斯专属高光台词（独立组根）
+            prev = by_seq[event["seq"] - 1]
+            assert prev["type"] == "trait_trigger"
+            assert prev["payload"]["effect"] == "highlight"
+            assert prev["payload"]["hero_id"] == "x1" and prev["parent_seq"] == 0
+            # 触发条件：本回合确有某敌方单位被落雷打满 3 次
+            hits = [n for (rt, _victim), n in per_victim_round.items() if rt == t]
+            assert any(n >= 3 for n in hits), f"seed={seed} 未满 3 次却神罚"
+            child = [e for e in events if e["parent_seq"] == event["seq"]
+                     and e["type"] == "damage"]
+            assert child and child[0]["payload"]["damage_type"] == "magic"
+            assert child[0]["payload"]["source_id"] == "x1"
+            assert child[0]["payload"]["target_id"] == event["payload"]["target_ids"][0]
+        # 单个回合最多「敌方存活人数」次（每单位打满 3 次各发动一次）
+        assert all(v <= 3 for v in punish_round.values())
+    assert seen > 0, "20 个种子内神罚一次没触发，判据可能失效"
+
+
 # ---------------------------------------------------------------- 蛇杖庇护
 
 def test_snake_staff_heals_after_damage_taken():

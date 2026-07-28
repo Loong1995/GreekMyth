@@ -18,6 +18,8 @@ namespace ClientBattle.Names
             ["unknown"] = "其他",
             // ---- 神阵营 ----
             ["thunder_oracle"] = "雷霆神谕", ["zeus_bolt"] = "天雷击",
+            // 神罚：雷霆神谕的专属高光子效果，只作事件归因（不在 skill_catalog 内）
+            ["zeus_divine_punishment"] = "神罚",
             ["athena_aegis"] = "埃癸斯圣盾", ["athena_guard"] = "神盾格挡",
             ["ares_warfury"] = "战神怒火", ["ares_frenzy"] = "战争狂热",
             ["hermes_oracle"] = "赫尔墨斯神谕", ["hermes_jest"] = "神使戏言",

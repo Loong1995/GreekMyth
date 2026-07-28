@@ -17,7 +17,7 @@
 同口径还用 `hit_generic` 的：追击组默认、状态触发组默认、全局兜底、
 帕特洛克勒斯借刀等（见 `PerformanceDatabase.SpecialProfiles`）。
 
-## 一、命中 key 解析顺序（唯一，四级）
+## 一、命中 key 解析顺序（唯一）
 
 ```
 1. 巨伤覆盖：CutInPlanner.IsHighDamage（>3000，与「重创」横幅同判据）
@@ -26,11 +26,16 @@
        同帧命中裂地强制**档 3 + 面积 ×1.5**（`PlayHit(..., massive)`）；
        **重创 cut-in 于本组出手前**取景播出（推镜→横幅→出手命中→撤镜，
        见 cutin_stage.md），故暗幕不会盖住命中拍的卡面特效（P-72）
-2. PerformanceProfile.HitKey 非空 → 直接用（专配战法 / 组默认）
-3. 否则按 damage_type：
-     magic  → hit_petrify
-     其他   → hit_sword
-4. damage 为空 → hit_generic
+2. Profile.HitKey == "none" → 明确不要卡面命中件（宙斯雷系：绕身已够）
+3. Profile.HitKey 其它非空 → 直接用（专配战法 / 组默认）
+4. 否则按 damage_type：
+     magic  → hit_petrify（CFXR Magical Stars Pink，VfxCircleFit×2.5）
+     其他   → hit_sword（Impact_Cut_V1 直线刀光，VfxCircleFit×2.5，定稿）
+5. damage 为空 → hit_generic
+
+卡面挂载：`SettleDamage` 对 HitKey 走 **`PlayOn(卡根)`**（卡面中心，跟击退/颤动），
+不再 `PlayAt` 世界坐标。震屏振幅可被 Profile.`CameraShakeAmp`/`CameraShakeSeconds` 覆盖
+（神罚抬高）；HitKey=none 时仍走 HitReact + 震屏。
 ```
 
 实现：`SkillPerformance.ResolveHitKey`（唯一入口，模板禁止绕过）。
@@ -52,8 +57,11 @@ SpecialProfiles[skill/status id]
 | 神谕（Passive 组） | `OracleDefault` | **`hit_wave`** | 神谕产生的伤害默认命中 |
 | 全局兜底 | `GlobalDefault` | `hit_generic` | |
 
-> 画廊 **[1/8] 我方标准件** 的序号随入库件数漂移（新 key 会插位），
-> 文档一律以 **key 名**为准；查序号临时用 `_gallery_index_dump.py`。
+> 画廊 **[1/8] 我方标准件** 的序号按 name Ordinal，**随入库插位会漂**
+> （新 key 插在字母序中间 → 其后件号整体 +1）。文档与接线**一律以 key 名为准**；
+> 查当次序号用 `_gallery_index_dump.py`。备份/过渡件（`_bak_*`、`*_pre_magic`）
+> **不得**放 Resources（已迁 `Assets/_Archive/ClientBattleVFX/`），否则顶偏序号（P-82）。
+> 画廊 [1/8] HUD 也会提示「点名请用 key」。
 
 **改默认命中**：改 `PerformanceDatabase` 对应字段，或改 `ResolveHitKey` 分支；
 同步本文件 §〇/§二 + [assets_upload_guide](assets_upload_guide.md) 对应 key 行。
@@ -62,7 +70,7 @@ SpecialProfiles[skill/status id]
 
 ```
 1. profile.ProjectileKey 非空 → 专配优先（珀尔修斯飞剑、海神浪…）
-2. damage_type == "magic" → magic_bolt（画廊 1/8 件 54/62）；**不带弹道裂地**
+2. damage_type == "magic" → magic_bolt（Magic Pack **Effect1** 母件 / Projectile）；**不带弹道裂地**
 3. 其余（物理）        → proj_bolt200；**带弹道裂地**（档位见 ground_crack_config）
 ```
 
@@ -70,7 +78,7 @@ SpecialProfiles[skill/status id]
 `StrikeKeyOf`（物理 `slash` / 魔法 `magic_bolt`）。
 
 - **主动技能的默认弹道即物理系**（`proj_bolt200`），物理系主动才有「弹道 +
-  默认裂地」这一整套；纯魔法伤害的主动走 `magic_bolt`，**全程无裂地**
+  默认裂地」这一整套；纯魔法伤害的主动走 `magic_bolt`（Effect1），**全程无裂地**
   （裂地是「砸在地上」的语言，见 `GroundCrackService.IsPhysical`）。
 - **逐条判、不按组第一条判**（2026-07-27 改）：同组混合伤害时，魔法那一路飞
   `magic_bolt` 且不出裂缝，物理那一路飞 `proj_bolt200` 且出裂缝。弹道裂地侧
@@ -84,11 +92,13 @@ SpecialProfiles[skill/status id]
 | **巨伤（重创横幅）** | 按原模板 | **`hit_massive`**＋强制震屏＋**档3×1.5命中裂地**；命中拍先露脸再 cut-in（P-72） |
 | 普攻近身 | `slash`×1.0（Melee 命中帧） | **`hit_generic`** |
 | 追击（同步主动） | 群攻走主动、单体近身 | 按伤害类型：`hit_sword` / `hit_petrify` |
-| 主动·物理（未专配） | `proj_bolt200`＋弹道裂地 | `hit_sword` |
-| 主动·魔法（未专配） | `magic_bolt`（1/8 件 54/62）**无裂地** | `hit_petrify` |
+| 主动·物理（未专配） | `proj_bolt200`＋弹道裂地 | `hit_sword`（Impact_Cut 直线刀光，卡心×2.5，定稿） |
+| 主动·魔法（未专配） | `magic_bolt`（Magic **Effect1**）**无裂地** | `hit_petrify`（CFXR Magical Stars Pink，卡心×2.5） |
 | 神谕产生的伤害 | 按模板 | `hit_wave`（`OracleDefault.HitKey`） |
-| 雷霆 / 天雷击 | DR 竖雷（无弹道） | `hit_lightning`（Special；被巨伤覆盖时除外） |
-| 雷霆神谕氛围（状态 `thunder`） | — | **场域氛围** `ambient_thunder_storm`（画廊 2/8·11/61 Effect19；钉地面中心、非命中） |
+| 落雷（状态 `thunder` 触发） | DR **蓝晕+白芯+分叉+闪烁**竖雷 | **无卡面命中件**（`HitKey=none`）；绕身已够；仍 HitReact + 默认震屏 |
+| 神罚 `zeus_divine_punishment`（宙斯专属高光） | 同上（分叉加一道）+ **抬高震屏** | 同上 `none`；**档 2 命中裂地**；取景 cut-in 由服务 `hint.cut_in` 点名；`CameraShakeAmp=0.42` |
+| 天雷击 `zeus_bolt` | 同上 | 同上 `none`（被巨伤覆盖时除外仍 `hit_massive`） |
+| 雷霆神谕（状态 `thunder`） | — | **罩身** `shroud_thunder`（画廊 2/8·11/61 Effect19；每个带【雷霆】的人各缠一份电弧。落盘豁免电弧层，见 `WireThunderShroud`）。卡面不再叠 `hit_lightning`。场域氛围版 `ambient_thunder_storm` 留库备用 |
 | 治疗 | — | `heal_generic`（`SettleHeal` 写死） |
 
 专配战法（阿喀琉斯穿刺、珀尔修斯飞剑、圣盾反制…）一律看

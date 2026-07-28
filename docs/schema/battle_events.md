@@ -1,6 +1,6 @@
 # 战斗事件流契约（battle_events）
 
-> **现行版本：schema 1.5.0 / core battle-0.4.2**（`battle/version.py`；演进史见 §7）。
+> **现行版本：schema 1.5.2 / core battle-0.4.2**（`battle/version.py`；演进史见 §7）。
 > 总纲。事件类型逐一明细见 `battle_events_payloads.md`，
 > 机器可校验定义见 `battle_events.schema.json`。
 > 本契约一经人工确认即**冻结**，此后仅允许加法式演进（新增事件类型 / 新增可选字段），
@@ -30,6 +30,7 @@
 | `rng_seed` | uint64 | 4 | 随机种子。`(rng_seed, teams, core_version)` 可一键复现 |
 | `setup_metadata` | map | 8 | 影响结算的 setup.metadata（如 trait_rate_overrides；1.3.0 可选，重放必需） |
 | `skill_catalog` | map | 9 | **出场战法标签目录**（1.5.0 可选）：skill_id → 条目（字典序），见 §2.2b。定义期声明、客户端播放层直读，不再逐事件推断 |
+| `status_catalog` | map | 10 | **状态播放标签目录**（1.5.2 可选）：status_id → 条目（字典序），见 §2.2c。只收带播放标签的状态 |
 | `teams` | TeamSnapshot[2] | 5 | 双方阵容与初始属性快照（进入系列前的原始面板） |
 | `games` | Game[] | 6 | 各局，按局序号升序，1~7 个 |
 | `result` | SeriesResult | 7 | 系列总摘要，列表页无需解析事件即可展示 |
@@ -83,7 +84,20 @@
 | `damage_type` | enum | `physical` / `magic` / `mixed` / `none`——本战法（含其状态钩子归因伤害）的伤害类型；纯增益/治疗/控制为 `none` |
 | `is_oracle` | bool | 神谕 |
 | `prepare_rounds` | int32 | >0 = 准备型主动 |
-| `tags` | string[]，可选 | 自由标签位；**客户端未知标签必须忽略**（加法演进） |
+| `tags` | string[]，可选 | 自由标签位；**客户端未知标签必须忽略**（加法演进）。播放侧已用：`per_target`＝群攻也逐目标演、`simultaneous`＝多段并成一拍齐射 |
+
+### 2.2c status_catalog（1.5.2 加法字段）
+
+状态**播放标签**目录：只收在 `StatusDef.playback_tags` 定义处声明了标签的状态
+（`battle/status_catalog.py` 导出，键按字典序；无标签＝默认语义，不进表）。
+客户端播放编译层据此决定「同一次行动引发的多次同状态触发能否并成一个播放单元」
+（`BatchTriggerMergeProcessor`，见 `docs/client/playback_units.md`）。
+状态到来源战法的**归因**不在此表——那是客户端 StatusPresentationRegistry 的职责。
+
+| 条目字段 | 类型 | 说明 |
+|---|---|---|
+| `name` | string | 状态中文名 |
+| `tags` | string[] | `simultaneous`＝触发与持有者无关，同批次跨持有者也并成一发（落雷）；`sequential`＝必须逐次各自成单元（圣盾反制、代战借刀）。未知标签必须忽略 |
 
 ### 2.3 Game 与 SeriesResult
 
@@ -106,7 +120,7 @@ SeriesResult：`winner_team_id`（null=系列平局）、`total_games`、逐局�
 | `parent_seq` | int32 | 4 | 否 | 直接父事件 seq；顶层事件为 0/缺省 |
 | `group_id` | int32 | 5 | 否 | 所属播放组根事件的 seq（=祖先链最顶层的动作事件）；顶层事件为自身 seq。冗余字段，客户端可 O(1) 折叠 |
 | `payload` | 按 type | 6 | 是 | 各事件类型专属字段，键名固定（可 pb 映射），见 payloads 文档 |
-| `hint` | Hint | 7 | 否 | 演出提示（如 `intensity: "ultimate"`），不参与结算，客户端可忽略 |
+| `hint` | Hint | 7 | 否 | 演出提示，不参与结算，客户端可忽略。键：`intensity`（`normal/strong/ultimate`）、`cut_in`（1.5.1，值 `highlight`＝本组走标准 cut-in 取景，配合 `skill_trigger.kind=highlight`） |
 
 ### 3.1 逻辑时间 LogicalTime `t`
 
@@ -224,3 +238,5 @@ core 内部错误：战斗失败、不产出战报、抛出含完整上下文的
 | 1.4.0（2026-07-20 冻结，core battle-0.4.0） | 新增事件类型 `momentum_change`（四轨势能，**默认开启**，`setup.metadata.enable_momentum=false` 可关）；`skill_trigger` 新增可选字段 `burst_no`（连发第 N 次释放，2 起，硬上限 7）；`normal_attack` 新增可选字段 `kind`（`"coordinated"`=协击，缺省=普攻）；HeroSnapshot.position 扩展 1~6（4~6=后排）。机制见 `docs/mechanics/momentum.md`、`burst_coordination.md`。golden 已全量重生成 |
 | 1.4.1（2026-07-20，core battle-0.4.1，P4-C） | 新增事件类型 `tactic_applied`（经理人战术变更生效，payloads §26）；`status_remove.reason` 枚举补登 `"exhausted"`（充能耗尽摘除，行为 A2 起已存在）；`setup_metadata.tactics` 承载预设/变更序列（重放闭环）。机制见 `docs/mechanics/manager_tactics.md` |
 | 1.5.0（2026-07-27，core battle-0.4.2） | 顶层新增可选字段 `skill_catalog`（§2.2b，出场战法标签目录：name/category/timing/damage_type/is_oracle/prepare_rounds/tags）。标签在服务端战法定义处声明（`Skill.damage_type` register 强校验），客户端播放编译层直读、删逐事件推断。golden 已全量重生成 |
+| 1.5.1（2026-07-28，core battle-0.4.2） | `skill_trigger.kind` 枚举新增 `"highlight"`（武将专属高光释放，payloads §6）；`hint` 新增可选键 `cut_in`（值 `"highlight"`＝本组走标准 cut-in 取景）。首例＝宙斯【神罚】（`docs/skills/olympus.md`）。「算不算高光」是玩法语义，由 core 判定并注记，客户端不设阈值。standard 两条 golden 重生成（宙斯战力上升导致系列长度变化） |
+| 1.5.2（2026-07-28，core battle-0.4.2） | 顶层新增可选字段 `status_catalog`（§2.2c，状态播放标签目录：`simultaneous` / `sequential`）。语义：客户端播放以**播放单元**为最小粒度，同一次行动引发的同状态触发并成一发；能不能并由服务端定义期标签裁决，客户端不猜。仅战报头新增（事件流零变化），golden 全量重生成 |

@@ -149,6 +149,26 @@ namespace ClientBattle.Units
             return false;
         }
 
+        /// <summary>该单位身上是否有**锁受击位移**的罩身（视觉在场 + 注册表置了
+        /// <c>shroudLocksHitMotion</c>）。默认没有：罩身在场也照常击退与颤动，
+        /// 罩由 <see cref="VfxShroudFollower"/> 跟着走，不会被甩出去。</summary>
+        public static bool HasHitMotionLock(UnitView unit)
+        {
+            if (unit == null) return false;
+            foreach (var pair in _active)
+            {
+                if (pair.Key.Item1 != unit || pair.Value.fx == null) continue;
+                var key = pair.Value.key;
+                if (string.IsNullOrEmpty(key)
+                    || !key.StartsWith("shroud_", System.StringComparison.Ordinal))
+                    continue;
+                if (!Names.StatusPresentationRegistry.ShroudLocksHitMotion(pair.Key.Item2)) continue;
+                var presence = pair.Value.fx.GetComponent<VfxShroudPresence>();
+                if (presence == null || presence.IsPresent) return true;
+            }
+            return false;
+        }
+
         /// <summary>任意时机显隐某状态的绕身（覆盖 Round 策略直到下次自动对拍或再次调用）。</summary>
         public static void SetShroudVisible(UnitView unit, string statusId, bool shown,
                                             bool instant = false)
@@ -304,6 +324,9 @@ namespace ClientBattle.Units
             DisableAutoLifecycle(cell);
 
             var follower = VfxShroudFollower.FitAndFollow(unit, cell, root.transform);
+            // 三个人同时挂同一件时，三份实例逐帧同步地闪＝"一个动画复制了三份"
+            VfxPhaseDesync.Apply(cell, StagePerformanceConfig.ShroudDesyncSeconds,
+                                 StagePerformanceConfig.ShroudSpeedJitter);
             var presence = root.AddComponent<VfxShroudPresence>();
             presence.Bind(follower);
 
@@ -337,9 +360,7 @@ namespace ClientBattle.Units
             var host = board != null ? board.BoardFxRoot : null;
             var root = new GameObject($"{AmbientRootPrefix}_{key}");
             root.transform.SetParent(host, false);
-            // 平面钉地面中心；抬高一点，让游离元素从卡间穿过而不是埋进地里
-            root.transform.localPosition = ArenaSlotLayout.GroundCenter()
-                                           + new Vector3(0f, StagePerformanceConfig.AmbientFieldLift, 0f);
+            root.transform.localPosition = ArenaSlotLayout.GroundCenter();
             root.transform.localRotation = Quaternion.identity;
             root.transform.localScale = Vector3.one;
 
@@ -350,22 +371,96 @@ namespace ClientBattle.Units
             }
             else
             {
-                var cell = Object.Instantiate(prefab, root.transform);
-                cell.name = key;
-                cell.transform.localPosition = Vector3.zero;
-                cell.transform.localRotation = Quaternion.identity;
-                cell.transform.localScale =
-                    prefab.transform.localScale * StagePerformanceConfig.AmbientFieldScale;
-                DisableAutoLifecycle(cell);
-                ForceLoop(cell);
-                // 氛围压在卡牌之下：满屏元素盖在卡面前会把立绘/兵力糊掉
-                foreach (var r in cell.GetComponentsInChildren<Renderer>(true))
-                    r.sortingOrder = StagePerformanceConfig.AmbientFieldSortingOrder;
+                var sources = StagePerformanceConfig.AmbientFieldSources;
+                if (sources == null || sources.Length == 0)
+                    sources = new[] { new StagePerformanceConfig.AmbientFieldSource
+                                      { Name = "默认", Scale = 1f, Density = 1f, Lift = float.NaN } };
+                foreach (var src in sources) MountAmbientSource(prefab, key, root.transform, src);
             }
 
             var holders = new HashSet<(UnitView, string)> { (unit, statusId) };
             _ambient[key] = (root, holders);
             return null;
+        }
+
+        /// <summary>挂一处场域源：位置按战场尺度换算（不写死世界数），
+        /// 尺度/疏密/游走各自独立，几何全在 <see cref="StagePerformanceConfig"/>。</summary>
+        static void MountAmbientSource(GameObject prefab, string key, Transform parent,
+                                       StagePerformanceConfig.AmbientFieldSource src)
+        {
+            var pivot = new GameObject($"src_{(string.IsNullOrEmpty(src.Name) ? "?" : src.Name)}");
+            pivot.transform.SetParent(parent, false);
+            // 偏移按战场尺寸折算：换分辨率/换布局时源仍落在"中心区""天边"这两个语义位置上
+            float lift = float.IsNaN(src.Lift) ? StagePerformanceConfig.AmbientFieldLift : src.Lift;
+            pivot.transform.localPosition = new Vector3(
+                src.X * BattlefieldLayout.MainHalfWidth,
+                lift,
+                src.Z * BattlefieldLayout.MainDepth * 0.5f);
+            pivot.transform.localRotation = Quaternion.Euler(0f, src.Yaw, 0f);
+
+            if (src.WanderRadius > 0f && src.WanderInterval > 0f)
+            {
+                var wander = pivot.AddComponent<AmbientFieldWander>();
+                wander.Radius = src.WanderRadius * BattlefieldLayout.MainHalfWidth;
+                wander.Interval = src.WanderInterval;
+            }
+
+            var cell = Object.Instantiate(prefab, pivot.transform);
+            cell.name = key;
+            cell.transform.localPosition = Vector3.zero;
+            cell.transform.localRotation = Quaternion.identity;
+            cell.transform.localScale = prefab.transform.localScale
+                                        * StagePerformanceConfig.AmbientFieldScale
+                                        * Mathf.Max(0.01f, src.Scale);
+            DisableAutoLifecycle(cell);
+            ForceLoop(cell);
+            // 氛围压在卡牌之下：满屏元素盖在卡面前会把立绘/兵力糊掉
+            foreach (var r in cell.GetComponentsInChildren<Renderer>(true))
+                r.sortingOrder = StagePerformanceConfig.AmbientFieldSortingOrder;
+
+            HideAmbientLayers(cell, src.HideLayers);
+            ApplyAmbientDensity(cell, src.Density * StagePerformanceConfig.AmbientFieldDensity);
+        }
+
+        /// <summary>关掉本源里语义不成立的层（按节点名前缀）。只停用不销毁：
+        /// 同一件的另一处源还要用这些层，销毁是对**实例**动手、停用才是对这一处动手。</summary>
+        static void HideAmbientLayers(GameObject cell, string[] prefixes)
+        {
+            if (cell == null || prefixes == null || prefixes.Length == 0) return;
+            foreach (var t in cell.GetComponentsInChildren<Transform>(true))
+                foreach (var prefix in prefixes)
+                    if (!string.IsNullOrEmpty(prefix)
+                        && t.name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        t.gameObject.SetActive(false);
+                        break;
+                    }
+        }
+
+        /// <summary>按倍数缩放这份实例的粒子发射量（rate 与 burst）。
+        ///
+        /// **必须在实例化之后做**：`VfxTierScale` 在 `OnEnable`（即 Instantiate 当场）
+        /// 已按画质档从**原始值**写过一遍，我们在其后再乘，两者相乘即"档位 × 演出密度"，
+        /// 各管各的。反过来若写在档位之前，会被档位那一步按原始值覆盖掉。
+        /// 场域件不走池（每次挂载都是新实例），所以不存在重复相乘。</summary>
+        static void ApplyAmbientDensity(GameObject cell, float density)
+        {
+            if (cell == null || Mathf.Approximately(density, 1f) || density <= 0f) return;
+            foreach (var ps in cell.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var emission = ps.emission;
+                emission.rateOverTimeMultiplier *= density;
+                for (int i = 0; i < emission.burstCount; i++)
+                {
+                    var burst = emission.GetBurst(i);
+                    var count = burst.count;
+                    // 至少留 1 颗：压到 0 等于把这层删了（只降强度，不删效果）
+                    count.constantMin = Mathf.Max(1f, count.constantMin * density);
+                    count.constantMax = Mathf.Max(1f, count.constantMax * density);
+                    burst.count = count;
+                    emission.SetBurst(i, burst);
+                }
+            }
         }
 
         /// <summary>释放一个持有者；持有者清零才真正撤下场域件。</summary>

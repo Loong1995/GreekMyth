@@ -40,6 +40,7 @@
 | 性格台词 | 各性格 id | [traits.md](../mechanics/traits.md)；错开时点特例见 [hero_specials.md §1](../mechanics/hero_specials.md) |
 | 单挑台词 | 武将 `trait_id`（或 `voice`） | `effect=duel_challenge/accept/reject`；挂 duel 组，由 `DuelPerformance.Play`（内部 `PlayDuelLines`）播，见 [duel.md](../mechanics/duel.md) |
 | 状态台词 | `"status"` | 控制/犹豫/先攻**临产生影响的执行节点**，见 [status_voice.md](../mechanics/status_voice.md) |
+| 专属高光台词 | 武将 `trait_id`（或 `voice`） | `effect=highlight`，独立组根，紧接其后是该武将的高光 cut-in 组（见 [cutin_stage.md](cutin_stage.md) §二）。客户端无特判：抽成独占 TraitLine 气泡，播完才进 cut-in |
 
 播放机制（2026-07-20 定稿）：
 

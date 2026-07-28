@@ -1,20 +1,248 @@
 
 # Changelog
 
-## 2026-07-28 特效移动端预算体系（P-79：红线上移 + 全量排查）
-- 新文档 `docs/client/vfx_mobile_budget.md`：TBDR 成本模型、五类高危层
-  （屏幕折射/投影贴花/粒子总量/粒子碰撞/灯音脚本）的机制·代价·处置·替代方案、
-  接件提示词红线「五摘一夹」、观感需求→预算内做法对照表、全局 RP 设置联动。
-- 流水线：折射清洗从 Shroud 分支**上移为全用途** `ApplyMobileBudget`
-  （中和折射保子层 + 关粒子碰撞/触发 + 活跃粒子**等比稀释**到用途预算
-  1500/1500/2000，不硬夹 maxParticles）；`Verify` 增预算四项，体检一票否决。
-- 新增就地清洗入口 `GreekMyth/特效/清洗 存量标准件（移动端预算…）`：
-  用途按 key 前缀反推，只做与用途无关的通用清洗，幂等——存量自研件无源可回溯。
-- 全量排查：63 件中 **30 件不合格**（6 件屏幕折射、20 件 playOnAwake 音源、
-  5 件 World 粒子碰撞、6 件粒子超预算、1 件 4 盏实时灯）。
-- 规则/文档：`00-session-start` 表行、`vfx-standardization.mdc`、`client-battle.mdc`
-  加载新红线；standardization §四.3-7b/§四.5/§六、client index、extension_points、
-  pitfalls P-79。
+## 2026-07-28 魔法默认弹道 → Magic Effect1；竖雷加闪电感
+
+- `magic_bolt` ← Magic Pack **Effect1**（`VfxUsage.Projectile` 新用途：保留母件、
+  摘 Motion/Target，位移归 LaunchProjectile；`WireMagicBolt` + AutoHeal）。
+- 竖雷去灰白：外晕饱和宝蓝 + 细白青芯 + 分叉；`DrLightningFlicker` 周期重
+  Trigger（重算折线+推进贴图行），避免整段静止灰线。
+
+## 2026-07-28 宙斯竖雷纯白修复·第二轮（亮度通道，P-83 第二层）
+
+- 迁 URP 后**仍纯白**的真因：`URP/Unlit` 不乘顶点色，LineRenderer 的 `alpha`
+  （colorGradient）静默失效 → 每道雷恒满亮，加色与舞台底色相加在 HDR 下裁剪成白。
+- 亮度改写**实例材质 `_BaseColor`** 并封顶 `MaxIntensity=0.65`；端点收细改 `widthCurve`。
+- 参数重定标：主芯亮度 0.52（神罚 0.62）、宽度 0.58（0.68），分叉更细更暗。
+  离屏实测底色 0.55 上峰值 0.952（已白）→ **0.688**。
+- 每道雷的实例材质随 `DrLightningUtil.Release` 一起销毁，不再逐次泄漏。
+- `ThunderAuraDriver` 同步降亮降宽。
+
+## 2026-07-28 宙斯竖雷纯白修复（DR → URP Unlit，P-83 第一层）
+
+- 根因：DR 材质挂 Legacy `Particles/Additive*`，URP 移动端回退成白带。
+- 三材质迁 `URP/Unlit` Transparent+Additive（`WireDrLightningUrp` + AutoHeal）；
+  贴图 ≤1024、关 mipmap；`DrLightningUtil` 运行期兜底。
+
+## 2026-07-28 宙斯雷系：取消卡面雷命中 + 竖雷加粗分叉 + 神罚强震
+
+- 卡面 `hit_lightning` 取消：`thunder` / `zeus_bolt` / `zeus_divine_punishment`
+  均 `HitKey=none`（绕身 `shroud_thunder` 已够；巨伤仍可覆盖 `hit_massive`）。
+- 竖雷：旧单道 alpha0.2 灰线 → DR **主芯粗亮 + 两侧分叉**（神罚再加一道）；
+  时长略拉长。禁 RFX4；Vefects 竖劈弹道仍备选（`LaunchSkyBolt` 直线下落）。
+- 神罚受击：显式抬高震屏（Amp 0.42 / 0.38s）+ 照常 HitReact（击退/沿线颤）。
+
+## 2026-07-28 魔法默认命中改 Magical Stars Pink
+
+- 物理 `hit_sword`＝Impact_Cut_V1 **定稿**不动。
+- 魔法 `hit_petrify` ← CFXR **Hit Magical Stars (Pink)**（星芒+刺环+拖尾，
+  比 Hit Light 更密更魔幻）；定径仍 ×2.5。
+
+## 2026-07-28 默认命中：Impact_Cut 直线刀光 + Hit Light Pink
+
+- 物理 `hit_sword` 改回最早 **Impact_Cut_V1**（Cone 横切≈直线，非环形）。
+- 魔法 `hit_petrify` ← CFXR **Hit Light C (Air, Pink)**。定径仍 ×2.5。
+
+## 2026-07-28 默认命中：同 Slash 换色 + 放大一倍
+
+- 物理/魔法共用 Fire Slash：`hit_sword` 金红；`hit_petrify` 同件染紫粉。
+- `VfxCircleFit` 倍率 1.25→**2.5**（放大一倍）。
+
+## 2026-07-28 默认命中：金红刀光 + 紫粉魔法光
+
+- 物理 `hit_sword` ← Cartoon Coffee **Fire Slash v1**（金/橙刀身、红刃缘）。
+- 魔法 `hit_petrify` ← CFXR **Hit Light C (Air, Pink)**（紫粉环+刺光）。
+- 仍卡心 PlayOn、`VfxCircleFit×1.25`；弃用上一轮 Vefects Spiky/Burst。
+
+## 2026-07-28 默认命中改接 Vefects（弃 Magic Collision）
+
+- Magic Effect18/19_Collision 卡面观感不佳，改回 Vefects：
+  **物理** `hit_sword` ← `Radial_Spiky_Hit_01 Random_Rotate_Bunch`（4/8·308）；
+  **魔法** `hit_petrify` ← `Radial_Burst_01 Random_Rotate_Bunch`（4/8·294）。
+- 形体分型：刺击 vs 爆发（不是横光换色）。`VfxCircleFit×1.35`；仍卡心 PlayOn。
+
+## 2026-07-28 物理/魔法默认命中改 Magic Collision + 卡心放大
+
+- `hit_sword` ← Magic **Effect18_Collision**；`hit_petrify` ← **Effect19_Collision**
+  （画廊 2/8 件 40/41；走 `VfxPackStandardizer`，`WireDefaultHitVfx`）。
+- 尺寸：`VfxCircleFit` 定投影圆后再 ×**2.5**（厂包 Collision 贴卡偏小）。
+- 挂载：`SettleDamage` HitKey 改 **`PlayOn(卡根)`**，跟击退/颤动，不再世界定点。
+- 宙斯 `hit_lightning` 仍为同原料 Effect19_Collision 的专配件，未改。
+
+## 2026-07-28 画廊 [1/8] 序号漂移：清备份污染 + 过滤对齐
+
+- **根因**：我方标准件按 name Ordinal；`_bak_*` / `*_pre_magic` 曾在 Resources
+  里插位，把后续件号整体顶偏（文档写 41/61≠画廊实号）。另：入库真 key 仍会漂——
+  这是 Ordinal 的固有行为，点名必须以 key 为准。
+- **修复**：5 件备份/过渡迁出 `Assets/_Archive/ClientBattleVFX/`；画廊
+  `EnsureOwnGroup`、预热、`_gallery_index_dump.py` 共用 `VfxResourcesFilter`；
+  [1/8] HUD 提示「点名请用 key」。P-82。
+
+## 2026-07-28 渲染器错述更正 + 关无用阴影 + 画质档接到镜头层
+
+- **渲染器类型更正**（P-81）：实际是 **URP Universal Renderer（3D 前向）**，
+  非 2D Renderer（`{PC,Mobile}_Renderer.asset`＝`UniversalRendererData`，无
+  `lightBlendStyles`）。三处现行文档的采购红线口径改为「只要求支持 URP」；
+  权威收口到 `vfx_pack_integration.md` §2.0，并说明为何**不可**换回 2D Renderer
+  （`CardDepthProxy` 靠深度排罩身前后、折射靠不透明拷贝）。
+- **实时阴影两套全关**：场上无任何 shadow caster（地面 `shadowCastingMode.Off`、
+  全 unlit sprite、厂包灯阴影落盘期已关），白留一张阴影图和一遍 pass。
+- **画质档接到镜头层**（此前完全脱钩）：Bloom 是全屏 pass，`VfxTierScale` 管不到，
+  改由 `BattlePostFx.Apply()` 按 `VfxQuality` 落；新增 `BloomIntensity/
+  BloomThreshold/BloomHighQuality` 三张档位表。低端**不关 Bloom**（会塌成喷洒＝删效果），
+  只降强度 + 关高质量滤波（真正的开销）+ 抬阈值（顺带还回一点对比度）。
+  顺带修调用顺序：`LoadUserPreference` 必须先于 `BattlePostFx.Ensure`。
+- **编辑器 ≈ 真机**：PC RP 对齐 `UseFastSRGBLinearConversion`（色彩路径）与阴影；
+  逐件强度、镜头层、MSAA、拷贝降采样、色彩分级模式全部一致；**仅剩 `RenderScale`
+  一项有差**（真机 0.8/编辑器 1.0，故意保留，锐度只能以独立版验收）。
+  编辑器画质档菜单切档即刻重写镜头层；开场 `[VfxQuality]` 日志加打系数与 Bloom 参数。
+
+## 2026-07-28 宙斯神罚：`hit_lightning` + 档 2 命中裂地
+
+- 神罚卡面命中与天雷击共用 `hit_lightning`（Effect19_Collision 喷射粒子）；
+  落雷仍走魔法默认 `hit_petrify`。
+- `GroundStrengthTier=2`：命中拍出档 2 裂地。`ShouldPlayHit`：魔法默不裂，
+  profile 显式档位 ≥1 才放行命中裂地（弹道/轨迹仍只跟物理）。
+
+## 2026-07-28 播放单元按「因果批次」重组（schema 1.5.2 status_catalog）
+
+- **因果批次**：`EventGroup.BatchId`＝引发本组的那次行动（沿 parent 上溯，
+  **止于最近的行动组**，否则一个行动窗内互不相干的两次普攻会被算成一批）。
+  processor 拆组统一走新的 `EventGroup.Fork()` 复制注记，漏带批次＝该并的并不起来。
+- **BatchTriggerMergeProcessor** 取代 `CollectiveTriggerMergeProcessor`：旧口径要求
+  「相邻 + 客户端白名单」，中间夹一个节点或别人的响应就并不起来；新口径按
+  **同批次 + 同状态**并组（群攻打三人 → 下一个单元是三人的落雷一起劈，实测
+  `hector_warcry n=11` → `thunder n=6` 各一个单元）。跨持有者只有标了
+  `simultaneous` 才并——「持有者突进」型演出并组会变成一个人替所有人挥刀。
+- **标签真源回到服务端定义处**（契约加法演进 1.5.2）：`StatusDef.playback_tags`
+  定义期自注册 → `battle/status_catalog.py` 导出战报头 `status_catalog`（只收带
+  标签的状态）。落雷 `simultaneous`、圣盾反制/代战借刀 `sequential`。战法侧同理
+  用 `skill_catalog.tags` 的 `per_target` / `simultaneous` 作「群攻＝一个单元齐射」
+  的特殊配置口子（编译期注记 `ForcePerTarget/ForceSimultaneous`）。
+- 准备型战法的**宣告**单元改飘「蓄势·X」：它常紧跟在释放单元后（打完接着蓄下一发），
+  干飘技能名会读成「同一个技能放了两遍」（赫克托尔战吼即此例）。
+- **群攻被台词切碎**（同日实测追修）：`TraitLineExtractProcessor` 原按「一条伤害
+  一段」切，于是**别人挨打时说了句话**就能把群攻打碎——manual 0722 第二回合赫克托尔
+  战吼里混进阿喀琉斯「踵」受击台词，整组被切成 4 段逐个飞。改为：齐射组整组不切
+  （台词按位置提到组前/压到组后），逐段组只在台词处切段。实测该组 4 段 → `n=10`
+  一个单元；十份战报编译前后事件总数逐份不变（无漏账/重复落账）。
+- 受击颤动振幅翻倍（`HitTrembleAmp` 0.22/0.13 → 0.44/0.26，×微调圆半径）：
+  实测只看得见击退、看不出震。
+- 导出的 `.playback.json` 增 `batch` 字段；「这两组为什么没并」先看 batch。
+  golden 全量重生成（仅战报头新增字段，事件流零变化）。
+
+## 2026-07-28 宙斯【神罚】＋专属高光 cut-in 通道（schema 1.5.1）
+
+- **神罚**（`skills_gods.py`）：每回合内敌方**单个**单位被落雷打满 3 次 → 宙斯对
+  敌方**兵力最低**单位 100% 魔法。计数按受击者记在宙斯自己的【雷霆】实例
+  `round_counters["punish:<id>"]`（引擎回合头统一清零，不另建回合容器）；宙斯
+  阵亡/无雷霆则不判定；神罚伤害 kind=`lightning` 防连锁。新助手
+  `skill_common.lowest_troops_enemies`（绝对兵力口径，区别于既有比例口径）。
+- **专属高光通道**（可复用，后续核心卡逐个接）：契约加法演进 **1.5.1** ——
+  `skill_trigger.kind="highlight"` + `hint.cut_in="highlight"`。高光归因 id
+  （`zeus_divine_punishment`）**不进 REGISTRY / skill_catalog**，只在
+  `names.py` / `ChineseNames.cs` 各加一条中文名。客户端 `CutInPlanner` 新增
+  最高优先级触发源，读注记即取景——**阈值不在客户端**：「算不算高光」是玩法语义。
+- 台词：分册新增「高光 highlight」抽取场景（池 key＝高光名，缺则 generic），
+  产出 `voice_highlight_data.py` + 发词入口 `voice_lines_highlight.py`；宙斯补
+  专属高光词一条，神罚前独立组根发，客户端 TraitLine 播完才进 cut-in。
+- 落雷受击改走**魔法类默认** `hit_petrify`（`thunder` Special 的 HitKey 留空），
+  与其他魔法伤害同一套受击语言；`zeus_bolt` 仍用 `hit_lightning`。
+- golden 全量重生成：本次改动使宙斯输出显著上升，standard 两局系列长度变化
+  （事实变更，非"改 golden 迁就测试"）；schema 版本号变更导致其余 golden 头部同步。
+  `test_skill_catalog` 的版本断言改为下界（`>= "1.5.0"`），免得每次小版本都改测试。
+
+## 2026-07-28 罩身默认不锁受击；雷霆神谕改回罩身
+- **罩身默认不影响受击**（人工定案）：`HitReact` 原来只要有罩身在场就禁一切卡根
+  位移（P-58 怕把罩甩出去），代价是罩身回合完全没有打击反馈。罩由
+  `VfxShroudFollower` 跟着卡走、甩不出去，故默认改为照常击退+颤动；
+  要"纹丝不动"语义的罩身在注册表置 `shroudLocksHitMotion`（新字段，默认 false）。
+  判定入口 `UnitAuraService.HasHitMotionLock`（`HasShroud` 保留作显隐查询）。
+  战神之勇随默认走。
+- 宙斯雷霆神谕改回**罩身** `shroud_thunder`（Effect19），不再走全局氛围。
+  流水线新增加法式参数 `Standardize(..., keepLayers)`：罩身默认摘游离电弧
+  （卡面尺度＝全屏乱电 P-78），但这件的主视觉就是电弧，摘完只剩被中和的
+  折射壳＝什么都看不见，故豁免 `LightningTrails` / `Fringe`（`WireThunderShroud`）。
+  折射壳曾一并豁免以求"完整厂件观感"，实测糊卡面到不可接受，**当场否决**——
+  P-77 是实测结论不是保守。
+- 流水线加对称旋钮 `dropLayers`（精确名匹配，`keepLayers` 是子串）：点名摘
+  **观感语义与用途冲突**的层。雷霆罩身据此摘掉一次性喷射爆发
+  （`Particles`/`Point`/`Fog`/`ImpactDecal`）——往外喷的雷电线读作"正在放技能"，
+  而罩身表达的是常驻态。成品＝`ShieldAdd3` + `ShieldFringe`，与
+  `shroud_ares_might`（加色壳+边环+背火）同构。体检 64 件 0 不合格。
+- 新增 `VfxPhaseDesync`（通用）：常驻件挂载时随机快进 0~1.6s + 速度失谐 ±12%。
+  三人同挂一件时逐帧同步闪＝"一个动画复制三份"；预演与失谐缺一不可（只预演，
+  相位差恒定，久看仍是整齐地错开）。参数 `StagePerformanceConfig.ShroudDesync*`。
+- 排查教训入 P-79 段：接件后"什么都没看到"，真因是 Unity 停在 Play 模式、
+  流水线拒绝写资产，标准件压根没落盘。第一步永远是先证明文件在盘上。
+- `ambient_thunder_storm` 与 `WireThunderStorm` 留库，作为 `AmbientField` 用途的
+  参考实现，当前未接线。
+
+## 2026-07-28 雷暴改自上而下 + 三源加密
+- 症状「雷往镜头方向劈」：原料是绕人护罩，`LightningTrails` 轴朝 +Y、
+  `LightningTrailsBottom` 轴朝 **+Z 水平横喷**——护罩的朝向语义在场域里不成立。
+  `WireThunderStorm.OrientAsStorm` 把两层轴改 -Y 并抬到 2.5 高，改为自上而下扎地。
+  个性几何放接线脚本、不进流水线（同罩身个性裁层的分工）。
+- 加密：全局 `AmbientFieldDensity` 1 → **1.8**；新增每源 `Yaw` 自转，
+  避免多处看出是同一动画复读。
+- 收成两源（人工定案）：战场一处（游走 1.3×半宽 / 0.5s）+ 背景一处
+  （推到主战场外 1.7、抬 7、游走 2.0×半宽 / 0.45s、Yaw 180），都自上而下劈。
+  两处游走半径都 ≥1 倍半宽＝落点铺满各自那一带，钉在小圈里会被读成
+  "一台在原地循环的机器"。
+
+## 2026-07-28 雷暴场域改多源：中心下劈 + 背景天空，密度可配
+- `StagePerformanceConfig.AmbientFieldSources`：场域件从"钉地面中心一处"改为
+  **一组源**，每行可配位置（按战场尺度折算，非世界硬数）/尺度/疏密/随机游走
+  半径与间隔/要隐藏的层。默认两处：中心下劈（游走 0.45×半宽、0.8s 换点）与
+  背景天空（推到主战场外 1.7、抬 7、尺度 1.35、疏密 0.55、游走更勤更大，
+  并关掉 `ImpactDecal` 地面接触层——悬空的接触痕是半空光斑）。
+- 新增全局 `AmbientFieldDensity` 与新组件 `AmbientFieldWander`（源在圈内换点，
+  钉死一点会被读成"中心有个循环动画"而不是打雷）。
+- 疏密与画质档正交：档位是设备维度、密度是演出维度，两者相乘。密度在
+  `VfxTierScale` 之后施加，故不会被档位那一步按原始值覆盖。
+
+## 2026-07-28 特效自带音源一律保留（P-79 第三次修正）
+- 上一版把件自带 `AudioSource` 当"不该在件上的机制"摘掉，人工否决：素材音
+  （爆裂/电流/风声）与画面同拍，属这件观感的一部分；`SfxManager` 管的是战斗
+  语义音，两者叠加，要静音走音量总线，禁止在落盘期删。
+- `git checkout` 回滚 63 件 prefab 复原音源（23 件共 25 个），流水线
+  `TrimAudio` → `KeepAudio`（只统计不删），体检删掉 `AudioSource=0` 项，
+  清洗菜单更名为「…清死层/碰撞，音源保留」。重跑：63 件 0 不合格。
+- 顺带记入 P-79：`AudioChorusFilter` 等滤镜带 `RequireComponent(AudioSource)`，
+  滤镜未摘时删音源会静默失败（组件还在、日志却写"已摘"）。
+- 文档：`vfx_mobile_budget.md` / `vfx_standardization.md` 验收项 /
+  `vfx-standardization.mdc` 同步改口径。
+- 全量清洗改造收尾（63 件）：粒子估算改为按 `maxParticles` 截断（此前百万级
+  假警报把真大户淹了）；清洗把"观察"与"改动"分记，无改动不落盘（现重跑
+  改动 0 件＝幂等可验）；体检报告新增「警告（不判死）」段。
+- 探档改内存为主：显存只在安卓且 ≤1G 时降一档（`graphicsMemorySize` 移动端是
+  估算值，iOS 常报成内存的一个分数，原 `||` 规则会把 6G iPhone 打成低端）。
+  开场打一行 `[VfxQuality] tier/mem/vram/device` 判据供真机排查。
+- 新增菜单 `GreekMyth/特效/画质档`（低/中/高 + 打印判据，存 EditorPrefs，
+  Play 中即时生效），调试切档不用改代码。`vfx_mobile_budget.md` 补
+  §二 调试表 + §七 机型覆盖现状（含尚未接的设置面板 UI）。
+- 现状：63 件 0 不合格，3 件带警告并已在 `vfx_mobile_budget.md` §六 逐件登记
+  接受理由（`cast_duel_launch` 10266 / `hit_massive` 8008 / `hit_shield_counter` 5002，
+  均为单占播放单元里的瞬时 burst）。验收清单加两条，约束后续新件同样登记。
+
+## 2026-07-28 特效画质分档：只降强度不删效果（P-79）
+- 新机制 `VfxQuality`（Low/Mid/High 三档系数：粒子/折射/灯亮度）+ `VfxTierScale`
+  （根＝粒子总闸、折射层与每盏灯各自挂）：成品保留厂包满强度，缩放在运行期，
+  改平衡点只改三行系数。档位开放给玩家（自动/低/中/高，PlayerPrefs 持久化，
+  `PlaybackWorldBuilder` 启动时载入）；**不做「关闭某类特效」的开关**。
+- 流水线 `ApplyMobileBudget` 全用途执行：挂档位缩放 + 关粒子碰撞/触发；
+  灯不再删（改关阴影 + 第 2 盏起 MinTier=High）；折射只在**罩身**用途中和
+  （糊卡面＝读不到战况，正确性问题 P-77），其余用途保留可调。
+  死层/污染层照旧摘（Projector/Decal/音源/WindZone/PerPlatformSettings）。
+- `Verify` 体检改为查「档位缩放挂齐 + 死层清干净 + 碰撞关」；活跃粒子超参考
+  预算只报警不判死。新增 `GreekMyth/特效/清洗 存量标准件（挂档位缩放…）`。
+- 编辑器一致性：编辑器按 `VfxQuality.EditorTier`（默认 Mid）跑同一套系数，
+  Play 看到的粒子密度/折射/灯与真机中端一致；分辨率层面差异结构性存在，已写明。
+- 全量排查 63 件：20 件 playOnAwake 音源、6 件折射未挂档、5 件 World 粒子碰撞、
+  6 件粒子远超参考预算（`cast_duel_launch` 18766、`hit_massive` 20008）。
+- 新文档 `docs/client/vfx_mobile_budget.md`（精简版）；规则 `00-session-start` /
+  `vfx-standardization.mdc` / `client-battle.mdc`；standardization §四.3-7b/§四.5；
+  client index、extension_points、pitfalls P-79。
 
 ## 2026-07-28 新特效类：场域氛围件（雷霆神谕改全屏雷暴）
 - Effect19 罩身部分在卡尺度上不可见（屏幕抓帧折射，P-74/P-78 后续），改判用途：

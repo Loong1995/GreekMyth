@@ -7,8 +7,9 @@
 > 配套 `phase4_plan.md`（其 B 附以本文为准，本文更细）。AI 侧全部占位先行，
 > 资源到位放入指定目录即生效、零代码。授权凭证一律登记
 > `docs/client/assets_upload_guide.md` §三采购表。
-> **采购红线**：本工程是 URP 2D Renderer——商店页写明
-> "NOT compatible with 2D render pipeline" 的包一律不买；购买用与工程一致的
+> **采购红线**（2026-07-28 修正）：本工程是 **URP Universal Renderer（3D 前向）**，
+> 当时写的"URP 2D Renderer"是错述，现行口径见
+> `docs/client/assets_upload_guide.md` §三。购买用与工程一致的
 > Unity ID，购后由 AI 在 Package Manager > My Assets 导入。
 
 ## 一、拍板确认（已按计划书推荐值开工，如需改判尽早提出）

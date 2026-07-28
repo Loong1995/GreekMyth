@@ -234,10 +234,9 @@ namespace ClientBattle.VFX
                 EventApplyService.Apply(ev, s.Ctx, animated: false);
         }
 
-        /// <summary>行动类播放单元（占用时间轴、结束后加节奏停顿）。</summary>
-        static bool IsActionKind(GroupKind kind) =>
-            kind is GroupKind.ActiveSkill or GroupKind.NormalAttack or GroupKind.Pursuit
-                 or GroupKind.StatusTrigger or GroupKind.Duel;
+        /// <summary>行动类播放单元（占用时间轴、结束后加节奏停顿）；
+        /// 判据真源在编译层 <see cref="GroupKinds.IsAction"/>。</summary>
+        static bool IsActionKind(GroupKind kind) => GroupKinds.IsAction(kind);
 
         WaitForSeconds Wait(float seconds) => new(Wait01(seconds));
 

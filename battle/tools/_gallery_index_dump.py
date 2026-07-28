@@ -24,10 +24,11 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# 画廊 [1/8]＝我方标准件（Runner：Resources.LoadAll + OrderBy name Ordinal）。
+# 画廊 [1/8]＝我方标准件（Runner：Resources.LoadAll + OrderBy name Ordinal，
+# 排除 _bak_* / *_pre_magic，与 VfxResourcesFilter 对齐）。
 # 其后厂包与 VfxGalleryLauncher.Packs 逐字对应 → 厂包组号 = 本表下标 + 2。
 # 【勿】再用「分母 61＝Magic」纠偏：标准件目录现亦约 61 件，口头「1/8·分母61」
-# 默认就是本包，不是 Magic（P-71）。
+# 默认就是本包，不是 Magic（P-71）。[1/8] 序号随入库漂 → 点名以 key 为准（P-82）。
 OURS_DIR = "Assets/Resources/ClientBattle/VFX"
 PACKS = [
     ("Magic Pack v1", "Assets/KriptoFX/Magic Effects Pack v1/Prefabs"),
@@ -74,13 +75,28 @@ def collect(rel_dir: str) -> list[str]:
     return [p for p in paths if is_effect(ROOT / p)]
 
 
+def is_ours_gallery_item(name: str) -> bool:
+    """与 VfxGalleryRunner.IsOursGalleryItem 同判据：排除备份/过渡件，
+    避免 Ordinal 清单被 _bak_* / *_pre_magic 顶偏（P-82）。"""
+    if not name:
+        return False
+    if name.startswith("_bak_"):
+        return False
+    if name.endswith("_pre_magic"):
+        return False
+    return True
+
+
 def collect_ours() -> list[str]:
     """与 VfxGalleryRunner.EnsureOwnGroup 对齐：LoadAll 后按 name Ordinal。
     离线用文件名 stem 排序；路径写成 Resources 相对形式便于对照。"""
     base = ROOT / OURS_DIR
     if not base.is_dir():
         return []
-    names = sorted((p.stem for p in base.glob("*.prefab")), key=lambda s: s)
+    names = sorted(
+        (p.stem for p in base.glob("*.prefab") if is_ours_gallery_item(p.stem)),
+        key=lambda s: s,
+    )
     return [f"{OURS_DIR}/{n}.prefab" for n in names]
 
 

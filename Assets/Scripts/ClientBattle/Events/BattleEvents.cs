@@ -33,6 +33,15 @@ namespace ClientBattle.Events
         /// <summary>原始 payload，派生类没覆盖到的新字段从这里兜底读取。</summary>
         public JObject RawPayload;
 
+        /// <summary>演出提示 hint（契约 §7，可选，不参与结算）：如
+        /// `intensity`（强度）、`cut_in`（本组要取景 cut-in，值＝取景类别）。
+        /// 编译期 pass 读，运行期不读——判定一律在编译期定死（R-5.2）。</summary>
+        public JObject Hint;
+
+        /// <summary>读一条 hint 字符串；无 hint 或无该键 → ""。</summary>
+        public string HintOf(string key) =>
+            Hint != null ? Hint.Value<string>(key) ?? "" : "";
+
         /// <summary>由派生类实现：从 payload 解析出强类型字段。</summary>
         protected internal abstract void Parse(JObject payload);
     }
@@ -122,7 +131,9 @@ namespace ClientBattle.Events
 
     public class SkillTriggerEvent : BattleEvent
     {
-        public string ActorId, SkillId, Kind; // kind: cast/prepare/release/interrupted/delayed/assist
+        // kind: cast/prepare/release/interrupted/delayed/assist/highlight
+        // （highlight＝武将专属高光释放，1.5.1 加法演进，走主动形演出 + cut-in）
+        public string ActorId, SkillId, Kind;
         public List<string> TargetIds = new();
         public int BurstNo; // schema 1.4.0 可选：连发第 N 次释放（2 起，硬上限 7）；0=非连发
 
@@ -414,6 +425,7 @@ namespace ClientBattle.Events
                     P = t.Value<int>("p"), S = t.Value<int>("s"),
                 };
                 ev.RawPayload = obj.Value<JObject>("payload") ?? new JObject();
+                ev.Hint = obj.Value<JObject>("hint");
                 ev.Parse(ev.RawPayload);
                 result.Add(ev);
             }

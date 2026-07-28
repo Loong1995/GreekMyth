@@ -29,25 +29,41 @@ Effect）为样本实测统计：
 包里为 3D 近景角色设计的层（水面、地形起伏投影、脚下涟漪）在 55° 俯视 +
 2D 卡牌的舞台上没有承载对象，不计入损失，也不要硬塞。
 
-## 二、硬约束：两套 RP asset 的差异（决策优先级最高）
+## 二、硬约束：渲染器类型与两套 RP asset 的差异（决策优先级最高）
 
-```20:23:Assets/Settings/Mobile_RPAsset.asset
-  m_MsaaSampleCount: 1
-  m_RenderScale: 1
-  m_RequireDepthTexture: 0
-  m_RequireOpaqueTexture: 0
-```
+### 2.0 渲染器类型：Universal Renderer（3D 前向），不是 2D Renderer
 
-`Assets/Settings/PC_RPAsset.asset` 同两项为 `1`；`ProjectSettings/QualitySettings.asset`
-里 PC 档的 `excludedTargetPlatforms` 含 Android / iPhone，`m_PerPlatformDefaultQuality`
-的 `Android: 0` 指向 Mobile 档。
+2026-07-28 核实并更正长期错述。`Assets/Settings/{PC,Mobile}_Renderer.asset`
+都是 `UniversalRendererData`（无 `lightBlendStyles` 这个 Renderer2D 必有字段）。
 
-三条推论（**这是全文最要紧的部分**）：
+这一条是**采购与方案判断的地基**，此前多处文档写成"URP 2D Renderer"，
+导致按"是否支持 2D 管线"筛包（口径错了）。现行口径：只要求**支持 URP**。
 
-1. 编辑器里"可靠预览"走的是 PC 档（深度 + 不透明贴图都开）。**编辑器通过
-   ≠ 真机通过。**
-2. 所有**屏幕扭曲层**在真机上会失效（`_CameraOpaqueTexture` 无来源）。
-3. 所有**深度投影贴花**在真机上是双重不可能：既无深度纹理，管线语义也不匹配。
+为什么不能改回 2D Renderer（即使这是张卡牌游戏）：舞台本质是**透视立体布景**
+（长焦相机俯角 35°、地面 Quad 躺平、卡牌世界空间 Euler 45°），且深度缓冲是
+活的依赖——`CardDepthProxy` 靠它解决罩身穹顶前后半塌成一片，折射靠
+`_CameraOpaqueTexture`。换过去要把 60+ 已标准化件全部重验，零画面收益。
+
+### 2.1 两套 RP asset
+
+| 项 | Mobile | PC（编辑器 Play 走这套） |
+|---|---|---|
+| `m_RenderScale` | **0.8** | 1.0（**唯一故意保留的观感差异**） |
+| `m_RequireDepthTexture` / `m_RequireOpaqueTexture` | 1 / 1 | 1 / 1 |
+| `m_OpaqueDownsampling` | 1（2x 双线性） | 1 |
+| `m_MSAA` | 关 | 关 |
+| 实时阴影（主光/附加光/Any） | **全关** | **全关** |
+| `m_UseFastSRGBLinearConversion` | 开 | 开（2026-07-28 对齐） |
+| `m_ColorGradingMode` | LDR（LUT 32） | LDR（LUT 32） |
+
+`ProjectSettings/QualitySettings.asset` 里 PC 档的 `excludedTargetPlatforms`
+含 Android / iPhone，`m_PerPlatformDefaultQuality` 的 `Android: 0` 指向 Mobile 档。
+编辑器与真机的一致性总表见 [vfx_mobile_budget.md](vfx_mobile_budget.md) §三。
+
+**历史推论已失效**（保留以免再次误判）：深度与不透明拷贝在 Mobile 上曾是 `0`，
+当时的结论是"屏幕扭曲层在真机必失效、深度贴花双重不可能"。D-VFX-1 已把两项
+开到 `1`，扭曲层在真机**有数据来源**；深度贴花仍然画不出来，但原因是 URP 不渲染
+Legacy Projector / 厂包 Decal（P-33），**不是**缺深度纹理。
 
 另有一个按材质开关的隐患：软粒子淡出在两个包里都是 shader feature
 （Magic `SoftParticles_ON`、RFX4 `_FADING_ON`），启用它的材质在移动端会因缺深度
@@ -378,7 +394,7 @@ G9 已判定），所以这条路在观感上无损失。不确定性在于逐�
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | V0 | 包内资产按渲染层分类盘点（本文档 §一/§二） | **完成** 2026-07-25 |
-| V1 | 决策 D-VFX-1：移动端不透明贴图取舍 | 待人工裁定 |
+| V1 | 决策 D-VFX-1：移动端不透明贴图取舍 | **已定（开）** 2026-07-25，见 §2.1 |
 | V2 | 改造 A 排序泛化 | 待做 |
 | V3 | 改造 B 尺寸归一 `VfxFitter` | 待做 |
 | V4 | 改造 C 生长 + 自发光配方 | 待做 |
