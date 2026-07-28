@@ -102,9 +102,10 @@ namespace ClientBattle.VFX
             // ---------------- 特殊配置（client_perform §二~五）----------------
             db.SpecialProfiles = new List<PerformanceProfile>
             {
-                // 神：雷霆神谕——常驻卡面频繁落劈；触发贯穿对面用 RemoteStrike
+                // 神：雷霆神谕——场域氛围件 ambient_thunder_storm（Effect19 电弧铺满全场）；
+                // 触发落雷仍 RemoteStrike
                 new() { SkillOrStatusId = "thunder_oracle", Template = PerformanceTemplate.OracleAura,
-                        AuraKey = "aura_thunder", SfxKey = "sfx_oracle_thunder" },
+                        AuraKey = "ambient_thunder_storm", SfxKey = "sfx_oracle_thunder" },
                 // 雷霆 / 天雷击：DR 单道竖雷 + Magic Pack Effect19_Collision 命中（无 ProjectileKey；禁 RFX4）
                 new() { SkillOrStatusId = "thunder", Template = PerformanceTemplate.RemoteStrike,
                         HitKey = "hit_lightning",

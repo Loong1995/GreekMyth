@@ -10,7 +10,9 @@ alwaysApply: false
 光环 / 罩身 / 单挑 / 地面**任一 VFX key 时，**动手前必须 Read**：
 
 1. `docs/client/vfx_standardization.md`（清单权威；无 GUI 晋升；§〇.1 旁路禁令）
-2. 按需：`docs/client/assets_upload_guide.md`（key 登记）、
+2. `docs/client/vfx_mobile_budget.md`（**移动端预算红线 + 观感需求替代方案表**；
+   接任何一件都成立，不需要人再提"要考虑性能"）
+3. 按需：`docs/client/assets_upload_guide.md`（key 登记）、
    `docs/discipline/extension_points.md`（挂载点）、
    相关机制文档（如 `docs/mechanics/duel.md`）
 
@@ -21,7 +23,8 @@ alwaysApply: false
    **禁止**用「分母 61→Magic=2/8」这类启发式覆盖口头包号——标准件目录
    现亦约 61 件，会把 1/8 件 41 错接到 Effect19（P-71））
 2. **落盘（唯一入口）**：`VfxPackStandardizer.Standardize(src, key, usage)`
-   - 定点/卡面 → `VfxUsage.Anchor`；地面 → `Ground`；**罩身 → `Shroud`**
+   - 定点/卡面 → `VfxUsage.Anchor`；地面 → `Ground`；**罩身 → `Shroud`**；
+     不挂卡的全场氛围 → `AmbientField`
    - 若点的是 **1/8 我方标准件**，key 已在 Resources → **只改接线**，禁止再
      Standardize 覆盖同名 key
    - 接线脚本＝清单 + AutoHeal + 菜单（参考 `WireDuelStageVfx` /
@@ -30,7 +33,22 @@ alwaysApply: false
 4. **登记** `assets_upload_guide.md` + Profile / `StagePerformanceConfig` key
 5. **验收** Verify / 控制台无 MissingComponent；changelog 一行
 
-## 禁止（P-70 / P-77）
+## 移动端红线：五摘一夹（全用途，P-79）
+
+流水线已自动执行，**但接件时必须自己核对体检结果**，且不得为"接近画廊"关掉：
+
+1. 屏幕折射/扭曲层（Distortion/Refraction）——摘（逼 URP 每帧全屏拷贝，舞台看不出）
+2. 投影贴花（Projector / RFX Decal）——摘，且**替代方案要登记**（→ 自研裂地）
+3. 粒子碰撞/触发——关（舞台无碰撞体）
+4. `AudioSource`——摘（声音只走 SfxManager key）
+5. `PerPlatformSettings` / `WindZone` / `CameraShake` 脚本——摘
+6. 活跃粒子**等比稀释**到用途预算（定点/罩身 1500、地面 1500、场域 2000），
+   **不是**硬夹 maxParticles
+
+想要的观感 → 预算内做法，查 `vfx_mobile_budget.md` §四对照表
+（扭曲→冲击环+震屏+裂地；焦痕→自研裂地；更炸→大颗少量+升档+顿挫）。
+
+## 禁止（P-70 / P-77 / P-79）
 
 - Profile/演出代码直指 `Assets/KriptoFX/**` 等包目录
 - 凭印象手搓「像 EffectN」的粒子
@@ -40,3 +58,5 @@ alwaysApply: false
   手拷 Resources / 「完整件原样拷贝不走流水线」——一律违规（P-77）。
   「接近画廊」靠流水线用途分支（如 `Shroud` 摘折射），不靠跳过清洗
 - 罩身成品残留 Distortion / PerPlatformSettings / 死贴花 / 多余音源灯
+- 为「更炸」提高粒子数或放宽预算；为「接近画廊」保留折射/贴花层
+- 只在某个用途分支里执行红线而不加体检项——等于没有这条纪律（P-79）

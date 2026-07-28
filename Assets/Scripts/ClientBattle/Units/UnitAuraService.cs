@@ -13,11 +13,15 @@ namespace ClientBattle.Units
     // 想给新状态配光环只在注册表加一行；真实特效放 Resources/ClientBattle/VFX/<key>，
     // 缺资源自动回退占位色块）。
     // 资源：多数光环仍用 Resources/ClientBattle/VFX prefab；
-    // 宙斯：Digital Ruby LightningBolt（DrLightningUtil）+ ThunderAuraDriver 调度；
+    // 三类挂法按 key 前缀分流（AuraKeyOf 给什么就走什么，注册表是唯一开关）：
+    //   `shroud_`  罩身：包住一张卡，Fitter 定径 + Follower 跟随 + Presence 显隐；
+    //   `ambient_` 场域氛围：**不挂卡**，钉主战场地面中心、按 key 全场去重
+    //              （多人同状态只一份）、持有者清零才撤；几何见 StagePerformanceConfig；
+    //   其余       普通光环：单实例挂卡心。
+    // 宙斯：雷霆神谕＝ambient_thunder_storm（Magic Effect19 电弧场域）；落雷见 RemoteStrike。
     // 圣盾：All In 1 金色描边+辉光（UnitView.SetAegisAura）；
     // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝shroud_* + VfxShroudPresence（显隐策略在注册表）。
     // 绕身显隐：VfxShroudPresence（IsPresent 闸受击抖动）；时机＝ShroudVisibility / SetShroudVisible。
-    // 宙斯雷霆：卡面频繁落劈；触发贯穿见 RemoteStrike
     // 石化：UnitView.SetPetrified → All In 1 灰阶石色
     // 哈迪斯黑雾：强制极低透明度，避免整卡被黑住。
     // =========================================================================
@@ -28,9 +32,17 @@ namespace ClientBattle.Units
         const float UnderworldAlphaMul = 0.12f;
         const float UnderworldSizeMul = 0.75f;
         const string AuraRootPrefix = "AuraMount";
+        const string AmbientRootPrefix = "AmbientField";
 
         // (unit, statusId) → 光环实例；一单位一状态最多一个
+        // 场域氛围件在这里的 fx 记 null（实例是全场共享的，见 _ambient），
+        // 只借这张表记「谁还持有」，撤下逻辑统一。
         static readonly Dictionary<(UnitView, string), (string key, GameObject fx)> _active = new();
+
+        /// <summary>场域氛围件：key → (全场唯一实例, 持有者集合)。
+        /// 三个人身上都有【雷霆】也只有一份雷暴；最后一个持有者消失才撤。</summary>
+        static readonly Dictionary<string, (GameObject fx, HashSet<(UnitView, string)> holders)>
+            _ambient = new();
 
         /// <summary>当前回合号（round_start 写入）；绕身 Round 策略挂载时立刻对拍。</summary>
         static int _currentRound;
@@ -72,6 +84,8 @@ namespace ClientBattle.Units
             GameObject fx;
             if (key.StartsWith("shroud_", System.StringComparison.Ordinal))
                 fx = MountShroud(key, unit, statusId);
+            else if (key.StartsWith("ambient_", System.StringComparison.Ordinal))
+                fx = RetainAmbientField(key, unit, statusId); // 全场共享，本表记 null
             else if (key.StartsWith("aura_fire"))
                 fx = MountAresRage(key, statusId, unit);
             else
@@ -84,6 +98,7 @@ namespace ClientBattle.Units
         {
             if (unit == null || !_active.TryGetValue((unit, statusId), out var entry)) return;
             _active.Remove((unit, statusId));
+            ReleaseAmbientField(entry.key, (unit, statusId));
             if (entry.fx != null) Object.Destroy(entry.fx);
         }
 
@@ -95,17 +110,22 @@ namespace ClientBattle.Units
                 if (pair.Key.Item1 == unit) toRemove.Add(pair.Key);
             foreach (var key in toRemove)
             {
-                if (_active[key].fx != null) Object.Destroy(_active[key].fx);
+                var entry = _active[key];
+                ReleaseAmbientField(entry.key, key);
+                if (entry.fx != null) Object.Destroy(entry.fx);
                 _active.Remove(key);
             }
         }
 
-        /// <summary>整局重置/跳到结尾：清空全部常驻光环。</summary>
+        /// <summary>整局重置/跳到结尾：清空全部常驻光环与场域氛围件。</summary>
         public static void ClearAll()
         {
             foreach (var entry in _active.Values)
                 if (entry.fx != null) Object.Destroy(entry.fx);
             _active.Clear();
+            foreach (var entry in _ambient.Values)
+                if (entry.fx != null) Object.Destroy(entry.fx);
+            _ambient.Clear();
             _currentRound = 0;
         }
 
@@ -299,6 +319,67 @@ namespace ClientBattle.Units
             return root;
         }
 
+        // ---------------------------------------------------- 场域氛围件
+
+        /// <summary>持有一份场域氛围件（`ambient_*`）：**全场按 key 去重**，
+        /// 首个持有者建实例、后续只登记引用。源点＝主战场地面中心
+        /// （`ArenaSlotLayout.GroundCenter`，棋盘局部坐标），几何参数全在
+        /// `StagePerformanceConfig.AmbientField*`。返回 null——实例不属于任何单位。</summary>
+        static GameObject RetainAmbientField(string key, UnitView unit, string statusId)
+        {
+            if (_ambient.TryGetValue(key, out var entry) && entry.fx != null)
+            {
+                entry.holders.Add((unit, statusId));
+                return null;
+            }
+
+            var board = unit != null ? unit.GetComponentInParent<BattleBoardView>() : null;
+            var host = board != null ? board.BoardFxRoot : null;
+            var root = new GameObject($"{AmbientRootPrefix}_{key}");
+            root.transform.SetParent(host, false);
+            // 平面钉地面中心；抬高一点，让游离元素从卡间穿过而不是埋进地里
+            root.transform.localPosition = ArenaSlotLayout.GroundCenter()
+                                           + new Vector3(0f, StagePerformanceConfig.AmbientFieldLift, 0f);
+            root.transform.localRotation = Quaternion.identity;
+            root.transform.localScale = Vector3.one;
+
+            var prefab = Resources.Load<GameObject>($"ClientBattle/VFX/{key}");
+            if (prefab == null)
+            {
+                FallbackPlaceholder(key, root.transform);
+            }
+            else
+            {
+                var cell = Object.Instantiate(prefab, root.transform);
+                cell.name = key;
+                cell.transform.localPosition = Vector3.zero;
+                cell.transform.localRotation = Quaternion.identity;
+                cell.transform.localScale =
+                    prefab.transform.localScale * StagePerformanceConfig.AmbientFieldScale;
+                DisableAutoLifecycle(cell);
+                ForceLoop(cell);
+                // 氛围压在卡牌之下：满屏元素盖在卡面前会把立绘/兵力糊掉
+                foreach (var r in cell.GetComponentsInChildren<Renderer>(true))
+                    r.sortingOrder = StagePerformanceConfig.AmbientFieldSortingOrder;
+            }
+
+            var holders = new HashSet<(UnitView, string)> { (unit, statusId) };
+            _ambient[key] = (root, holders);
+            return null;
+        }
+
+        /// <summary>释放一个持有者；持有者清零才真正撤下场域件。</summary>
+        static void ReleaseAmbientField(string key, (UnitView, string) holder)
+        {
+            if (string.IsNullOrEmpty(key)
+                || !key.StartsWith("ambient_", System.StringComparison.Ordinal)) return;
+            if (!_ambient.TryGetValue(key, out var entry)) return;
+            entry.holders.Remove(holder);
+            if (entry.holders.Count > 0) return;
+            if (entry.fx != null) Object.Destroy(entry.fx);
+            _ambient.Remove(key);
+        }
+
         /// <summary>圣盾挂载标记：销毁时关掉材质效果。</summary>
         class AegisAuraMarker : MonoBehaviour
         {
@@ -436,14 +517,15 @@ namespace ClientBattle.Units
             return cell;
         }
 
-        /// <summary>CFXR_Effect 等特效包脚本会在播完时销毁/停用实例，常驻挂载必须禁掉。</summary>
+        /// <summary>CFXR_Effect / 厂包定时自毁等会在播完时销毁/停用实例，常驻挂载必须禁掉。</summary>
         static void DisableAutoLifecycle(GameObject fx)
         {
             foreach (var mb in fx.GetComponentsInChildren<MonoBehaviour>(true))
             {
                 if (mb == null) continue; // missing script 容错
                 var typeName = mb.GetType().Name;
-                if (typeName == "CFXR_Effect" || typeName == "VfxAutoDestruct")
+                if (typeName == "CFXR_Effect" || typeName == "VfxAutoDestruct"
+                    || typeName.Contains("DeactivateByTime"))
                     mb.enabled = false;
             }
         }

@@ -77,7 +77,10 @@ namespace ClientBattle.Names
             ["fear"] = new(controlIcon: true),
 
             // ---- 神谕 / 被动载体（光环 + 结算归因）----
-            ["thunder"] = new(auraKey: "aura_thunder", statsSkillId: "thunder_oracle",
+            // 雷霆：Magic Effect19 **场域氛围件**（画廊 2/8·11/61）——`ambient_` 前缀＝
+            // 不挂卡、钉主战场地面中心铺满全场，全场按 key 去重（多人有【雷霆】只一份雷暴）。
+            // 落雷触发仍走 RemoteStrike。
+            ["thunder"] = new(auraKey: "ambient_thunder_storm", statsSkillId: "thunder_oracle",
                               collectiveMerge: true),
             ["aegis_shield"] = new(auraKey: "aura_aegis", statsSkillId: "athena_aegis"),
             ["aegis_ward"] = new(statsSkillId: "athena_aegis"),

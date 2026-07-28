@@ -14,11 +14,18 @@ namespace GreekMyth.EditorTools
         /// <summary>地面定点件：同 Anchor，另挂 VfxGroundLayer（排序豁免+埋地救援）。</summary>
         Ground,
         /// <summary>罩身件（`shroud_` 前缀）：常驻包裹卡身。尺寸归挂载期
-        /// `VfxShroudFitter`（不挂 VfxCircleFit）；**摘全部屏幕折射层**——
-        /// Distortion shader 是屏幕空间抓帧折射，罩在卡前把整张卡面折糊
-        /// （P-77），而它在低频舞台上本就贡献不了可见的罩形（P-74 定论）；
-        /// 另摘 CollisionTrigger（舞台无碰撞体，纯死重）。</summary>
+        /// `VfxShroudFitter`（不挂 VfxCircleFit）；**中和折射、不毁节点**——
+        /// Distortion 只摘本节点渲染/粒子（保留子层如 ShieldAdd*，P-78），
+        /// 并把游离 `LightningTrails*` 电弧摘掉（卡面尺度下读成全屏乱电）；
+        /// 另摘 CollisionTrigger（舞台无碰撞体）。</summary>
         Shroud,
+        /// <summary>场域氛围件（`ambient_` 前缀）：**不挂任何一张卡**，源点钉在
+        /// 主战场地面中心，靠世界尺度铺满视野做整场氛围（雷暴/风沙/极光…）。
+        /// 与罩身相反：这里要的就是那层大范围游离元素（`LightningTrails*` 等），
+        /// 而包住人形的壳/折射层在场域尺度下既看不见又费；一律摘掉。
+        /// 尺寸/高度/层序归 `StagePerformanceConfig.AmbientField*`（不挂 VfxCircleFit：
+        /// 卡牌尺度的圆定径会把满场氛围缩成一小坨）。</summary>
+        AmbientField,
     }
 
     // =========================================================================
@@ -51,6 +58,41 @@ namespace GreekMyth.EditorTools
         /// 来自地面受光，全删会发灰；留 1 盏关阴影是"接近画廊/能上手机"的折中。</summary>
         const int MaxLightsPerEffect = 1;
 
+        // ---------------------------------------------- 移动端预算（红线，勿放宽）
+        //
+        // 依据见 docs/client/vfx_mobile_budget.md。三条硬红线都不是"调优"，
+        // 是**中低端 Android 上会不会掉到 20 帧以下**的分界：
+        //
+        // ① 屏幕折射（Distortion/Refraction）：采样 `_CameraOpaqueTexture`，
+        //    等于逼 URP 每帧多做一次全屏不透明拷贝。Tile 架构 GPU 上这是纯带宽
+        //    支出（还会打断 tile 内渲染），而我们的低频大理石舞台上根本看不出
+        //    折射（P-74）。**一律摘**，不分用途。摘干净后 Mobile RP Asset 才敢
+        //    关 Opaque Texture——那才是真正的收益，单件省的只是它自己那点填充率。
+        // ② 粒子碰撞/触发：World 模式按粒子做射线，Quality=High 更是逐粒子逐帧。
+        //    我们的舞台**没有碰撞体**，算完也撞不到任何东西＝纯 CPU 浪费；
+        //    `sendCollisionMessages` 还会往托管层回调。**一律关**。
+        // ③ 活跃粒子总量：这条是**填充率**红线，也是本项目最被低估的一项。
+        //    2026-07-28 实测：`cast_duel_launch` 单件峰值 ≈18700 活跃粒子
+        //    （ParticlesRingLoop 一层 5000/s × 2.5s 寿命），单挑双方同放＝×2；
+        //    `hit_massive` 两层各 burst 10000。半透明加色粒子的代价按**屏幕覆盖
+        //    像素**算，中低端机（Adreno 6xx 以下 / Mali-G5x）几千颗铺满屏就是
+        //    个位数帧。厂包按 PC 桌面做，这个量级必须由我们裁。
+        //
+        //    裁法是**按比例稀释**（burst 数与 rateOverTime 同乘一个系数），不是把
+        //    maxParticles 一夹了事：硬夹只是发到上限就不发了，先到的粒子占满、
+        //    后面的整段消失，形状会缺一块；等比稀释保持分布与节奏，只是变稀。
+
+        /// <summary>单件**活跃粒子总量**预算（估算＝Σ(burst + rate×lifetime)）。
+        /// 场域件铺满全场给得宽一点，但也正因为铺满全场，透支的就是填充率，
+        /// 不能再宽。改这三个数＝改全项目观感与帧率的平衡点，改前先看
+        /// `docs/client/vfx_mobile_budget.md` 的实测依据。</summary>
+        static int ParticleBudgetOf(VfxUsage usage) => usage switch
+        {
+            VfxUsage.AmbientField => 2000,
+            VfxUsage.Ground => 1500,
+            _ => 1500,
+        };
+
         /// <summary>驱动脚本 ↔ 被驱动组件的配对表（按类型名子串匹配，两包通用）。
         /// 删右边的组件时，同节点上名字含左边子串的 RFX 脚本必须一起删，
         /// 否则它们在 Awake 里取不到组件会抛异常（见 §复盘 ③）。</summary>
@@ -82,9 +124,9 @@ namespace GreekMyth.EditorTools
                 return false;
             }
 
-            // 罩身不做运载器改选：罩身原料是常驻壳件，不存在"飞到碰撞点"语义
+            // 罩身/场域不做运载器改选：原料本身就是常驻件，不存在"飞到碰撞点"语义
             string redirect = null;
-            string resolved = usage == VfxUsage.Shroud
+            string resolved = usage is VfxUsage.Shroud or VfxUsage.AmbientField
                 ? srcPath : ResolveAnchorSource(srcPath, out redirect);
             string dest = $"{VfxDir}/{key}.prefab";
             System.IO.Directory.CreateDirectory(VfxDir);
@@ -114,7 +156,9 @@ namespace GreekMyth.EditorTools
                 TrimAudio(root, log);
                 TrimLights(root, log);
                 StripDeadLayers(root, log);
+                ApplyMobileBudget(root, usage, log);
                 if (usage == VfxUsage.Shroud) StripShroudUnfit(root, log);
+                if (usage == VfxUsage.AmbientField) StripAmbientUnfit(root, log);
                 float shifted = NormalizeStartDelay(root);
                 if (shifted > 0.001f) log.AppendLine($"  前移起播 -{shifted:F2}s");
                 AttachUsageComponents(root, usage, log);
@@ -293,27 +337,191 @@ namespace GreekMyth.EditorTools
             }
         }
 
-        /// <summary>罩身专属清洗（P-77）：
-        ///   · **摘全部折射层**（shader 名含 Distortion 的粒子层节点）。折射 shader
-        ///     是屏幕空间抓帧：罩在卡面前会把背后的立绘/卡框整块折糊，观感就是
-        ///     「卡面模糊」；而 P-74 已实测它在我们低频舞台上贡献不了可见罩形。
-        ///     可见的罩形语言由 Particle/Fringe 加色层承担（ShieldAdd 等）。
-        ///   · 摘 RFX*_CollisionTrigger：靠场景碰撞体触发子件，舞台上没有碰撞体，
-        ///     留着只是每帧白跑的死重。</summary>
+        /// <summary>移动端预算 pass（**全用途执行**，红线见本文件顶部常量区注释）：
+        ///   ① 摘屏幕折射层；② 关粒子碰撞/触发；③ 夹 maxParticles 到用途预算。
+        ///
+        /// 【为什么放在这里而不是各用途分支】折射/碰撞/粒子上限与"这件怎么用"
+        /// 无关，只与"跑在手机上"有关。放进用途分支的下场已经实测过：
+        /// 折射只在 Shroud 分支摘，于是 Anchor/Ground 用途的 7 件带着 Distortion
+        /// 一路上线，`_CameraOpaqueTexture` 至今关不掉（2026-07-28 全量排查，P-79）。</summary>
+        static void ApplyMobileBudget(GameObject root, VfxUsage usage, StringBuilder log)
+        {
+            NeutralizeRefraction(root, log);
+
+            int coll = 0;
+            foreach (var ps in root.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var collision = ps.collision;
+                var trigger = ps.trigger;
+                if (collision.enabled) { collision.enabled = false; coll++; }
+                if (trigger.enabled) { trigger.enabled = false; coll++; }
+            }
+            if (coll > 0) log.AppendLine($"  关粒子碰撞/触发 ×{coll}（舞台无碰撞体，纯 CPU 浪费）");
+
+            ThinToParticleBudget(root, ParticleBudgetOf(usage), log);
+        }
+
+        /// <summary>把整件的活跃粒子总量**等比稀释**到预算内，并把每层 maxParticles
+        /// 收成该层稀释后的量（留 2 倍余量兜随机）。等比＝保形状保节奏，只变稀。</summary>
+        static void ThinToParticleBudget(GameObject root, int budget, StringBuilder log)
+        {
+            var systems = root.GetComponentsInChildren<ParticleSystem>(true);
+            float total = 0f;
+            foreach (var ps in systems) total += EstimateLive(ps);
+            if (total <= budget)
+            {
+                foreach (var ps in systems)
+                {
+                    var main = ps.main;
+                    int lay = Mathf.Max(16, Mathf.CeilToInt(EstimateLive(ps) * 2f));
+                    if (main.maxParticles > lay) main.maxParticles = lay;
+                }
+                return;
+            }
+
+            float factor = budget / total;
+            foreach (var ps in systems)
+            {
+                var emission = ps.emission;
+                emission.rateOverTimeMultiplier *= factor;
+                for (int i = 0; i < emission.burstCount; i++)
+                {
+                    var b = emission.GetBurst(i);
+                    var c = b.count;
+                    c.constantMin = Mathf.Max(1f, c.constantMin * factor);
+                    c.constantMax = Mathf.Max(1f, c.constantMax * factor);
+                    b.count = c;
+                    emission.SetBurst(i, b);
+                }
+                var main = ps.main;
+                main.maxParticles = Mathf.Max(16, Mathf.CeilToInt(EstimateLive(ps) * 2f));
+            }
+            log.AppendLine($"  粒子等比稀释 ×{factor:F3}（估算 {total:F0} → 预算 {budget}）");
+        }
+
+        /// <summary>单层活跃粒子估算：一次性 burst 总数 + 稳态 rate×lifetime。
+        /// 不求精确（曲线/随机/子发射器都简化了），求的是**同一把尺子**——
+        /// 用它排序谁是填充率大户、并作稀释系数的分母，够用。</summary>
+        static float EstimateLive(ParticleSystem ps)
+        {
+            var e = ps.emission;
+            if (!e.enabled) return 0f;
+            float burst = 0f;
+            for (int i = 0; i < e.burstCount; i++)
+            {
+                var b = e.GetBurst(i);
+                burst += b.count.constantMax * Mathf.Max(1, b.cycleCount);
+            }
+            return burst + e.rateOverTimeMultiplier * ps.main.startLifetimeMultiplier;
+        }
+
+        /// <summary>摘屏幕折射层：**中和渲染、保节点与子层**。
+        ///
+        /// 折射壳常是别的层的父节点（Effect19 的 `Shield` 下挂 `ShieldAdd3`），
+        /// 整节点删会连子层一起带走（P-78）。故只摘本节点的粒子系统与渲染器；
+        /// 摘完若这个节点已经空到没子层、没别的组件，才顺手删掉空壳。</summary>
+        static void NeutralizeRefraction(GameObject root, StringBuilder log)
+        {
+            var nodes = new List<GameObject>();
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var shader = r.sharedMaterial != null ? r.sharedMaterial.shader : null;
+                if (shader == null) continue;
+                bool refractive =
+                    shader.name.IndexOf("Distort", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || shader.name.IndexOf("Refract", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (refractive && !nodes.Contains(r.gameObject)) nodes.Add(r.gameObject);
+            }
+            foreach (var go in nodes)
+            {
+                if (go == null) continue;
+                var ps = go.GetComponent<ParticleSystem>();
+                if (ps != null) Object.DestroyImmediate(ps, true);
+                foreach (var r in go.GetComponents<Renderer>()) Object.DestroyImmediate(r, true);
+                log.AppendLine($"  摘屏幕折射 {go.name}（_CameraOpaqueTexture 全屏拷贝，舞台上看不出）");
+                bool empty = go.transform.childCount == 0
+                             && go.GetComponents<Component>().Length <= 1 // 只剩 Transform
+                             && go != root;
+                if (empty) Object.DestroyImmediate(go, true);
+            }
+        }
+
+        /// <summary>罩身专属清洗（P-77 / P-78）：
+        ///   · **中和折射，不 Destroy 节点**：只摘本节点上 Distortion 的
+        ///     ParticleSystem + Renderer。Effect19 等把 ShieldAdd* 挂在 Shield
+        ///     （Distortion）子节点下——整 GO 删掉＝罩面加色层一起没，只剩
+        ///     LightningTrails →「全屏乱电、看不见绕身罩」（P-78）。
+        ///   · **摘游离 LightningTrails***：世界空间电弧，卡面尺度下糊满视野；
+        ///     喷发射击粒子（Particles/Point 等）先提根再删电弧父节点。
+        ///   · 摘 RFX*_CollisionTrigger。</summary>
         static void StripShroudUnfit(GameObject root, StringBuilder log)
         {
-            var refractive = new List<GameObject>();
+            // 折射层已由 ApplyMobileBudget.NeutralizeRefraction 统一中和（全用途红线），
+            // 本方法只做罩身**专属**的两件事。
+
+            // ---- 1) 游离电弧 LightningTrails*：提有用子层后删 ----
+            var trails = new List<Transform>();
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null || t == root.transform) continue;
+                if (t.name.IndexOf("LightningTrails", System.StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                trails.Add(t);
+            }
+            // 先处理最深子节点，避免父删掉后子引用失效
+            trails.Sort((a, b) => Depth(b).CompareTo(Depth(a)));
+            foreach (var trail in trails)
+            {
+                if (trail == null) continue;
+                // 非电弧子层（喷射 burst 等）提到根下，保留「罩身+喷射一下」的喷射
+                for (int i = trail.childCount - 1; i >= 0; i--)
+                {
+                    var child = trail.GetChild(i);
+                    if (child.name.IndexOf("LightningTrails",
+                            System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        continue;
+                    child.SetParent(root.transform, true);
+                    log.AppendLine($"  提层 {child.name} ← {trail.name}");
+                }
+                log.AppendLine($"  摘游离电弧 {trail.name}（卡面尺度＝全屏乱电，P-78）");
+                Object.DestroyImmediate(trail.gameObject, true);
+            }
+
+            // ---- 2) CollisionTrigger ----
+            foreach (var mb in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb == null) continue;
+                string n = mb.GetType().Name;
+                if (!n.StartsWith("RFX") || !n.Contains("CollisionTrigger")) continue;
+                log.AppendLine($"  摘 {n} @ {mb.gameObject.name}");
+                Object.DestroyImmediate(mb, true);
+            }
+        }
+
+        /// <summary>场域氛围专属清洗：与罩身正好相反——**留游离元素、摘壳**。
+        ///
+        /// 厂包这类件里「包住人形的壳」（Distortion 折射壳及其加色子层、Fringe 环）
+        /// 是按 2.5 米身位做的：钉在地面中心、放大到铺满战场后，壳既缩在中心一小坨
+        /// 又是屏幕抓帧折射（低频舞台上本就不可见，P-74）。留下只有开销。
+        /// 满场氛围靠的是 `LightningTrails` 这类世界空间游离层，正是罩身要摘的那层。
+        /// 折射壳本身已由 ApplyMobileBudget 中和，这里补摘 Fringe 一类**壳专用**
+        /// 加色环（不属于折射，但同样是照单人身位画的）。另摘 CollisionTrigger。</summary>
+        static void StripAmbientUnfit(GameObject root, StringBuilder log)
+        {
+            var shells = new List<GameObject>();
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
                 var shader = r.sharedMaterial != null ? r.sharedMaterial.shader : null;
                 if (shader == null || r.gameObject == root) continue;
-                if (shader.name.IndexOf("Distortion", System.StringComparison.OrdinalIgnoreCase) < 0)
-                    continue;
-                refractive.Add(r.gameObject);
+                bool isShell =
+                    shader.name.IndexOf("Distortion", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || shader.name.IndexOf("Fringe", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (isShell) shells.Add(r.gameObject);
             }
-            foreach (var go in refractive)
+            foreach (var go in shells)
             {
-                log.AppendLine($"  摘折射层 {go.name}（屏幕抓帧折糊卡面，P-77）");
+                if (go == null) continue;
+                log.AppendLine($"  摘人形壳层 {go.name}（场域尺度下缩成一坨/不可见）");
                 Object.DestroyImmediate(go, true);
             }
 
@@ -325,6 +533,13 @@ namespace GreekMyth.EditorTools
                 log.AppendLine($"  摘 {n} @ {mb.gameObject.name}");
                 Object.DestroyImmediate(mb, true);
             }
+        }
+
+        static int Depth(Transform t)
+        {
+            int d = 0;
+            while (t != null) { d++; t = t.parent; }
+            return d;
         }
 
         /// <summary>掐空转前摇：把所有层 startDelay **同时前移**，使最早会出图的层
@@ -361,9 +576,11 @@ namespace GreekMyth.EditorTools
 
             // 定径：复刻画廊「C 键定径」。厂包件按 3D 世界尺度做（动辄 5~10 米），
             // 不定径接进来就是糊满全屏。基准取投影圆，与画廊一致。
-            // 罩身例外：尺寸唯一归挂载期 VfxShroudFitter（量壳定径 + 钉地环），
-            // 再挂 CircleFit 就是两个写方打架（尺寸组件三选一原则）。
-            if (usage != VfxUsage.Shroud && root.GetComponent<VfxCircleFit>() == null)
+            // 两个例外：罩身尺寸归挂载期 VfxShroudFitter（量壳定径 + 钉地环）；
+            // 场域氛围尺寸归 StagePerformanceConfig.AmbientFieldScale（卡牌尺度的
+            // 圆定径会把满场氛围缩成一小坨）。再挂 CircleFit 就是两个写方打架。
+            if (usage is not (VfxUsage.Shroud or VfxUsage.AmbientField)
+                && root.GetComponent<VfxCircleFit>() == null)
             {
                 var fit = root.AddComponent<VfxCircleFit>();
                 fit.Reference = VfxCircleFit.Circle.Projection;
@@ -377,7 +594,12 @@ namespace GreekMyth.EditorTools
                 if (mb != null && mb.GetType().Name.StartsWith("RFX")) { driven = true; break; }
             if (driven && root.GetComponent<VfxFreshInstance>() == null)
                 root.AddComponent<VfxFreshInstance>();
-            log.AppendLine((usage == VfxUsage.Shroud ? "  [尺寸归 VfxShroudFitter]" : "  [VfxCircleFit=投影圆]")
+            log.AppendLine((usage switch
+                           {
+                               VfxUsage.Shroud => "  [尺寸归 VfxShroudFitter]",
+                               VfxUsage.AmbientField => "  [尺寸归 StagePerformanceConfig.AmbientField*]",
+                               _ => "  [VfxCircleFit=投影圆]",
+                           })
                            + (usage == VfxUsage.Ground ? " [VfxGroundLayer+埋地救援]" : string.Empty)
                            + (driven ? " [VfxFreshInstance 不池化]" : string.Empty));
         }
@@ -438,14 +660,109 @@ namespace GreekMyth.EditorTools
                 }
             }
 
+            // 移动端预算（红线见顶部常量区）：这三项不是"优化建议"，是中低端机
+            // 掉不掉帧的分界，故与前四项同级，一票否决。
+            int budget = ParticleBudgetOf(UsageOfKey(System.IO.Path.GetFileNameWithoutExtension(path)));
+            foreach (var r in prefab.GetComponentsInChildren<Renderer>(true))
+            {
+                var shader = r.sharedMaterial != null ? r.sharedMaterial.shader : null;
+                if (shader == null) continue;
+                if (shader.name.IndexOf("Distort", System.StringComparison.OrdinalIgnoreCase) < 0
+                    && shader.name.IndexOf("Refract", System.StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                ok = false;
+                sb.AppendLine($"  ✗ 屏幕折射层 {r.name}（{shader.name}）：逼 URP 每帧全屏拷贝"
+                              + "，且舞台上看不出——摘掉，见 vfx_mobile_budget.md");
+            }
+            float live = 0f;
+            foreach (var ps in prefab.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                live += EstimateLive(ps);
+                if (!ps.collision.enabled && !ps.trigger.enabled) continue;
+                ok = false;
+                sb.AppendLine($"  ✗ 粒子碰撞/触发未关 @ {ps.name}：舞台无碰撞体，纯 CPU 浪费");
+            }
+            if (live > budget)
+            {
+                ok = false;
+                sb.AppendLine($"  ✗ 活跃粒子估算 {live:F0} 超预算 {budget}：半透明加色粒子按屏幕"
+                              + "覆盖像素计价，中低端机会直接掉帧——等比稀释，别硬夹 maxParticles");
+            }
+            int audio = prefab.GetComponentsInChildren<AudioSource>(true).Length;
+            if (audio > 0)
+            {
+                ok = false;
+                sb.AppendLine($"  ✗ AudioSource ×{audio}：绕过 SFX 总线（多为流水线之前的存量件）");
+            }
+            int lights = prefab.GetComponentsInChildren<Light>(true).Length;
+            if (lights > MaxLightsPerEffect)
+            {
+                ok = false;
+                sb.AppendLine($"  ✗ 实时灯 ×{lights} 超上限 {MaxLightsPerEffect}");
+            }
+
             GameObject probe = null;
             try { probe = Object.Instantiate(prefab); }
             catch (System.Exception e) { ok = false; sb.AppendLine($"  ✗ 实例化抛 {e.GetType().Name}：{e.Message}"); }
             finally { if (probe != null) Object.DestroyImmediate(probe); }
 
-            if (ok) sb.AppendLine("  ✓ 验证通过（可发射 / 无孤儿驱动 / 无 missing / 可实例化）");
+            if (ok) sb.AppendLine("  ✓ 验证通过（可发射 / 无孤儿驱动 / 无 missing / 可实例化 / 过移动端预算）");
             report = sb.ToString();
             return ok;
+        }
+
+        /// <summary>存量件没有记录用途，只能按 key 前缀反推（命名规范 §四.2 就是为此）。</summary>
+        static VfxUsage UsageOfKey(string key) =>
+            key.StartsWith("ground_", System.StringComparison.Ordinal) ? VfxUsage.Ground
+            : key.StartsWith("shroud_", System.StringComparison.Ordinal) ? VfxUsage.Shroud
+            : key.StartsWith("ambient_", System.StringComparison.Ordinal) ? VfxUsage.AmbientField
+            : VfxUsage.Anchor;
+
+        /// <summary>存量标准件**就地**清洗（幂等，可重跑）。
+        ///
+        /// 【为什么需要它，而不是"重跑接线"】Resources 里有一批件早于流水线：
+        /// 部分是自研占位件、部分接线脚本已不在，**没有源可回溯**，重跑
+        /// `Standardize` 无从谈起。但它们照样进包上机：2026-07-28 全量排查查出
+        /// 20 件带 `playOnAwake` 音源、7 件带屏幕折射、5 件开着 World 粒子碰撞（P-79）。
+        /// 所以清洗必须能对**成品**直接跑：用途按 key 前缀反推，只做与用途无关的
+        /// 通用清洗（污染件/音源/灯/死层/移动端预算），**不碰**起播平移与用途组件
+        /// （那两步不幂等，重跑会把节奏越挪越早）。</summary>
+        [MenuItem("GreekMyth/特效/清洗 存量标准件（移动端预算：折射/碰撞/音源/灯/粒子上限）")]
+        public static void CleanExistingAll()
+        {
+            if (Application.isPlaying)
+            {
+                Debug.LogError("[VfxPipe] 拒绝在 Play 模式下改资产。");
+                return;
+            }
+            var log = new StringBuilder();
+            int touched = 0, total = 0;
+            foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { VfxDir }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                string key = System.IO.Path.GetFileNameWithoutExtension(path);
+                total++;
+                var one = new StringBuilder();
+                var root = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    int missing = CleanMissingScripts(root);
+                    if (missing > 0) one.AppendLine($"  清失效脚本槽 {missing}");
+                    StripScenePolluters(root, one);
+                    TrimAudio(root, one);
+                    TrimLights(root, one);
+                    StripDeadLayers(root, one);
+                    ApplyMobileBudget(root, UsageOfKey(key), one);
+                    if (one.Length > 0) PrefabUtility.SaveAsPrefabAsset(root, path);
+                }
+                finally { PrefabUtility.UnloadPrefabContents(root); }
+
+                // TrimLights 恒记一行"实时灯保留 N"，不能作为"动过"的判据
+                if (one.ToString().Split('\n').Length > 2) { touched++; log.AppendLine(key + "\n" + one); }
+            }
+            AssetDatabase.SaveAssets();
+            System.IO.File.WriteAllText("Temp/vfx_clean.txt", $"清洗 {total} 件，改动 {touched} 件\n{log}");
+            Debug.Log($"[VfxPipe] 存量清洗 {total} 件，改动 {touched} 件（详情 Temp/vfx_clean.txt）");
         }
 
         /// <summary>全量体检：对 Resources 下所有标准件跑同一套验证。

@@ -88,6 +88,7 @@ SpecialProfiles[skill/status id]
 | 主动·魔法（未专配） | `magic_bolt`（1/8 件 54/62）**无裂地** | `hit_petrify` |
 | 神谕产生的伤害 | 按模板 | `hit_wave`（`OracleDefault.HitKey`） |
 | 雷霆 / 天雷击 | DR 竖雷（无弹道） | `hit_lightning`（Special；被巨伤覆盖时除外） |
+| 雷霆神谕氛围（状态 `thunder`） | — | **场域氛围** `ambient_thunder_storm`（画廊 2/8·11/61 Effect19；钉地面中心、非命中） |
 | 治疗 | — | `heal_generic`（`SettleHeal` 写死） |
 
 专配战法（阿喀琉斯穿刺、珀尔修斯飞剑、圣盾反制…）一律看

@@ -4,16 +4,19 @@
 > 标准化并接到可加载 key / 战法演出——**不依赖任何 GUI 晋升工具、不要求
 > 人点菜单队列**。
 >
+> **移动端预算与红线（接件前必读）**：[vfx_mobile_budget.md](vfx_mobile_budget.md)
+> ——本文管"怎么落盘"，那篇管"必须裁掉什么、裁掉的观感拿什么补"。
 > 配套背景：[vfx_pack_integration.md](vfx_pack_integration.md)；
 > **查谁用什么特效（总索引）**：[vfx_config_index.md](vfx_config_index.md)；
 > key 登记：[assets_upload_guide.md](assets_upload_guide.md)；
 > 注册点：[extension_points.md](../discipline/extension_points.md)；
 > 坑的完整叙述：[ai_workflow_pitfalls.md](../discipline/ai_workflow_pitfalls.md)
-> P-33 / P-38 / P-64 / P-65 / P-66 / P-67 / P-68 / P-70 / P-71 / P-74 / P-77。
+> P-33 / P-38 / P-64 / P-65 / P-66 / P-67 / P-68 / P-70 / P-71 / P-74 / P-77 / P-78。
 >
 > 2026-07-26 定稿；2026-07-27 依单挑三件实战全面修订，并将落盘统一收口到
 > `VfxPackStandardizer` 流水线（本版）。同日 P-77：罩身旁路「完整件拷贝」作废，
-> 收进 `VfxUsage.Shroud`。本文件 ≤500 行。
+> 收进 `VfxUsage.Shroud`。2026-07-28 P-78：折射改为中和勿毁节点；同日新增第四类用途
+`VfxUsage.AmbientField`（`ambient_` 场域氛围件）。本文件 ≤500 行。
 
 ## 〇、第一原则：先证明资产在盘上，再谈观感
 
@@ -56,7 +59,7 @@
 | 5 | 起播只在根级 `Play(withChildren)` | 曾对**每层**都 Play，子发射器相位被打乱 | 已修：只在「最上层」粒子系统起播 |
 | 6 | `RescueIfBuried` / `LiftPackSpawns` / 弹道 Target-Speed 反射接线 | 部分 | 埋地救援已进 `VfxCircleFit.RescueIfBuried`；后两条接厂包**弹道主件**时仍需补 |
 | 7 | K 键 **0.25× 慢放**（厂包出手件整段仅 0.9 s，审核基本必开） | 1× | **预算差，不可修**。要接近就得给足真实时间（如单挑顺序播）或局部慢放 |
-| 8 | 高频 3D 背景上折射壳「看得见」 | 低频大理石舞台 + 罩在卡前 | **罩身必须摘 Distortion**（`VfxUsage.Shroud`）；留着＝卡面折糊且罩形仍不可见（P-74/P-77）。另：`PerPlatformSettings` 真机偷降发射率，旁路拷贝必中招 |
+| 8 | 高频 3D 背景上折射壳「看得见」 | 低频大理石舞台 + 罩在卡前 | **中和 Distortion 渲染**（保节点/子层，P-78）；另摘 `LightningTrails*` 游离电弧。`PerPlatformSettings` 真机偷降发射率，旁路拷贝必中招 |
 
 **验收时先自问第 7 条**：你在画廊里拍板的那个印象，是不是慢放下的？
 是的话，1× 下永远达不到，得用「给足时间」或「降低期待」解决，不是继续调参数。
@@ -133,17 +136,25 @@
     `ResolveAnchorSource` 会沿位移脚本的 `EffectsOnCollision`/`EffectOnCollision`
     字段自动改选，无须人工判断。
   - **弹道用途** → 用母件全套，保留位移驱动，走 Target/Distance/Speed 反射接线。
-  - **罩身用途**（`VfxUsage.Shroud`）→ 原料是常驻壳件本身（不做运载器改选），
-    但**摘全部屏幕折射层**（shader 名含 Distortion）：折射是屏幕空间抓帧，
-    罩在卡前把卡面整块折糊（P-77）；且低频舞台上它本就贡献不了可见罩形（P-74）。
-    罩形语言由 Particle/Fringe 加色层承担。另摘 `RFX*_CollisionTrigger`（舞台无碰撞体）。
-- 罩身件尺寸走 `VfxShroudFitter` 规格（流水线**不挂** `VfxCircleFit`，两写方互斥）。
+  - **罩身用途**（`VfxUsage.Shroud`）→ 原料是常驻壳件本身（不做运载器改选）；
+    **中和折射、不毁节点**（只摘 Distortion 本节点 PS/Renderer，保留 ShieldAdd*
+    子层，P-78）；另摘游离 `LightningTrails*`（卡面＝全屏乱电）与
+    `CollisionTrigger`。罩形由加色/Fringe/壳面子层承担。
+  - **场域氛围用途**（`VfxUsage.AmbientField`）→ 与罩身**正好相反**：留世界空间
+    游离层（`LightningTrails*` 等），**摘人形壳**（Distortion 折射壳 / Fringe 环）。
+    理由：壳按单人身位做，钉地面中心放大到铺满战场后既缩在中心一小坨、
+    又是低频舞台画不出的屏幕抓帧折射（P-74）。另摘 `CollisionTrigger`。
+- 罩身件尺寸走 `VfxShroudFitter` 规格；场域件尺寸/高度/层序走
+  `StagePerformanceConfig.AmbientField*`。两者流水线均**不挂** `VfxCircleFit`
+  （尺寸组件三选一；卡牌尺度的圆定径会把满场氛围缩成一小坨）。
 
 ### 4.2 起 key
 
 - 路径：`Assets/Resources/ClientBattle/VFX/<key>.prefab`
 - 命名（snake_case 前缀）：`hit_` 命中 / `proj_` 弹道 / `aura_` 光环挂身 /
-  `cast_` 前摇出阵 / `ground_` 地面（必须 `VfxGroundLayer`）/ `shroud_` 罩身。
+  `cast_` 前摇出阵 / `ground_` 地面（必须 `VfxGroundLayer`）/ `shroud_` 罩身 /
+  `ambient_` 场域氛围（不挂卡、钉主战场地面中心；挂载走 `UnitAuraService` 的
+  `ambient_` 分流，全场按 key 去重）。
 
 ### 4.3 落盘（唯一入口：`VfxPackStandardizer.Standardize(src, key, usage)`）
 
@@ -173,6 +184,13 @@
 7. **摘死层**：`Projector`、`KriptoFX/RFX1|RFX4/Decal` 贴花节点（URP 画不出，
    P-33）。**摘掉的观感层必须记录替代方案**（例：Effect8 地面焦痕 →
    自研裂地 `GroundCrackService.PlayHit`）。
+7b. **移动端预算**（`ApplyMobileBudget`，**全用途执行**，依据与替代方案见
+   [vfx_mobile_budget.md](vfx_mobile_budget.md)）：① 中和屏幕折射层
+   （采样 `_CameraOpaqueTexture` ＝ 逼 URP 每帧全屏拷贝，舞台上又看不出；
+   保节点保子层）；② 关粒子碰撞/触发（舞台无碰撞体，纯 CPU 浪费）；
+   ③ 活跃粒子**等比稀释**到用途预算（定点/罩身 1500、地面 1500、场域 2000）——
+   稀释是 burst 与 rate 同乘系数，**不是**硬夹 maxParticles（硬夹会让形状缺一块）。
+   这三项曾只写在 Shroud 分支里，于是 6 件 Anchor/Ground 带着折射上线（P-79）。
 8. **掐空转前摇**（`NormalizeStartDelay`）：所有层 startDelay **同时前移**到最早
    会出图的层从 0 起播（整体平移保层间结构）。判"会出图"只认 burst/rateOverTime。
 9. **用途组件**：`Ground` → `VfxGroundLayer`；除 `Shroud` 外一律挂 `VfxCircleFit`
@@ -198,6 +216,10 @@
    `WireAresMightShroud`）；挂载 `VfxShroudFitter.Fit` + `VfxShroudFollower`
    （挂载期**不裁层**——定径/钉地环职责）。流水线已按用途摘折射等；
    个性裁层（去石块等）仍只进各技能 Wire 名单，禁止写进 Fitter/Follower。
+   场域氛围：落盘走 `Standardize(src, key, VfxUsage.AmbientField)`（示例
+   `WireThunderStorm`）；挂载只需在注册表把状态的 aura key 写成 `ambient_*`，
+   `UnitAuraService` 自动钉地面中心并全场去重，几何在
+   `StagePerformanceConfig.AmbientField*` 调，不写进演出代码。
 4. 加载只经 `VFXManager.PlayAt/PlayOn(key)`。顺序演出要「播完再走」的，
    等待时长用 `VFXManager.EmitWindow(key, cap)` 运行期探（真实秒，
    **不过 `ctx.Scaled`**，必须配上限），不写死。两种形态自动区分：
@@ -217,6 +239,8 @@
 - [ ] 尺寸组件三选一挂对（§四.3-9）；画廊定径拍板的必须是 `VfxCircleFit`
 - [ ] 含 `RFX*` 驱动脚本 → `VfxFreshInstance` **实际在成品上**（不是只在日志里）
 - [ ] 实时灯 ≤1 盏无阴影、`AudioSource=0`、无 `WindZone`
+- [ ] **移动端预算全过**：无屏幕折射层、粒子碰撞/触发全关、活跃粒子估算
+      ≤用途预算（体检已含这四项，详见 vfx_mobile_budget.md §三 提示词红线）
 - [ ] 定点用途的件：原料是碰撞子件而不是钉住的运载器（§四.1）
 - [ ] 摘掉的观感层有替代方案且已记录
 - [ ] 对 §一 差异表逐条过，尤其第 7 条（慢放）与第 8 条（罩身折射/平台降配）
@@ -253,11 +277,14 @@
 | 探到的时长离谱地大 | 件里有循环层，`duration` 是周期不是时长 | — |
 | 特效不在落点、粒子乱跑后才炸 | 定点用途却用了运载器母件——改选碰撞子件，别去删位移驱动 | P-68 |
 | 别的特效被莫名吹歪 | 某件里带 `WindZone`（场景级力场） | — |
-| 卡面被罩身糊掉 / 罩身真机比画廊瘦一截 | 成品是否走了 `Shroud` 流水线；是否残留 Distortion / PerPlatformSettings | P-77 |
+| 卡面被罩身糊掉 / 罩身真机比画廊瘦一截 | 成品是否走了 `Shroud` 流水线；是否残留 Distortion 渲染 / PerPlatformSettings | P-77 |
+| 全屏乱电、看不见绕身罩 | Distortion 父节点被整删带走 ShieldAdd*；或残留 LightningTrails* | P-78 |
 | 罩身「没罩住」但几何算够了 | 定径是否按可见壳（跳过折射/Decal） | P-74 |
 | 第二次播放形状不对 | 子发射器是否被逐层 Play 打乱；池化残留 | — |
 | 地面圆对不准 / 溢出一圈 | 用的是定位圆还是投影圆（不同心不同径） | P-65 |
 | 尺寸随机型漂移 | `BakedBasis` 是否按非交错设计卡宽回填 | P-38 |
+| 真机爆发时掉帧 / 发烫 | 活跃粒子估算（体检报告）；件里还有没有屏幕折射、World 粒子碰撞 | P-79 |
+| 编辑器有、真机没有 | 是不是 Projector/厂包 Decal 层（URP 画不出，编辑器还能看见点东西） | P-33 |
 
 ## 七、与画廊的关系 & 入口速查
 
@@ -272,6 +299,7 @@
 | **标准化流水线（唯一落盘入口）** | `VfxPackStandardizer.Standardize(src, key, usage)` |
 | 流水线四项体检（全量） | `GreekMyth/特效/体检 标准件流水线四项`（报告落 `Temp/vfx_audit.txt`） |
 | 批处理清洗已有标准件 | `GreekMyth/特效/标准化 尺寸归一 + 清理残留` |
+| **存量件就地清洗（移动端预算）** | `GreekMyth/特效/清洗 存量标准件（移动端预算…）`（报告 `Temp/vfx_clean.txt`；用途按 key 前缀反推，幂等） |
 | 旧版体检（渲染层盘点） | `GreekMyth/特效/体检 全量 VFX prefab` |
 | 单挑三件接线（清单参考实现） | `GreekMyth/特效/接线 单挑三件（出阵·加冕·溃败）`（带 AutoHeal） |
 | 画廊序号复算 | `battle/tools/_gallery_index_dump.py` |

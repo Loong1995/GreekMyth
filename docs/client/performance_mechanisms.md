@@ -137,7 +137,7 @@
 | **卡面生动性** | 立绘三条通道由**唯一合成器**每帧合成写入（不用 tween：三者作用于同一 Transform，互相 Kill 会让呼吸断掉/立绘停在半路）。① 待机呼吸＝浮动+侧摆+胸腔缩放+微倾，三个互质频率，每卡相位与频率各自失谐（六卡同屏永不同步）；兵力越低越慢越重。② 惯性视差＝立绘比卡框慢半拍，配合景深偏移读出「框里装着一个人」。③ 受击挤压＝阻尼正弦弹性形变。石化/阵亡冻成静止像 | `Units/CardIdleMotion.cs` ← `UnitView.Update` / `SetBreathingFrozen` / `PlayDefeated` |
 | 兵力刷新 | 恒取事件 troops_after 权威值，客户端零计算 | `UnitView.SetTroops` |
 | 状态图标 | 硬控/冥火卡顶外侧横排（宽≈卡宽 1/5）+ 抖动；**先攻/犹豫不展示图标**；常规上方小图标已关闭 | `Units/StatusIconPanel.cs` + `StatusPresentationRegistry` |
-| **状态常驻光环** | status_id → 光环 key + 挂载偏移（雷霆/圣盾/阿瑞斯底火·顶火/阳光/神使印记…）；status_apply 挂、status_remove/阵亡/整局重置撤；一次性 flipbook 粒子强制循环+补发射密度+压半透明（`aura_fire*` 另偏橙红） | `Units/UnitAuraService.cs`；配置收口 `Names/StatusPresentationRegistry.cs`（新状态只加注册表一行） |
+| **状态常驻光环** | status_id → key，前缀分三类挂法：`shroud_*` 罩身（MountShroud+Presence，如战神之勇=`shroud_ares_might`）、`ambient_*` **场域氛围**（不挂卡，钉主战场地面中心铺满全场、按 key 全场去重、持有者清零才撤，如雷霆=`ambient_thunder_storm`；几何 `StagePerformanceConfig.AmbientField*`）、其余普通光环挂卡心；status_apply 挂、status_remove/阵亡/整局重置撤 | `Units/UnitAuraService.cs`；配置收口 `Names/StatusPresentationRegistry.cs`（新状态只加注册表一行） |
 | 整盘滤镜 | 程序化全屏呼吸色罩（血红/海蓝/冥紫按 key 取色），不用粒子 prefab（会成棋盘中心固定点）；透明度待真棋盘底图定稿再调 | `OracleAuraPerformance.BoardFilterOverlay` |
 | 石化 | 灰色卡框覆盖层淡入淡出（tween 互斥，新 tween 先杀旧）；施加走通用状态音 `sfx_status_petrify`，解除走 `sfx_petrify_off` | `UnitView.SetPetrified` |
 | 飘字 | 伤害红/治疗绿/真伤黄/状态蓝灰/属性金紫，同单位纵向堆叠不重叠 | `Units/FloatingTextService.cs` |

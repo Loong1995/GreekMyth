@@ -240,6 +240,27 @@ namespace ClientBattle.Units
         /// 这里只需极短一停给运镜收尾。</summary>
         public static float CutInCameraHoldSeconds = 0.08f;
 
+        // ---------------------------------------------- 场域氛围件（ambient_*）
+        //
+        // 【这是哪一类】不挂任何一张卡、源点钉在**主战场地面中心**、靠世界尺度
+        // 铺满视野的整场氛围（雷暴/风沙/极光…）。与罩身（包住一张卡）、
+        // 地面件（落在某张卡的定位圆）都不同，故几何参数单独一组放这里。
+        // 落盘用途＝`VfxUsage.AmbientField`；挂载走 `UnitAuraService`（按 key 全场
+        // 去重＋持有者引用计数：三个人身上都有【雷霆】也只有一份雷暴）。
+
+        /// <summary>整件放大倍数。厂包件按单人身位做（数米级），要铺满战场必须放大；
+        /// 过大则粒子稀疏、近处穿帮。3.5 是照 Effect19 电弧在 6 等分战场上的覆盖定的，
+        /// 换原料要回来重标。</summary>
+        public static float AmbientFieldScale = 3.5f;
+
+        /// <summary>源点相对地面中心抬高（世界单位）。0＝贴地；抬高一点让游离元素
+        /// 从卡牌之间穿过而不是全埋在地里。</summary>
+        public static float AmbientFieldLift = 0.4f;
+
+        /// <summary>渲染层序。氛围是**背景**：压到卡牌之下（负值），否则满屏元素
+        /// 盖在卡面前会把主体（立绘/兵力）糊掉，读作"看不清在打什么"。</summary>
+        public static int AmbientFieldSortingOrder = -5;
+
         // ---------------------------------------------- 单挑三处厂包特效
         //
         // 【为什么 key 放这里而不是 PerformanceProfile】Profile 是**按武将/战法**

@@ -1,6 +1,46 @@
 
 # Changelog
 
+## 2026-07-28 特效移动端预算体系（P-79：红线上移 + 全量排查）
+- 新文档 `docs/client/vfx_mobile_budget.md`：TBDR 成本模型、五类高危层
+  （屏幕折射/投影贴花/粒子总量/粒子碰撞/灯音脚本）的机制·代价·处置·替代方案、
+  接件提示词红线「五摘一夹」、观感需求→预算内做法对照表、全局 RP 设置联动。
+- 流水线：折射清洗从 Shroud 分支**上移为全用途** `ApplyMobileBudget`
+  （中和折射保子层 + 关粒子碰撞/触发 + 活跃粒子**等比稀释**到用途预算
+  1500/1500/2000，不硬夹 maxParticles）；`Verify` 增预算四项，体检一票否决。
+- 新增就地清洗入口 `GreekMyth/特效/清洗 存量标准件（移动端预算…）`：
+  用途按 key 前缀反推，只做与用途无关的通用清洗，幂等——存量自研件无源可回溯。
+- 全量排查：63 件中 **30 件不合格**（6 件屏幕折射、20 件 playOnAwake 音源、
+  5 件 World 粒子碰撞、6 件粒子超预算、1 件 4 盏实时灯）。
+- 规则/文档：`00-session-start` 表行、`vfx-standardization.mdc`、`client-battle.mdc`
+  加载新红线；standardization §四.3-7b/§四.5/§六、client index、extension_points、
+  pitfalls P-79。
+
+## 2026-07-28 新特效类：场域氛围件（雷霆神谕改全屏雷暴）
+- Effect19 罩身部分在卡尺度上不可见（屏幕抓帧折射，P-74/P-78 后续），改判用途：
+  新增 `VfxUsage.AmbientField` + `ambient_` key 前缀＝**不挂卡、钉主战场地面中心、
+  按世界尺度铺满视野**的整场氛围；清洗规则与罩身相反（摘人形壳、留世界空间游离层）。
+- 挂载：`UnitAuraService` 加 `ambient_` 分流，全场按 key 去重 + 持有者引用计数
+  （多人有【雷霆】只一份雷暴，清零才撤）；几何全在 `StagePerformanceConfig.AmbientField*`
+  （Scale/Lift/SortingOrder，层序压卡牌之下防糊立绘）。
+- `shroud_thunder` → `ambient_thunder_storm`（`WireThunderStorm` + AutoHeal）；
+  Registry / thunder_oracle Profile 同步。命中件 `hit_lightning` 不变。
+- 文档：vfx_standardization §四.1/4.2/4.4、extension_points、guide、olympus、
+  performance_mechanisms、vfx_config_index、vfx_playback_scheme、pitfalls P-78 后续。
+
+## 2026-07-28 罩身清洗 P-78：中和折射勿毁节点（修雷霆全屏乱电）
+- Effect19 层级 `Shield`(Distortion)→`ShieldAdd3`：旧流水线 Destroy 整节点带走罩面，
+  只剩 LightningTrails →「全屏乱电、无绕身罩」。改为中和折射（保子层）+ 摘
+  LightningTrails*（喷射层提根）。`shroud_thunder` / `shroud_ares_might` 重接线。
+- 文档：vfx_standardization §一/§四.1；pitfalls P-78；guide 行更新。
+
+## 2026-07-28 雷霆神谕改罩身 Effect19（shroud_thunder）
+- 宙斯施加的【雷霆】状态挂身：由旧 `aura_thunder`（DR 乱劈）改为罩身
+  `shroud_thunder`＝画廊 2/8·11/61 Magic Effect19；落盘 `VfxUsage.Shroud`
+  （`WireThunderShroud` + AutoHeal）；Registry / thunder_oracle Profile 同步。
+- 命中 `hit_lightning` 仍用同原料 Collision 子件，与罩身母件分工不混淆。
+- 文档：guide / olympus / performance_mechanisms。
+
 ## 2026-07-27 特效纪律防旁路：P-77 根因收口 + 自动加载补强
 - **为何踩坑**：不是「没读标准化」，而是权威文档把 `CopyFull`「完整件旁路」
   登记成罩身正确做法，与「只走 VfxPackStandardizer」并存——按文档做仍系统性

@@ -21,7 +21,7 @@ alwaysApply: true
 | `battle/**` | `docs/mechanics/index.md`；改战法再读 `docs/skills/` 对应分册 |
 | `docs/schema/**` 或事件契约 | `docs/schema/battle_events.md`（只加法演进） |
 | 新增战法/状态/性格/演出 | `docs/discipline/extension_points.md` |
-| 点名厂包特效接线，**或**要求「参考/做到接近某 EffectN 的观感」，**或**改默认命中/弹道/光环/**罩身**/单挑/地面等任一 VFX key | **必读** `docs/client/vfx_standardization.md`（全文；§〇.1 旁路禁令）；再读 `assets_upload_guide.md` 相关行。定件 `_gallery_index_dump.py`；落盘**只**走 `VfxPackStandardizer`（罩身＝`VfxUsage.Shroud`）；**禁止** CopyFull/手拷/「完整件旁路」；禁止裸改 key、Profile 直指包路径、凭印象手搓。规则：`.cursor/rules/vfx-standardization.mdc` |
+| 点名厂包特效接线，**或**要求「参考/做到接近某 EffectN 的观感」，**或**改默认命中/弹道/光环/**罩身**/**全场氛围**/单挑/地面等任一 VFX key | **必读** `docs/client/vfx_standardization.md`（全文；§〇.1 旁路禁令）+ **`docs/client/vfx_mobile_budget.md`**（移动端预算红线「五摘一夹」与观感需求替代方案表，P-79）；再读 `assets_upload_guide.md` 相关行。定件 `_gallery_index_dump.py`；落盘**只**走 `VfxPackStandardizer`（罩身＝`VfxUsage.Shroud`）；**禁止** CopyFull/手拷/「完整件旁路」；禁止裸改 key、Profile 直指包路径、凭印象手搓。规则：`.cursor/rules/vfx-standardization.mdc` |
 | 写/改任何文档 | `docs/discipline/doc_standards.md` |
 
 ## 会话结束硬性义务

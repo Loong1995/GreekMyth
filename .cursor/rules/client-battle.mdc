@@ -20,8 +20,10 @@ alwaysApply: false
   禁止在 Runner/Director 主循环塞特例
 - 中文名与 `battle/names.py` 同步（`Names/ChineseNames.cs`）
 - **特效点名（强制）**：用户指出画廊/厂包某件、或改默认命中/弹道/光环/**罩身**/
-  单挑/地面 VFX 时，**第一条工具调用必须 Read** `docs/client/vfx_standardization.md`，
-  按清单：定件 → `VfxPackStandardizer`（罩身＝`Shroud`）→ guide → Profile/配置 →
-  验收。禁止 Profile 直指包目录；禁止只改字符串不落盘；**禁止平行落盘旁路**
+  **全场氛围**/单挑/地面 VFX 时，**第一条工具调用必须 Read**
+  `docs/client/vfx_standardization.md` + `docs/client/vfx_mobile_budget.md`
+  （移动端红线「五摘一夹」，P-79），按清单：定件 → `VfxPackStandardizer`
+  （罩身＝`Shroud`／不挂卡的全场氛围＝`AmbientField`）→ guide → Profile/配置 →
+  验收（体检含预算四项）。禁止 Profile 直指包目录；禁止只改字符串不落盘；**禁止平行落盘旁路**
   （CopyFull/手拷/完整件跳过流水线，P-77）；**不做**晋升 GUI。细节见
   `.cursor/rules/vfx-standardization.mdc`。

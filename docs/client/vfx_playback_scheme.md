@@ -19,7 +19,7 @@
 |---|---|---|---|---|---|
 | `thunder` | RemoteStrike | DR 单道 | Magic `Effect19_Collision` | — | Hit=`hit_lightning`；PortraitMark=`zeus` |
 | `zeus_bolt` | RemoteStrike | DR 单道 | 同上 | — | 同上 |
-| `thunder_oracle` | OracleAura | — | — | DR 乱劈调度 | `aura_thunder`（非 Magic） |
+| `thunder_oracle` | OracleAura | — | — | 全场雷暴（地面中心） | `ambient_thunder_storm`（画廊 2/8·11/61 Effect19） |
 | `athena_aegis` | OracleAura | — | — | **AllIn1 金描边**（无 Magic 粒子） | Aura=`aura_aegis` |
 | `aegis_shield` | Melee | — | Magic `Effect17_Collision` | 持盾者突进反弹 | Cast/Hit=`hit_shield_counter` |
 | `aegis_ward` | StatusTrigger | — | 同上闪光 | — | 同上 |

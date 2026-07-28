@@ -9,6 +9,9 @@
   智力 85% 魔法，每人每回合最多 3 次。目标已被原伤害击败时不判定。
 - **实现**：伪随机（失败+9%/成功-7%/30%~85%/4 次保底）；kind=`lightning` 不自触发；
   多情分神当回合全队雷霆不触发。
+- **演出**：己方【雷霆】期间全场雷暴＝`ambient_thunder_storm`（画廊 2/8·11/61＝
+  Magic Effect19，`VfxUsage.AmbientField`：钉地面中心铺满全场，多人持有只一份）；
+  落雷触发仍 RemoteStrike + `hit_lightning`。
 - **事件流**：status_apply(thunder)×N → 触发时 status_tick + damage(magic)。
 
 ## zeus_bolt 天雷击（宙斯·拆解·主动 50%）

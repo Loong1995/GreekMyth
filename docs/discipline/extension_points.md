@@ -58,6 +58,8 @@
 | 真实资源 | `Resources/ClientBattle/<类别>/<key>`（占位回退，零代码） |
 | 罩身件挂载（定径+跟随**投影圆**） | `VfxShroudFollower.FitAndFollow`（定径 `VfxShroudFitter.Fit`）；挂载期**不裁层**（定径职责）；落盘清洗归 `VfxUsage.Shroud` |
 | 罩身厂包落盘 | **`VfxPackStandardizer.Standardize(src, key, VfxUsage.Shroud)`**（示例 `WireAresMightShroud`）；**禁止** CopyFull / 手拷旁路（P-77） |
+| 移动端性能约束（折射/贴花/粒子总量/碰撞/灯音）| 一律进 **`VfxPackStandardizer.ApplyMobileBudget`（全用途 pass）+ `Verify` 体检项**，禁止只写在某个用途分支里（P-79）；预算数字与替代方案表在 [vfx_mobile_budget.md](../client/vfx_mobile_budget.md)，改数前先看那份实测依据 |
+| 加一件**全场氛围**（雷暴/风沙/极光…不挂任何卡） | 落盘 **`VfxUsage.AmbientField`**（示例 `WireThunderStorm`：摘人形壳、留世界空间游离层）；key 起 `ambient_` 前缀写进 `StatusPresentationRegistry` 的 `auraKey`，`UnitAuraService` 自动钉主战场地面中心 + 全场按 key 去重（多人同状态只一份，持有者清零才撤）；尺寸/抬高/层序只调 `StagePerformanceConfig.AmbientField*`，**不进演出代码** |
 | 任何要落在「某张卡脚下 / 身上」的**地面圆**定位定径 | **先选对圆**：脚下痕迹（裂地/法阵/地面件）用**定位圆** `ArenaSlotLayout.AnchorCircle*`（心＝接地点，直径＝卡宽）；把整张卡包进去的罩身件用**投影圆** `ProjectionCircle*`（心＝卡心正下方，半径＝影子半对角线，约 1.4 倍且**不同心**）。定义见 `docs/client/arena_stage.md` §四c。旧名 `CardCircle*` 已废止，**禁止再引入不带 Anchor/Projection 前缀的"圆"** |
 | 绕身显隐（出现/渐隐） | **`VfxShroudPresence`** + 注册表 `ShroudVisibility`（Always/OddRounds/EvenRounds/Manual）；任意时机 `UnitAuraService.SetShroudVisible`；`HasShroud`＝`IsPresent`（渐隐后恢复受击抖动） |
 | ~~某罩身个案显隐~~ | ~~`AresMightShroudPulse`~~ → 已收进通用 Presence（2026-07-26） |

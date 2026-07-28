@@ -376,3 +376,41 @@ shader/尺寸），不能假设新件与旧件同构；「几何算出来够了�
 优先查 PerPlatformSettings 与 Distortion。纪律侧配套：`vfx_standardization`
 §〇.1 旁路禁令、§八加载保证；`extension_points` 删 CopyFull 行；Cursor
 `vfx-standardization.mdc` 显式禁旁路并把 Units 光环/罩身纳入 glob。
+
+## P-78 罩身删 Distortion 整节点＝带走罩面子层，只剩乱电
+
+现象：雷霆 `shroud_thunder`（Effect19）接入后全屏乱电、看不见绕身罩
+（2026-07-28）。画廊原件是「罩身壳 + 粒子喷射一下」。
+
+根因：Effect19 层级为 `Shield`(Distortion) → 子 `ShieldAdd3`(罩面电光)；
+`LightningTrails*` 是游离世界电弧。P-77 流水线 `Destroy` 整个 Distortion GO
+时把 ShieldAdd3 一并删掉，只剩 LightningTrails + 薄 ShieldFringe——定径后电弧
+糊满视野，罩身主体已不在。
+
+正确做法：`StripShroudUnfit` **中和折射**（只摘本节点 PS/Renderer，保节点与子层）；
+另摘 `LightningTrails*`（喷射子层 Particles/Point 先提根）。换罩身原料后必须
+`execute_code` 打层级，确认 ShieldAdd* 仍在成品上。
+
+后续（同日）：层级修对之后 Effect19 的罩身部分在卡尺度上**依然几乎不可见**
+（壳是屏幕抓帧折射，低频舞台画不出，见 P-74），人工判定「用错类了」——
+真正有观感的是那层被摘掉的世界空间电弧。于是该件改判为**场域氛围件**
+（`VfxUsage.AmbientField` / `ambient_thunder_storm`：摘壳留电弧、钉主战场
+地面中心铺满全场）。教训：**接件前先按原料的尺度意图选用途类**，
+别默认「挂身上的都是罩身」；一件在画廊里好看，不代表缩到一张卡上还看得见。
+
+## P-79 把"移动端红线"写进某个用途分支＝其余用途全裸奔
+
+现象：2026-07-28 全量体检 63 件标准件，**30 件不合格**——6 件带屏幕折射层、
+20 件带 `playOnAwake` 音源、5 件开着 World 粒子碰撞、6 件活跃粒子严重超预算
+（`cast_duel_launch` 估算 18766 颗、`hit_massive` 20008 颗）。
+
+根因有两层：① 折射清洗当初只写在 `VfxUsage.Shroud` 分支里，而它与"这件怎么用"
+无关、只与"跑在手机上"有关，于是 Anchor/Ground 用途从头到尾没人摘，
+`_CameraOpaqueTexture` 至今关不掉；② 粒子总量与碰撞**根本没有任何检查**，
+存量自研件（早于流水线）更是从未被任何流程扫过——画廊里那几行"含贴花层／
+含屏幕扭曲层"只是**提示**，没有变成硬约束，提示就等于没有。
+
+正确做法：与用途无关的约束一律上移为**全用途 pass**（`ApplyMobileBudget`）
+并进**体检**（不合格即 ✗）；存量件要有**就地清洗**入口（没有源可回溯的老件
+重跑 Standardize 无从谈起）。依据与替代方案见 `docs/client/vfx_mobile_budget.md`。
+判据：**任何一条纪律，如果只在某个分支里执行、且没有对应的体检项，就当它不存在。**
