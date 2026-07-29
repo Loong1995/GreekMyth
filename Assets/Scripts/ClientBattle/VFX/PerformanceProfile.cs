@@ -46,11 +46,11 @@ namespace ClientBattle.VFX
         public string GroundPathKey = "";             // 弹道路径地面裂地
         public string GroundHitKey = "";              // 受击者脚下地面命中
         /// <summary>裂地强度档（1 轻 / 2 重 / 3 熔岩）。
-        /// 一档同时定缝宽、持续、亮度。0 = 未配 → 物理取档 1、魔法仍不裂。
-        /// ≥1 时魔法伤害也出**命中**裂地（弹道裂地仍只跟物理）。
+        /// 一档同时定缝宽、持续、亮度。0 = 未配 → 档 1。
+        /// 物理/魔法命中·轨迹同规；弹道裂地仍只跟物理。
         /// 配置约定见 docs/client/ground_crack_config.md：
-        /// 准备型物理主动群攻配 2，瞬发物理主动群攻留 0；
-        /// 势能加强出手由服务强制档 3，不受本字段限制。</summary>
+        /// 准备型主动（skill_catalog <c>prepare_active</c>）群攻配 2，瞬发留 0；
+        /// 势能/巨伤由服务强制档 3，不受本字段限制。</summary>
         public int GroundStrengthTier;
 
         /// <summary>命中类裂地的面积倍率：在默认「卡宽 ×1.5」上再乘这个数。

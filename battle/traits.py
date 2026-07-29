@@ -167,13 +167,17 @@ def of(hero: "HeroState") -> Trait | None:
 
 def emit_trigger(engine: "SeriesEngine", hero: "HeroState", effect: str,
                  *, parent_seq: int = 0, new_group: bool | None = None) -> int:
-    """发 trait_trigger 事件（契约 1.2.0 加法演进）。台词确定性轮换，不消耗 RNG。
+    """发 trait_trigger 事件（契约 1.2.0 加法演进）。台词走 seed 派生哈希流
+    （`voice_rng.py`），不消耗战斗 RNG；逐武将覆盖池见 `voice_trait_data.py`。
     new_group：None 时沿用默认（无 parent → 新组；有 parent → 同组）。"""
+    from battle import voice_rng as vr
+    from battle.voice_trait_data import override_pool
+
     trait = REGISTRY[hero.trait_id]
-    pool = trait.lines.get(effect, ())
-    idx = hero.trait_line_seq.get(effect, 0)
-    hero.trait_line_seq[effect] = idx + 1
-    line = pool[idx % len(pool)] if pool else ""
+    pool = override_pool(hero.template_id, effect)
+    if pool is None:
+        pool = trait.lines.get(effect, ())
+    line = vr.pick(engine.rng.seed, hero, effect, pool) or ""
     ng = (parent_seq == 0) if new_group is None else new_group
     return engine.writer.emit(
         "trait_trigger",

@@ -28,6 +28,8 @@ namespace ClientBattle.Test
         [Header("诊断")]
         [Tooltip("显示帧尖峰探针（左下角心跳转子 + 长帧日志），排查性能时打开")]
         public bool ShowDiagnostics = false;
+        [Tooltip("屏幕下方实时计时条 + 每回合刻度点（点刻度跳到该回合，人工校验时长用）")]
+        public bool ShowTimelineBar = true;
 
         PerformanceRunner _runner;
 
@@ -43,6 +45,7 @@ namespace ClientBattle.Test
             if (Screen.fullScreen) Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
 #endif
             if (ShowDiagnostics) FrameSpikeProbe.Ensure();
+            if (ShowTimelineBar) PlaybackTimelineBar.Ensure();
             _runner = PerformanceRunner.Ensure();
             _runner.OnAllComplete += () => Debug.Log("[ClientBattle] 战报播放完成");
             if (AutoPlayOnStart) Play();
@@ -108,6 +111,10 @@ namespace ClientBattle.Test
             if (_runner != null && !_runner.IsPlaying &&
                 GUI.Button(new Rect(x, y + h * 4.8f, w, h), "打开结算", style))
                 _runner.ShowSettlement();
+            bool timelineOn = PlaybackTimelineBar.Instance is { Visible: true };
+            if (GUI.Button(new Rect(x, y + h * 6f, w, h),
+                           timelineOn ? "计时条 开" : "计时条 关", style))
+                PlaybackTimelineBar.Ensure().Visible = !timelineOn;
         }
     }
 }

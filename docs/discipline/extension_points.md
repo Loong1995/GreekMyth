@@ -21,7 +21,8 @@
 | 状态台词 | `status_voice.LINES` + `FORBID_ACTIVE_VOICE` / `FORBID_BASIC_VOICE` / `_SKIP_PRIORITY` | 加 3 条词 + 登记候选序 |
 | 单挑台词 | `voice_duel_data.DUEL_LINES`（分册抽取）+ `voice_lines.emit_duel_line` | 改 `docs/character/*.md` 后重跑 `_extract_duel_voice.py` |
 | 登场台词 | `voice_enter_data.ENTER_LINES` + `voice_lines_enter.emit_enter_dialogues` | 同上抽取；全羁绊单元按序 / 无羁绊主将 generic |
-| **武将专属高光**（台词 + 标准 cut-in） | `voice_highlight_data.HIGHLIGHT_LINES`（分册「高光 highlight」抽取，池 key＝高光名）+ `voice_lines_highlight.emit_highlight_line` + `skill_common.emit_highlight_trigger` | 在触发点先发台词（独立组根），再用 `emit_highlight_trigger(engine, hero, "<高光 id>", targets, parent_seq)` 开高光组（`kind="highlight"` + `hint.cut_in="highlight"`），随后挂伤害。高光 id **不进 REGISTRY / skill_catalog**，只需在 `battle/names.py` 与 `ChineseNames.cs` 各加一条中文名。客户端零改动即生效（首例：宙斯神罚 `zeus_divine_punishment`） |
+| **武将专属高光**（台词 + 标准 cut-in） | `voice_highlight_data.HIGHLIGHT_LINES`（分册「高光 highlight」抽取，池 key＝高光名）+ `voice_lines_highlight.emit_highlight_line` + `skill_common.emit_highlight_trigger` | 在触发点先发台词（独立组根），再用 `emit_highlight_trigger(engine, hero, "<高光 id>", targets, parent_seq)` 开高光组（`kind="highlight"` + `hint.cut_in="highlight"`），随后挂伤害。高光 id **不进 REGISTRY / skill_catalog**，只需在 `battle/names.py` 与 `ChineseNames.cs` 各加一条中文名。客户端零改动即生效（宙斯神罚 `zeus_divine_punishment`；雅典娜反震 `athena_aegis_reflect`，由 `StatusDef.on_reflect` 在反伤≥阈值时触发） |
+| **伤害反弹后钩子** | `StatusDef.on_reflect` | 反弹已选定 bounce、即将 deal 反伤前；(engine, status, ctx)→覆盖 parent_seq；首例雅典娜高光 |
 | **状态触发的播放粒度** | `StatusDef.playback_tags`（定义处；`simultaneous` / `sequential`）→ 战报头 `status_catalog`（`battle/status_catalog.py` 自动导出） | 默认「同批次同持有者并成一个播放单元」。落雷这种与持有者无关的齐发写 `simultaneous`（跨持有者也并）；必须逐次演的（持有者突进类：圣盾反制、代战借刀）写 `sequential`。客户端零改动 |
 | **战法演出粒度特例** | `Skill.tags` 加 `per_target` / `simultaneous` → `skill_catalog.tags` | 群攻默认「一个单元齐射」；要逐目标演写 `per_target`，多段要并成一拍写 `simultaneous` |
 | 势能归轨 | `engine.MOMENTUM_TRACK_OF_KIND` | kind→轨表项 |
@@ -42,7 +43,7 @@
 | 战法/状态演出（模板/资源 key/强度） | `PerformanceDatabase`（三级：特殊→组默认→全默认） |
 | 战场分区/卡尺/旋转/浮空微调 | `Units/BattlefieldLayoutConfig.cs`（静态字段） |
 | 裂地档位/触发/关停（三档 T1-T3） | **`VFX/GroundCrackService.cs`**（唯一入口；参数在 `GroundCrackPalette`，演出模板禁止直调） |
-| 某战法的裂地强度（缝宽+持续+亮度，1/2/3） | `PerformanceDatabase` 的 `GroundStrengthTier`；规则与登记表见 `docs/client/ground_crack_config.md`（准备型物理群攻＝2，瞬发＝0→1；势能加强强制 3；**魔法默不裂，显式 ≥1 才放行命中裂地**） |
+| 某战法的裂地强度（缝宽+持续+亮度，1/2/3） | `PerformanceDatabase` 的 `GroundStrengthTier`；规则与登记表见 `docs/client/ground_crack_config.md`（`prepare_active` 群攻＝2，瞬发＝0→1；势能/巨伤强制 3；**物魔命中同规，仅弹道裂地限物理**） |
 | 某战法的命中裂地面积倍率 | `GroundHitArea`（0→1＝卡宽×1.5）；势能加强强制 1.5；详见 ground_crack_config |
 | 想让某表现**跟着弹道飞行进度**走（沿途生长/爬升/蓄光…） | 实现 **`VFX/IFlightDriven`** 并 `StrikeSync.Fly(...).Attach(...)`；不改 StrikeSync 与演出模板。飞行段结束＝弹道抵达，调用方同帧开命中拍 `SettleDamage`。禁止在模板里 `WaitForSeconds` 自拼时序 |
 | 给**卡面立绘**加常驻动态（呼吸/晃动/挤压/惯性…） | **`Units/CardIdleMotion.cs`** 加一条通道并在 `Tick` 里合成；**禁止对立绘 Transform 另起 DOTween**（多方写同一组件会互相 Kill，呼吸断掉或立绘停在半路，P-63） |

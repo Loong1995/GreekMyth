@@ -65,14 +65,23 @@
 | `bond.nike_anyone_kill` | 尼刻→任意击杀助攻语境 | 凯歌点名（可选） | kill（仅尼刻侧） |
 ---
 
-## 登场播放（已落地，2026-07-22）
+## 登场播放（2026-07-28 修订）
 
 1. 收集场上存活武将之间**全部**机器羁绊对（S1/S2，`bonds.py`）。
-2. 单元总序：`weight`↑ → 跨队伍优先 → 均速↓ → id。
-3. 单元内发言：A 队优先 → 速度↓；二人各对对方播 `enter`——**同队友池 / 跨队敌池**。
-4. 无任何羁绊：各队主将按队序（A 优先）播 `generic` 登场。
-5. 时点：`game_start` 之后、单挑之前；客户端 TraitLine 气泡独占。
-6. 分册标记：`**target**（友）` / `**target**（敌）`；抽取为 `target` / `target_foe`。
+2. 单元总序：**跨队优先**（先与对方队伍的羁绊，再与本方队伍的羁绊）→
+   **羁绊表定义序**（`BondDef.order`，即 `bonds.py` 表内位置）→ hero_id。
+   weight 不再单独参与排序：定义序已按 S1→S2 排列。
+3. 单元内发言＝**定义方向**：`first` 发问、`second` 作答（有问有答）。
+   问从该场景 3 问中派生随机取一条，答从**该问自己的** 3 条等价答句中取
+   （每场景 9 种问答）。文案在 [`bond_dialogues_s1.md`](bond_dialogues_s1.md) /
+   [`_s2.md`](bond_dialogues_s2.md)，跨队用 `登场（敌）`、同队用 `登场（友）`。
+4. 未写问答分册的羁绊：回退武将扁平池（**同队友池 / 跨队敌池**），双方各说一句。
+5. 无任何羁绊：**只**播各队存活主将的 `generic` 登场（队序 A 优先）。
+6. 时点：`game_start` 之后、单挑之前；客户端 TraitLine 气泡独占。
+7. 分册标记（回退池）：`**target**（友）` / `**target**（敌）`；
+   抽取为 `target` / `target_foe`。
+8. 机器表拆分：`bond.poseidon_family` 在 `bonds.py` 按对拆为
+   `bond.poseidon_amphitrite` / `bond.poseidon_triton`——问答必须对得上具体作答者。
 
 ## 登场扫描伪代码（策划理解用 · 旧稿，实现见上）
 
@@ -89,4 +98,6 @@ else:
 
 击杀：只查 `killer → victim` 的最佳羁绊击杀池；无则 `generic.kill`。
 连携：只查 `self → combo_source`；无则 `generic.combo`。
-单挑三态：只查说话者→对方。
+单挑三态：优先羁绊问答（叫阵方须为定义的 `first`，否则视角不成立）→
+回退说话者→对方的武将扁平池。
+巨伤：与高光共用词池（`massive_{对象}` → `massive` → `{对象}` → `generic`）。

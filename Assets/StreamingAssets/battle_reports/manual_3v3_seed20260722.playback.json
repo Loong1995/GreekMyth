@@ -1,0 +1,1726 @@
+{
+  "battle_id": "manual_3v3",
+  "schema_version": "1.5.2",
+  "has_skill_catalog": true,
+  "games": [
+    {
+      "game_no": 1,
+      "groups": [
+        {
+          "kind": "Other",
+          "root_seq": 1,
+          "batch": 1,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "1:UnknownEvent"
+          ],
+          "parallel_with_next": true
+        },
+        {
+          "kind": "Node",
+          "root_seq": 2,
+          "batch": 2,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "2:MarkerEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 3,
+          "batch": 3,
+          "key": null,
+          "est_sec": 4.56,
+          "events": [
+            "3:TraitTriggerEvent",
+            "4:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 5,
+          "batch": 5,
+          "key": null,
+          "est_sec": 4.56,
+          "events": [
+            "5:TraitTriggerEvent",
+            "6:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 7,
+          "batch": 7,
+          "key": null,
+          "est_sec": 4.56,
+          "events": [
+            "7:TraitTriggerEvent",
+            "8:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 9,
+          "batch": 9,
+          "key": null,
+          "est_sec": 4.56,
+          "events": [
+            "9:TraitTriggerEvent",
+            "10:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Duel",
+          "root_seq": 11,
+          "batch": 11,
+          "key": null,
+          "est_sec": 29.394,
+          "events": [
+            "11:DuelChallengeEvent",
+            "12:TraitTriggerEvent",
+            "13:TraitTriggerEvent",
+            "14:DuelResultEvent",
+            "15:AttrChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 16,
+          "batch": 16,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "16:RoundStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 17,
+          "batch": 17,
+          "key": "achilles_wrath",
+          "est_sec": 0.0,
+          "events": [
+            "17:SkillTriggerEvent",
+            "18:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 19,
+          "batch": 19,
+          "key": "ares_frenzy",
+          "est_sec": 0.0,
+          "events": [
+            "19:SkillTriggerEvent",
+            "20:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 21,
+          "batch": 21,
+          "key": "patroclus_standin",
+          "est_sec": 0.0,
+          "events": [
+            "21:SkillTriggerEvent",
+            "22:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 23,
+          "batch": 23,
+          "key": "thunder_oracle",
+          "est_sec": 0.0,
+          "events": [
+            "23:SkillTriggerEvent",
+            "24:StatusApplyEvent",
+            "25:StatusApplyEvent",
+            "26:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 27,
+          "batch": 27,
+          "key": "thunder_oracle",
+          "est_sec": 0.0,
+          "events": [
+            "27:SkillTriggerEvent",
+            "28:StatusApplyEvent",
+            "29:StatusApplyEvent",
+            "30:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 31,
+          "batch": 27,
+          "key": "hector_warcry",
+          "est_sec": 1.272,
+          "events": [
+            "31:SkillTriggerEvent",
+            "32:MomentumChangeEvent",
+            "33:DamageEvent",
+            "36:StatusApplyEvent",
+            "37:StatusApplyEvent",
+            "38:DamageEvent",
+            "41:StatusApplyEvent",
+            "42:DamageEvent",
+            "45:StatusApplyEvent",
+            "46:StatusApplyEvent",
+            "47:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 34,
+          "batch": 27,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "34:StatusTickEvent",
+            "35:DamageEvent",
+            "39:StatusTickEvent",
+            "40:DamageEvent",
+            "43:StatusTickEvent",
+            "44:DamageEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 48,
+          "batch": 48,
+          "key": "ares_warfury",
+          "est_sec": 0.0,
+          "events": [
+            "48:SkillTriggerEvent",
+            "49:StatusApplyEvent",
+            "50:StatusApplyEvent",
+            "51:StatusApplyEvent",
+            "52:StatusApplyEvent",
+            "53:StatusApplyEvent",
+            "54:StatusApplyEvent",
+            "55:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 56,
+          "batch": 56,
+          "key": "athena_guard",
+          "est_sec": 0.0,
+          "events": [
+            "56:SkillTriggerEvent",
+            "57:StatusApplyEvent",
+            "58:StatusApplyEvent",
+            "59:StatusApplyEvent",
+            "60:StatusApplyEvent",
+            "61:StatusApplyEvent",
+            "62:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 63,
+          "batch": 63,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "63:MarkerEvent"
+          ],
+          "parallel_with_next": true
+        },
+        {
+          "kind": "Node",
+          "root_seq": 64,
+          "batch": 64,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "64:RoundStartEvent",
+            "65:TroopsChangeEvent",
+            "66:TroopsChangeEvent",
+            "67:TroopsChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 68,
+          "batch": 68,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "68:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 69,
+          "batch": 69,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "69:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 70,
+          "batch": 70,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "70:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 71,
+          "batch": 71,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "71:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 72,
+          "batch": 72,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "72:StatusTickEvent",
+            "73:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 74,
+          "batch": 72,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "74:StatusTickEvent",
+            "75:DamageEvent",
+            "79:StatusTickEvent",
+            "80:DamageEvent",
+            "81:MomentumChangeEvent",
+            "85:StatusTickEvent",
+            "86:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 72,
+          "batch": 72,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "76:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 72,
+          "batch": 72,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "77:DamageEvent",
+            "78:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 82,
+          "batch": 72,
+          "key": "achilles_wrath",
+          "est_sec": 1.007,
+          "events": [
+            "82:StatusTickEvent",
+            "83:DamageEvent",
+            "84:MomentumChangeEvent",
+            "90:StatusTickEvent",
+            "91:DamageEvent",
+            "92:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 87,
+          "batch": 87,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "87:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 88,
+          "batch": 72,
+          "key": "zeus_divine_punishment",
+          "est_sec": 3.907,
+          "events": [
+            "88:SkillTriggerEvent",
+            "89:DamageEvent"
+          ],
+          "cut_in": {
+            "hero": "宙斯（敌）",
+            "title": "神罚！",
+            "empowered": false,
+            "massive": false,
+            "highlight": true
+          }
+        },
+        {
+          "kind": "Node",
+          "root_seq": 93,
+          "batch": 93,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "93:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 94,
+          "batch": 94,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "94:NormalAttackEvent",
+            "95:DamageEvent",
+            "96:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 97,
+          "batch": 94,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "97:StatusTickEvent",
+            "98:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 99,
+          "batch": 99,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "99:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 100,
+          "batch": 100,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "100:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 101,
+          "batch": 101,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "101:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 102,
+          "batch": 102,
+          "key": "zeus_bolt",
+          "est_sec": 0.977,
+          "events": [
+            "102:SkillTriggerEvent",
+            "103:MomentumChangeEvent",
+            "104:DamageEvent",
+            "105:DamageEvent",
+            "108:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 106,
+          "batch": 102,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "106:StatusTickEvent",
+            "107:DamageEvent",
+            "109:StatusTickEvent",
+            "110:DamageEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 111,
+          "batch": 111,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "111:NormalAttackEvent",
+            "112:DamageEvent",
+            "113:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 114,
+          "batch": 111,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "114:StatusTickEvent",
+            "115:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 116,
+          "batch": 116,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "116:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "Passive",
+          "root_seq": 117,
+          "batch": 117,
+          "key": "hector_warcry",
+          "est_sec": 0.0,
+          "events": [
+            "117:SkillTriggerEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 118,
+          "batch": 118,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "118:NormalAttackEvent",
+            "119:DamageEvent",
+            "120:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 121,
+          "batch": 118,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "121:StatusTickEvent",
+            "122:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 123,
+          "batch": 123,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "123:MarkerEvent"
+          ],
+          "parallel_with_next": true
+        },
+        {
+          "kind": "Node",
+          "root_seq": 124,
+          "batch": 124,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "124:RoundStartEvent",
+            "125:TroopsChangeEvent",
+            "126:TroopsChangeEvent",
+            "127:TroopsChangeEvent",
+            "128:TroopsChangeEvent",
+            "129:TroopsChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 130,
+          "batch": 130,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "130:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 131,
+          "batch": 131,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "131:NormalAttackEvent",
+            "132:DamageEvent",
+            "133:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 134,
+          "batch": 131,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "134:StatusTickEvent",
+            "135:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 136,
+          "batch": 136,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "136:ActionStartEvent",
+            "137:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 138,
+          "batch": 138,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "138:NormalAttackEvent",
+            "139:DamageEvent",
+            "140:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 141,
+          "batch": 138,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "141:StatusTickEvent",
+            "142:DamageEvent",
+            "148:StatusTickEvent",
+            "149:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Pursuit",
+          "root_seq": 143,
+          "batch": 138,
+          "key": "achilles_thrust",
+          "est_sec": 3.433,
+          "events": [
+            "143:SkillTriggerEvent",
+            "144:MomentumChangeEvent",
+            "145:StatusApplyEvent",
+            "146:DamageEvent",
+            "147:MomentumChangeEvent"
+          ],
+          "cut_in": {
+            "hero": "阿喀琉斯",
+            "title": "怒火突刺 重创 赫克托尔！-3188",
+            "empowered": false,
+            "massive": true,
+            "highlight": false
+          }
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 150,
+          "batch": 138,
+          "key": "achilles_wrath",
+          "est_sec": 0.503,
+          "events": [
+            "150:StatusTickEvent",
+            "151:DamageEvent",
+            "152:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 153,
+          "batch": 153,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "153:ActionStartEvent",
+            "154:StatusRemoveEvent",
+            "155:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 156,
+          "batch": 156,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "156:StatusTickEvent",
+            "157:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 158,
+          "batch": 156,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "158:StatusTickEvent",
+            "159:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 156,
+          "batch": 156,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "160:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 156,
+          "batch": 156,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "161:DamageEvent",
+            "162:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 163,
+          "batch": 156,
+          "key": "achilles_wrath",
+          "est_sec": 0.503,
+          "events": [
+            "163:StatusTickEvent",
+            "164:DamageEvent",
+            "165:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 166,
+          "batch": 156,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "166:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 163,
+          "batch": 156,
+          "key": "achilles_wrath",
+          "est_sec": 0.503,
+          "events": [
+            "167:StatusTickEvent",
+            "168:DamageEvent",
+            "169:MomentumChangeEvent"
+          ],
+          "pierce_boost": true
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 170,
+          "batch": 170,
+          "key": "patroclus_armor",
+          "est_sec": 0.503,
+          "events": [
+            "170:SkillTriggerEvent",
+            "171:MomentumChangeEvent",
+            "172:DamageEvent",
+            "173:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 174,
+          "batch": 170,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "174:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 175,
+          "batch": 170,
+          "key": "achilles_wrath",
+          "est_sec": 0.503,
+          "events": [
+            "175:StatusTickEvent",
+            "176:DamageEvent",
+            "177:MomentumChangeEvent"
+          ],
+          "pierce_boost": true
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 170,
+          "batch": 170,
+          "key": "patroclus_armor",
+          "est_sec": 0.503,
+          "events": [
+            "178:DamageEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 170,
+          "batch": 170,
+          "key": "patroclus_armor",
+          "est_sec": 0.503,
+          "events": [
+            "179:DamageEvent",
+            "180:MomentumChangeEvent",
+            "181:HeroDefeatedEvent",
+            "182:StatusRemoveEvent",
+            "183:StatusRemoveEvent",
+            "184:StatusRemoveEvent",
+            "185:StatusRemoveEvent",
+            "186:StatusRemoveEvent",
+            "187:StatusRemoveEvent",
+            "188:StatusRemoveEvent",
+            "189:StatusRemoveEvent",
+            "190:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 191,
+          "batch": 170,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "191:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 192,
+          "batch": 192,
+          "key": "zeus_bolt",
+          "est_sec": 0.977,
+          "events": [
+            "192:SkillTriggerEvent",
+            "193:MomentumChangeEvent",
+            "194:DamageEvent",
+            "197:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 195,
+          "batch": 192,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "195:StatusTickEvent",
+            "196:DamageEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 198,
+          "batch": 198,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "198:NormalAttackEvent",
+            "199:DamageEvent",
+            "200:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 201,
+          "batch": 201,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "201:ActionStartEvent",
+            "202:StatusRemoveEvent",
+            "203:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 204,
+          "batch": 204,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "204:NormalAttackEvent",
+            "205:DamageEvent",
+            "206:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 207,
+          "batch": 204,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "207:StatusTickEvent",
+            "208:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 209,
+          "batch": 209,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "209:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 210,
+          "batch": 210,
+          "key": "hermes_jest",
+          "est_sec": 0.0,
+          "events": [
+            "210:SkillTriggerEvent",
+            "211:MomentumChangeEvent",
+            "212:StatusApplyEvent",
+            "213:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 214,
+          "batch": 214,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "214:NormalAttackEvent",
+            "215:DamageEvent",
+            "216:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 217,
+          "batch": 214,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "217:StatusTickEvent",
+            "218:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 219,
+          "batch": 219,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "219:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 220,
+          "batch": 220,
+          "key": "hector_warcry",
+          "est_sec": 1.272,
+          "events": [
+            "220:SkillTriggerEvent",
+            "221:MomentumChangeEvent",
+            "222:DamageEvent",
+            "223:DamageEvent",
+            "225:MomentumChangeEvent",
+            "228:StatusApplyEvent",
+            "229:DamageEvent",
+            "230:StatusApplyEvent",
+            "231:StatusApplyEvent",
+            "232:StatusRefreshEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 224,
+          "batch": 220,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "224:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 226,
+          "batch": 220,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "226:StatusTickEvent",
+            "227:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Passive",
+          "root_seq": 233,
+          "batch": 233,
+          "key": "hector_warcry",
+          "est_sec": 0.0,
+          "events": [
+            "233:SkillTriggerEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 234,
+          "batch": 234,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "234:NormalAttackEvent",
+            "235:DamageEvent",
+            "236:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 237,
+          "batch": 234,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "237:StatusTickEvent",
+            "238:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 239,
+          "batch": 239,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "239:MarkerEvent"
+          ],
+          "parallel_with_next": true
+        },
+        {
+          "kind": "Node",
+          "root_seq": 240,
+          "batch": 240,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "240:RoundStartEvent",
+            "241:TroopsChangeEvent",
+            "242:TroopsChangeEvent",
+            "243:TroopsChangeEvent",
+            "244:TroopsChangeEvent",
+            "245:TroopsChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 246,
+          "batch": 246,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "246:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 247,
+          "batch": 247,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "247:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 248,
+          "batch": 248,
+          "key": "hermes_jest",
+          "est_sec": 0.0,
+          "events": [
+            "248:SkillTriggerEvent",
+            "249:MomentumChangeEvent",
+            "250:StatusRefreshEvent",
+            "251:StatusRefreshEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 252,
+          "batch": 252,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "252:NormalAttackEvent",
+            "253:DamageEvent",
+            "254:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 255,
+          "batch": 252,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "255:StatusTickEvent",
+            "256:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 257,
+          "batch": 257,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "257:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 258,
+          "batch": 258,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "258:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Passive",
+          "root_seq": 259,
+          "batch": 259,
+          "key": "basic_attack",
+          "est_sec": 0.7,
+          "events": [
+            "259:SkillTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 260,
+          "batch": 260,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "260:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 261,
+          "batch": 261,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "261:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 262,
+          "batch": 262,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "262:StatusTickEvent",
+            "263:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 262,
+          "batch": 262,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "264:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 262,
+          "batch": 262,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "265:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 266,
+          "batch": 262,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "266:StatusTickEvent",
+            "267:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 268,
+          "batch": 268,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "268:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 269,
+          "batch": 269,
+          "key": "zeus_bolt",
+          "est_sec": 0.977,
+          "events": [
+            "269:SkillTriggerEvent",
+            "270:MomentumChangeEvent",
+            "271:DamageEvent",
+            "274:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 272,
+          "batch": 269,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "272:StatusTickEvent",
+            "273:DamageEvent",
+            "275:StatusTickEvent",
+            "276:DamageEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 277,
+          "batch": 277,
+          "key": "hermes_jest",
+          "est_sec": 0.0,
+          "events": [
+            "277:SkillTriggerEvent",
+            "278:MomentumChangeEvent",
+            "279:StatusApplyEvent",
+            "280:StatusApplyEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 281,
+          "batch": 281,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "281:NormalAttackEvent",
+            "282:DamageEvent",
+            "283:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 284,
+          "batch": 281,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "284:StatusTickEvent",
+            "285:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 286,
+          "batch": 286,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "286:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 287,
+          "batch": 287,
+          "key": "hector_warcry",
+          "est_sec": 1.272,
+          "events": [
+            "287:SkillTriggerEvent",
+            "288:MomentumChangeEvent",
+            "289:DamageEvent",
+            "292:StatusApplyEvent",
+            "293:DamageEvent",
+            "296:StatusApplyEvent",
+            "297:DamageEvent",
+            "300:StatusRefreshEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 290,
+          "batch": 287,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "290:StatusTickEvent",
+            "291:DamageEvent",
+            "294:StatusTickEvent",
+            "295:DamageEvent",
+            "298:StatusTickEvent",
+            "299:DamageEvent"
+          ]
+        },
+        {
+          "kind": "Passive",
+          "root_seq": 301,
+          "batch": 301,
+          "key": "hector_warcry",
+          "est_sec": 0.0,
+          "events": [
+            "301:SkillTriggerEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 302,
+          "batch": 302,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "302:NormalAttackEvent",
+            "303:DamageEvent",
+            "304:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 305,
+          "batch": 305,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "305:MarkerEvent"
+          ],
+          "parallel_with_next": true
+        },
+        {
+          "kind": "Node",
+          "root_seq": 306,
+          "batch": 306,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "306:RoundStartEvent",
+            "307:TroopsChangeEvent",
+            "308:TroopsChangeEvent",
+            "309:TroopsChangeEvent",
+            "310:TroopsChangeEvent",
+            "311:TroopsChangeEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 312,
+          "batch": 312,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "312:ActionStartEvent",
+            "313:StatusRemoveEvent",
+            "314:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 315,
+          "batch": 315,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "315:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 316,
+          "batch": 316,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "316:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 317,
+          "batch": 317,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "317:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 318,
+          "batch": 318,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "318:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Passive",
+          "root_seq": 319,
+          "batch": 319,
+          "key": "hermes_jest",
+          "est_sec": 0.7,
+          "events": [
+            "319:SkillTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Passive",
+          "root_seq": 320,
+          "batch": 320,
+          "key": "basic_attack",
+          "est_sec": 0.7,
+          "events": [
+            "320:SkillTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 321,
+          "batch": 321,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "321:ActionStartEvent",
+            "322:StatusRemoveEvent",
+            "323:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 324,
+          "batch": 324,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "324:StatusTickEvent",
+            "325:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 326,
+          "batch": 324,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "326:StatusTickEvent",
+            "327:DamageEvent",
+            "328:MomentumChangeEvent",
+            "332:StatusTickEvent",
+            "333:DamageEvent",
+            "335:StatusTickEvent",
+            "336:DamageEvent",
+            "343:StatusTickEvent",
+            "344:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 329,
+          "batch": 324,
+          "key": "achilles_wrath",
+          "est_sec": 3.523,
+          "events": [
+            "329:StatusTickEvent",
+            "330:DamageEvent",
+            "331:MomentumChangeEvent",
+            "340:StatusTickEvent",
+            "341:DamageEvent",
+            "342:MomentumChangeEvent",
+            "345:StatusTickEvent",
+            "346:DamageEvent",
+            "347:MomentumChangeEvent",
+            "348:StatusTickEvent",
+            "349:DamageEvent",
+            "350:MomentumChangeEvent",
+            "351:StatusTickEvent",
+            "352:DamageEvent",
+            "353:MomentumChangeEvent",
+            "354:StatusTickEvent",
+            "355:DamageEvent",
+            "356:MomentumChangeEvent",
+            "357:StatusTickEvent",
+            "358:DamageEvent",
+            "359:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 324,
+          "batch": 324,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "334:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 324,
+          "batch": 324,
+          "key": "patroclus_standin",
+          "est_sec": 0.503,
+          "events": [
+            "337:DamageEvent",
+            "338:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 339,
+          "batch": 324,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "339:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "NormalAttack",
+          "root_seq": 360,
+          "batch": 360,
+          "key": "basic_attack",
+          "est_sec": 0.503,
+          "events": [
+            "360:NormalAttackEvent",
+            "361:DamageEvent",
+            "362:MomentumChangeEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 363,
+          "batch": 360,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "363:StatusTickEvent",
+            "364:DamageEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 365,
+          "batch": 365,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "365:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 366,
+          "batch": 360,
+          "key": "zeus_divine_punishment",
+          "est_sec": 3.907,
+          "events": [
+            "366:SkillTriggerEvent",
+            "367:DamageEvent"
+          ],
+          "cut_in": {
+            "hero": "宙斯（敌）",
+            "title": "神罚！",
+            "empowered": false,
+            "massive": false,
+            "highlight": true
+          }
+        },
+        {
+          "kind": "Node",
+          "root_seq": 368,
+          "batch": 368,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "368:ActionStartEvent"
+          ]
+        },
+        {
+          "kind": "ActiveSkill",
+          "root_seq": 369,
+          "batch": 369,
+          "key": "zeus_bolt",
+          "est_sec": 0.977,
+          "events": [
+            "369:SkillTriggerEvent",
+            "370:MomentumChangeEvent",
+            "371:DamageEvent"
+          ]
+        },
+        {
+          "kind": "StatusTrigger",
+          "root_seq": 372,
+          "batch": 369,
+          "key": "thunder",
+          "est_sec": 0.977,
+          "events": [
+            "372:StatusTickEvent",
+            "373:DamageEvent",
+            "374:HeroDefeatedEvent",
+            "375:StatusRemoveEvent"
+          ]
+        },
+        {
+          "kind": "TraitLine",
+          "root_seq": 376,
+          "batch": 369,
+          "key": null,
+          "est_sec": 2.28,
+          "events": [
+            "376:TraitTriggerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 377,
+          "batch": 377,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "377:MarkerEvent"
+          ]
+        },
+        {
+          "kind": "Node",
+          "root_seq": 378,
+          "batch": 378,
+          "key": null,
+          "est_sec": 0.0,
+          "events": [
+            "378:MarkerEvent"
+          ]
+        }
+      ]
+    }
+  ],
+  "timing": {
+    "model": "analytic-v2",
+    "duration_mul": 2.0,
+    "speed": 1.0,
+    "action_pause_sec": 0.55,
+    "group_pause_sec": 0.35,
+    "note": "逐拍照抄演出配置（非启发式）；唯一不确定项＝单挑厂包特效发射窗",
+    "total_est_sec": 216.6,
+    "games": [
+      {
+        "game_no": 1,
+        "est_sec": 216.6
+      }
+    ],
+    "rounds": [
+      {
+        "game_no": 1,
+        "round_no": -1,
+        "est_sec": 49.4,
+        "pause_sec": 1.8,
+        "groups": 7,
+        "actions": 1,
+        "label": "开场"
+      },
+      {
+        "game_no": 1,
+        "round_no": 0,
+        "est_sec": 9.6,
+        "pause_sec": 7.4,
+        "groups": 11,
+        "actions": 9
+      },
+      {
+        "game_no": 1,
+        "round_no": 1,
+        "est_sec": 36.4,
+        "pause_sec": 13.5,
+        "groups": 27,
+        "actions": 14
+      },
+      {
+        "game_no": 1,
+        "round_no": 2,
+        "est_sec": 54.1,
+        "pause_sec": 23.4,
+        "groups": 41,
+        "actions": 28
+      },
+      {
+        "game_no": 1,
+        "round_no": 3,
+        "est_sec": 32.6,
+        "pause_sec": 14.9,
+        "groups": 27,
+        "actions": 15
+      },
+      {
+        "game_no": 1,
+        "round_no": 4,
+        "est_sec": 34.4,
+        "pause_sec": 6.0,
+        "groups": 25,
+        "actions": 10
+      }
+    ]
+  }
+}

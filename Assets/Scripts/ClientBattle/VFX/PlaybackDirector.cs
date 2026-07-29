@@ -20,17 +20,32 @@ namespace ClientBattle.VFX
 
     public class PlaybackDirector
     {
+        /// <summary>逐组用时测量钩子（默认 null＝零开销）：参数为播完的组与真实秒数。
+        /// 用于标定离线时长模型 <see cref="PlaybackDurationModel"/>——模型算得准不准，
+        /// 只能拿真播的秒数比，不能凭印象调常数。演出行为不受影响。</summary>
+        public static System.Action<EventGroup, float> OnGroupPlayed;
+
         readonly IPlaybackPacing _pacing;
 
         public PlaybackDirector(IPlaybackPacing pacing) => _pacing = pacing;
 
         // ---------------------------------------------------------- 系列/局
 
-        public IEnumerator PlaySeries(PlaybackSession s)
+        /// <summary>整系列播放。<paramref name="fromGameIndex"/>/<paramref name="fromSeq"/>
+        /// ＝跳播起点（时间轴上点某回合）：起点之前的局与组**静默落账**，终态与
+        /// 顺播一致（同 SkipToEnd 的等价性口径，R-1.4）。</summary>
+        public IEnumerator PlaySeries(PlaybackSession s, int fromGameIndex = 0, int fromSeq = 0)
         {
             for (int gameIdx = 0; gameIdx < s.Report.Games.Count; gameIdx++)
             {
                 var game = s.Report.Games[gameIdx];
+                if (gameIdx < fromGameIndex)
+                {
+                    // 跳播起点之前的整局：静默落账（不占时间轴、不出横幅）
+                    foreach (var group in s.Compiled.GroupsOf(gameIdx))
+                        ApplyGroupSilently(s, group);
+                    continue;
+                }
                 if (gameIdx > 0)
                 {
                     UnitAuraService.ClearAll(); // 整局光环随局重置
@@ -40,7 +55,8 @@ namespace ClientBattle.VFX
                 s.Ctx.OnBanner?.Invoke($"第 {game.GameNo} 局");
 
                 var groups = s.Compiled.GroupsOf(gameIdx);
-                yield return PlayGroupsRange(s, groups, 0, int.MaxValue);
+                yield return PlayGroupsRange(
+                    s, groups, gameIdx == fromGameIndex ? fromSeq : 0, int.MaxValue);
 
                 s.Ctx.OnBanner?.Invoke(game.WinnerTeamId != null
                     ? $"第 {game.GameNo} 局结束 — {game.WinnerTeamId} 队胜（{game.Reason}）"
@@ -92,7 +108,9 @@ namespace ClientBattle.VFX
                     if (_pacing.ActionPauseSeconds > 0f)
                         yield return Wait(_pacing.ActionPauseSeconds);
                 }
+                float groupT0 = OnGroupPlayed != null ? Time.realtimeSinceStartup : 0f;
                 yield return PlayGroup(s, group);
+                OnGroupPlayed?.Invoke(group, Time.realtimeSinceStartup - groupT0);
                 if (IsActionKind(group.Kind))
                 {
                     actedSinceActionStart = true;

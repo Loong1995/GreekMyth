@@ -46,7 +46,7 @@
 | status_id | 带技能 skill_id |
 |---|---|
 | `thunder` | `thunder_oracle` |
-| `aegis_shield` / `aegis_ward` | `athena_aegis` |
+| `aegis_shield` / `aegis_main_command` | `athena_aegis` |
 | `snake_staff_protection` / `snake_staff_tender` | `asclepius_oracle` |
 | `blood_battle` / `ares_might` | `ares_warfury` |
 | `war_frenzy` | `ares_frenzy` |

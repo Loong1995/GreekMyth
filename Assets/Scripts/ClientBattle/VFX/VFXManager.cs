@@ -40,6 +40,11 @@ namespace ClientBattle.VFX
             Instance = this;
         }
 
+        void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         /// <summary>在世界坐标播一个特效，duration 秒后自动回收。</summary>
         public GameObject PlayAt(string key, Vector3 position, float duration = 0.6f, Color? tint = null)
         {

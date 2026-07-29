@@ -37,7 +37,7 @@ GOLDEN_CASES: tuple[tuple[str, int], ...] = (
     ("oracle", 5),
     ("oracle", 99),
     ("sea_underworld", 9),
-    ("men_gods", 12),
+    ("men_gods", 0),
 )
 
 

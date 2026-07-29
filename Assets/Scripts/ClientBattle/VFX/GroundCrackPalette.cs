@@ -10,7 +10,7 @@ namespace ClientBattle.VFX
     //   模式 Mode（2 类）  = 裂缝**形状骨架**：用哪张遮罩、往哪长、要不要锁朝向、
     //                       带几道毛刺、尺寸基准怎么算。弹道类 / 命中类。
     //   强度 Strength（3 档）= 同一骨架的**表现烈度**：缝宽、持续、亮度。
-    //   面积 area（调用参数）= 命中类额外的大小倍率（场心大裂地＝命中类 ×大面积）。
+    //   面积 area（调用参数）= 命中类额外的大小倍率（拉满出手 ×1.5）。
     //
     // 于是「哪种形状」与「多猛」彼此独立：加一个新场景只需选 模式 + 强度 + 面积，
     // 不再新增 prefab、不再新增一套参数。
@@ -243,7 +243,7 @@ namespace ClientBattle.VFX
         }
 
         /// <summary>命中类骨架：放射裂纹，默认直径＝**卡宽 ×1.5**，再乘调用方给的
-        /// 面积倍率（场心大裂地就是同一骨架配大面积 + 最高强度）。
+        /// 面积倍率（拉满出手 ×1.5；默认 ×1）。
         /// 碎块/尘雾均关闭——抛飞的大理石碎块俯视下像漂浮烟雾块（2026-07-26）。</summary>
         public static readonly ModeSpec ImpactMode =
             new ModeSpec(Mode.Impact, "ground_crack_hit", bakedLength: 2.0f, bakedWidth: 2.0f,

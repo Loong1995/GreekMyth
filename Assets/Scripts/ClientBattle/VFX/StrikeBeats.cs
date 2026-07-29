@@ -64,6 +64,8 @@ namespace ClientBattle.VFX
         public static IEnumerator Recover(VFXContext ctx, UnitView mover, Vector3 towardWorld)
         {
             if (mover == null || mover.Defeated) yield break;
+            // 注意（2026-07-28 实测）：DOTween 的 WaitForCompletion 并不等满时长，
+            // 这一拍实际只阻塞约 0.1s（离线模型据实测建模，见 P-84）。
             yield return mover.DOMoveReturnHomeToward(towardWorld,
                     ctx.Scaled(StagePerformanceConfig.RecoverSeconds), Ease.OutBack)
                 .WaitForCompletion();

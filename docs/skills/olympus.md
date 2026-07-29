@@ -16,12 +16,11 @@
 （不再连锁雷霆）。台词池见 `docs/character/olympus.md`「高光 highlight」。
 - **演出**：己方【雷霆】期间**电弧缠身**＝`shroud_thunder`（画廊 2/8·11/61＝
 Magic Effect19，`VfxUsage.Shroud` 并豁免电弧层——这件罩身的主视觉就是电弧）；
-每个持有者各一份，受击照常击退+颤动。落雷 RemoteStrike + **魔法类默认受击**
-（`hit_petrify`，与其他魔法伤害同一套受击语言）。神罚＝宙斯**专属高光**：
-台词 →（标准 cut-in 运镜 + 「神罚！」横幅）→ 竖雷远击 + **卡面命中与天雷击同
-`hit_lightning`**（Effect19_Collision 喷射粒子）+ 震屏 + **档 2 命中裂地**
-（魔法默不裂，profile `GroundStrengthTier=2` 特例覆盖，见 `ground_crack_config`）。
-- **事件流**：status_apply(thunder)×N → 触发时 status_tick + damage(magic)；
+每个持有者各一份，受击照常击退+颤动。落雷 / 天雷击 / 神罚＝RemoteStrike 竖雷，
+卡面**不叠**雷命中件（`HitKey=none`，绕身已够）。神罚＝宙斯**专属高光**：
+台词 →（标准 cut-in + 「神罚！」横幅）→ 竖雷 + 抬高震屏 + **档 2 命中裂地**
+（`GroundStrengthTier=2`，见 `ground_crack_config`；魔法命中裂地与物理同规，
+RemoteStrike 本无弹道裂地）。- **事件流**：status_apply(thunder)×N → 触发时 status_tick + damage(magic)；
 满 3 次时 trait_trigger(effect=highlight，独立组根) →
 skill_trigger(`zeus_divine_punishment`, kind=`highlight`, hint.cut_in=`highlight`)
 → damage(magic)。高光归因 id **不是装配战法**，不进 `skill_catalog`（契约 1.5.1）。
@@ -40,11 +39,14 @@ skill_trigger(`zeus_divine_punishment`, kind=`highlight`, hint.cut_in=`highlight
 ## athena_aegis 埃癸斯圣盾（雅典娜·自带·神谕）
 
 - **效果**：①己方【圣盾】：受伤或受控 15% 免疫并反弹给敌方随机存活单位（固定特殊伤害）；
-②己方统率最低单位单次受伤超受击前兵力 8% → 雅典娜治疗（智力×0.9），每回合最多 2 次；
-③雅典娜【圣盾·守心】首次硬控消耗免疫。
-- **实现**：`reflect_rate_bps` + 控制减免链；明睿旁骛当回合圣盾不生效。
-- **演出**：反伤成功时持盾者卡面中央渐变闪 `VFX/icon_aegis`（待上传）；挂身 AllIn1 金描边；反制命中 `hit_shield_counter`。
-- **事件流**：reflect damage / status_tick；守心 status_tick。
+  ②己方统率最低单位单次受伤超受击前兵力 8% → 雅典娜治疗（统率×0.9），每回合最多 2 次；
+  ③雅典娜为主将时，自身统率 +30。
+- **高光**：单次反伤 ≥1500 → `athena_aegis_reflect`（台词 + 标准 cut-in）。
+- **实现**：`reflect_rate_bps` / `control_reflect_bps` + `on_reflect`；治疗按统率；
+  主将加 `aegis_main_command`。明睿旁骛当回合圣盾不生效。
+- **演出**：常驻 `aura_aegis`（CFXR Magic Aura A Runic；`PinParticleRing(Runes)`
+  焊投影圆直径、Follower 钉投影圆心贴地卡下）；反伤命中 `cast_oracle`；高光同 hit。
+- **事件流**：reflect damage / status_tick；重击回血 heal；高光 skill_trigger(highlight)。
 
 
 

@@ -30,7 +30,9 @@
   `docs/dev/v0_analysis.md`、`phase3_plan.md`、`decisions_client_phase2.md`、
   `performance.md`（旧基准，0.2.0 时采集，现 core 0.4.1，如需现值重跑）。
 - **决策记录**：`docs/dev/decisions.md`（D 系列玩法决策，现行有效）。
-- **现行计划**：`docs/dev/stage_plan.md`（三舞台战斗场景总体规划，2026-07-24 立项）。
+- **现行计划**：`docs/dev/stage_plan.md`（三舞台战斗场景总体规划，2026-07-24 立项）；
+  `docs/dev/stage_skew_impl.md`（可复用舞台构图系统：拧相机 roll 实现人 0°/神 −30°/妖 90° 三构图 + 全屏天幕屏 + 3D 道具，2026-07-29 三修定稿）；
+  天幕屏专项 → `docs/dev/stage_backdrop.md`（挂相机双层背景：几何/渲染/UV 滚动/画质档）。
 - **变更日志**：`docs/dev/changelog.md`，每个工作会话结束必须追加。
 
 ## 本目录维护规则

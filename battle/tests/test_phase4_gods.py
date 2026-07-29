@@ -51,22 +51,18 @@ def cast_aegis(engine: SeriesEngine, anchor: int) -> None:
     skill.execute(engine, athena, skill.select_targets(engine, athena), anchor)
 
 
-# ----------------------------------------------------------------- 圣盾 v4
+# ----------------------------------------------------------------- 圣盾
 
-def test_aegis_ward_blocks_first_control_only():
+def test_aegis_main_command_only_when_main():
+    """效果 3：雅典娜为主将时自身统率 +30；非主将不加。"""
     engine, anchor = athena_3v3()
     cast_aegis(engine, anchor)
-    athena, b1 = engine.hero_by_id("x1"), engine.hero_by_id("b1")
-    ward = engine.find_status("x1", "aegis_ward")
-    assert ward is not None and ward.counters["control_block_charges"] == 1
-    # 「守心消耗且控制未落地」的确定局面：直接清掉反弹率干扰，单测守心本身
-    # （圣盾控制反弹默认 12%）
-    aegis = engine.find_status("x1", "aegis_shield")
-    engine.remove_status(aegis, reason="dispelled", parent_seq=anchor)
-    assert engine.apply_status(b1, athena, st.petrify(), parent_seq=anchor) is None
-    assert engine.find_status("x1", "aegis_ward") is None  # 耗尽摘除
-    # 第二次控制正常落地
-    assert engine.apply_status(b1, athena, st.petrify(), parent_seq=anchor) is not None
+    athena = engine.hero_by_id("x1")
+    assert athena.is_main
+    st_main = engine.find_status("x1", "aegis_main_command")
+    assert st_main is not None
+    assert st.instance_modifier(st_main, "command_delta") == 30
+    assert engine.find_status("x1", "aegis_ward") is None
 
 
 def test_aegis_damage_reflect_bounces_to_random_enemy():
@@ -105,13 +101,54 @@ def test_aegis_heal_capped_twice_per_round():
         engine.hero_order.index(h)))
     lowest = engine.hero_by_id(lowest_id)
     heals_before = len(events_of(engine, "heal"))
-    for _ in range(4):  # 每次打掉 >10% 兵力，必中阈值
+    for _ in range(4):  # 每次打掉 >8% 兵力，必中阈值
         engine.deal_damage(b1, lowest, damage_type="physical",
                            fixed_amount=lowest.max_troops // 5,
                            parent_seq=anchor, can_mitigate=False)
     aegis_heals = [e for e in events_of(engine, "heal")[heals_before:]
                    if e["payload"]["source_id"] == "x1"]
     assert len(aegis_heals) == 2, f"圣盾治疗每回合上限 2，实得 {len(aegis_heals)}"
+    # 治疗量＝雅典娜统率×0.9（不暴击）
+    athena = engine.hero_by_id("x1")
+    expect = engine.effective_attr(athena, "command") * 9000 // 10000
+    for h in aegis_heals:
+        assert h["payload"]["amount"] == expect
+
+
+def test_aegis_reflect_highlight_at_1500():
+    """单次反伤 ≥1500 → 专属高光 athena_aegis_reflect（on_reflect 钩子）。"""
+    from battle.skill_common import emit_status_trigger
+    from battle.skills_gods import (
+        AEGIS_HIGHLIGHT_SKILL_ID, _aegis_on_reflect,
+    )
+    engine, anchor = athena_3v3()
+    cast_aegis(engine, anchor)
+    status = engine.find_status("x1", "aegis_shield")
+    bounce = engine.hero_by_id("b1")
+    tick = emit_status_trigger(engine, status, anchor)
+    parent = _aegis_on_reflect(engine, status, {
+        "reflected_amount": 1500,
+        "bounce": bounce,
+        "tick_seq": tick,
+        "damage_seq": anchor,
+        "damage_type": "physical",
+    })
+    triggers = [e for e in events_of(engine, "skill_trigger")
+                if e["payload"].get("skill_id") == AEGIS_HIGHLIGHT_SKILL_ID
+                and e["payload"].get("kind") == "highlight"]
+    assert len(triggers) == 1
+    assert parent == triggers[0]["seq"]
+    # 不足阈值不发高光
+    parent2 = _aegis_on_reflect(engine, status, {
+        "reflected_amount": 1499,
+        "bounce": bounce,
+        "tick_seq": tick,
+        "damage_seq": anchor,
+        "damage_type": "physical",
+    })
+    assert parent2 == tick
+    assert len([e for e in events_of(engine, "skill_trigger")
+                if e["payload"].get("skill_id") == AEGIS_HIGHLIGHT_SKILL_ID]) == 1
 
 
 # ----------------------------------------------------------------- 胜利羽翼 v4

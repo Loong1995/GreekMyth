@@ -21,14 +21,15 @@
 | `zeus_divine_punishment`（神罚·专属高光） | RemoteStrike | 同上（分叉+1） | **无** | — | **抬高震屏**（Amp 0.42）；取景 cut-in；**命中裂地档 2** |
 | `zeus_bolt` | RemoteStrike | DR 主芯+分叉 | **无** | — | 同上（默认震屏） |
 | `thunder_oracle` | OracleAura | — | — | 电弧缠身（每人一份罩身） | `shroud_thunder`（画廊 2/8·11/61 Effect19；豁免电弧层） |
-| `athena_aegis` | OracleAura | — | — | **AllIn1 金描边**（无 Magic 粒子） | Aura=`aura_aegis` |
-| `aegis_shield` | Melee | — | Magic `Effect17_Collision` | 持盾者突进反弹 | Cast/Hit=`hit_shield_counter` |
-| `aegis_ward` | StatusTrigger | — | 同上闪光 | — | 同上 |
+| `athena_aegis` | OracleAura | — | — | CFXR Aura A Runic（Runes 焊投影圆贴地） | Aura=`aura_aegis` |
+| `aegis_shield` | Melee | — | `cast_oracle` | 持盾者突进反弹 | Cast/Hit=`cast_oracle` |
+| `athena_aegis_reflect` | PerSegment | — | `cast_oracle` | 反伤≥1500 高光 + cut-in | Hit=`cast_oracle` |
 | `ares_might` | OracleAura | — | — | 画廊 2/8·10/61 Magic `Effect18` 罩身；奇显偶隐 | Aura=`shroud_ares_might` |
 | `blood_battle` | OracleAura | — | — | 卡框红呼吸（弱） | Aura=`aura_fire_foot` |
 
 代码：`PerformanceDatabase.CreateBuiltin`；落雷节拍 `DefaultPerformance.PlayRemoteStrike`；
-圣盾 `UnitAuraService.MountAegisAura`（仅 AllIn1）；战神之勇 `MountShroud` + `VfxShroudPresence`。
+圣盾 `UnitAuraService.MountAegisAura`（`PinParticleRingToProjectionCircle` + `VfxShroudFollower`）；
+战神之勇 `MountShroud` + `VfxShroudPresence`。
 
 ## 三、通用主动默认（未专配）
 

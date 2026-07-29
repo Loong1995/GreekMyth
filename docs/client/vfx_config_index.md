@@ -77,14 +77,12 @@ SpecialProfiles[skill/status id]
 实现：`DefaultPerformance.ProjectileKeyOf(profile, damage)`；近身斩击同构走
 `StrikeKeyOf`（物理 `slash` / 魔法 `magic_bolt`）。
 
-- **主动技能的默认弹道即物理系**（`proj_bolt200`），物理系主动才有「弹道 +
-  默认裂地」这一整套；纯魔法伤害的主动走 `magic_bolt`（Effect1），**全程无裂地**
-  （裂地是「砸在地上」的语言，见 `GroundCrackService.IsPhysical`）。
-- **逐条判、不按组第一条判**（2026-07-27 改）：同组混合伤害时，魔法那一路飞
-  `magic_bolt` 且不出裂缝，物理那一路飞 `proj_bolt200` 且出裂缝。弹道裂地侧
-  由 `FlightPathCracks` 逐 lane 同判据把魔法 lane 整条跳过。
+- **主动技能的默认弹道**：物理＝`proj_bolt200`（可挂弹道裂地）；魔法＝`magic_bolt`
+  （Effect1，**无弹道裂地**）。命中/轨迹裂地物魔同规，见
+  [ground_crack_config](ground_crack_config.md) §一。
+- **逐条判、不按组第一条判**：同组混合伤害时，魔法那一路飞 `magic_bolt` 且
+  不出弹道裂缝，物理那一路飞 `proj_bolt200` 且出裂缝（`FlightPathCracks` 逐 lane）。
 - 远程落击（雷霆）无 `ProjectileKey` 时走程序化竖雷，不套本表。
-
 ## 二、常用默认一览（卡面 / 弹道）
 
 | 场景 | 弹道 / 斩击 | 卡面命中 HitKey |
@@ -93,7 +91,7 @@ SpecialProfiles[skill/status id]
 | 普攻近身 | `slash`×1.0（Melee 命中帧） | **`hit_generic`** |
 | 追击（同步主动） | 群攻走主动、单体近身 | 按伤害类型：`hit_sword` / `hit_petrify` |
 | 主动·物理（未专配） | `proj_bolt200`＋弹道裂地 | `hit_sword`（Impact_Cut 直线刀光，卡心×2.5，定稿） |
-| 主动·魔法（未专配） | `magic_bolt`（Magic **Effect1**）**无裂地** | `hit_petrify`（CFXR Magical Stars Pink，卡心×2.5） |
+| 主动·魔法（未专配） | `magic_bolt`（Magic **Effect1**）**无弹道裂地**；命中裂地同规 | `hit_petrify`（CFXR Magical Stars Pink，卡心×2.5） |
 | 神谕产生的伤害 | 按模板 | `hit_wave`（`OracleDefault.HitKey`） |
 | 落雷（状态 `thunder` 触发） | DR **蓝晕+白芯+分叉+闪烁**竖雷 | **无卡面命中件**（`HitKey=none`）；绕身已够；仍 HitReact + 默认震屏 |
 | 神罚 `zeus_divine_punishment`（宙斯专属高光） | 同上（分叉加一道）+ **抬高震屏** | 同上 `none`；**档 2 命中裂地**；取景 cut-in 由服务 `hint.cut_in` 点名；`CameraShakeAmp=0.42` |

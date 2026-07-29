@@ -78,6 +78,85 @@ kind / root_seq / **batch（因果批次）** / 配置匹配 key / 事件清单 
 与运行期完全同源（同一 `Compile` 调用），所见即所播；
 排「为什么这组这么演」先看导出文件，不需要进 Play 模式断点。
 
+### 4.1 每回合用时（`timing`，解析模型 `analytic-v2`）
+
+导出时一并写入根字段 `timing`，算法在 `VFX/PlaybackDurationModel.cs`。
+**不是启发式**：播放时间轴上每一拍的时长都是配置值，模型逐组照抄演出协程的
+时长算术，模板判定与 `DefaultPerformance.Play` 同源（同一份
+`PerformanceProfile`，由 `VFXResolver` 用运行期同一份 `PerformanceDatabase` 解析）。
+
+| 时长来源 | 真源 |
+|---|---|
+| 单元/行动停顿 | `PerformanceRunner.GroupPauseSeconds` / `ActionPauseSeconds` × `DurationMul/Speed`（`PlaybackDirector.Wait01`）|
+| 出手三拍 | `StagePerformanceConfig.Windup/Strike/RecoverSeconds` |
+| 弹道飞行 / 落雷 / 治疗间隔 | `DefaultPerformance` 内基准秒（0.38 齐射 / 0.30 逐段 / 0.42 竖雷 / 0.3 治疗）|
+| 取景 cut-in | `CutInCameraPushSeconds`+`HoldSeconds` + `CutInService.SoloRoutine`（0.16/0.5/0.14）|
+| 单挑 | `DuelPerformance` + `DuelStage` 分幕常量（`Duel*Seconds`，轮数＝`clash_cutins`）|
+| 台词独占 | `ChatBubbleService.ExclusiveSeconds`（1.14）|
+| 连发加速 | `profile.BurstTempoScale`（`BurstNo≥2` 组内除以它）|
+
+两处不能纯靠配置算，按**实测**建模：
+
+1. **出手三拍的预备/收势**：两拍都用 DOTween `tween.WaitForCompletion()` 等待，
+   而它不等满时长——实测 0.24s 预备只阻塞 ~0.05s、0.52s 收势只阻塞 ~0.10s
+   （位移在后台继续，与下一拍重叠）。照配置算会让每段近身高估一倍（P-84）。
+   若哪天改成真阻塞，模型里 `TweenWait*Seconds` 一并回到配置值。
+2. **单挑厂包特效发射窗**（`DuelStage.Burst` / `FireResultVfx`）：运行期
+   `VFXManager.EmitWindow` 探测、上限 `DuelVfxWaitCap=1.7`；离线取实测 1.2s。
+
+另计入帧边界补偿（每拍半帧）。**预热与结算面板不计入**（不属战斗期）。
+
+### 4.2 标定（模型改动后必做）
+
+模型准不准只能拿真播的秒数比：`PlaybackDirector.OnGroupPlayed`（静态钩子，
+默认 null 零开销）逐组回调真实秒数。流程：
+
+1. Play 模式下挂钩子录一场 → 落 `<名>.measured.tsv`（`root_seq/kind/sec`）；
+2. 导出 `.playback.json`（逐组带 `est_sec`）；
+3. `python battle/tools/compare_playback_timing.py <playback.json> <measured.tsv>`
+   —— 按 kind 给出 模型/真值 比值，偏离 1 的那一类就是算错的那一拍。
+
+2026-07-28 基线（`manual_3v3_seed20260722`，DurationMul=2）：逐组比值 **0.99**，
+各 kind 均 0.97~1.01，单组最大偏差 0.9s（单挑）；逐回合与真值差 ≤1.2s，
+全场 216.6s vs 真值 220.6s。
+
+### 4.3 人工校验：实时计时条（`PlaybackTimelineBar`）
+
+屏幕下方一条实时计时条，用于**边看边对时**（`Test/PlaybackTimelineBar.cs`，
+`BattleReportTester.ShowTimelineBar` 开关，右上角「计时条」按钮可切）：
+
+- 游标＝`PerformanceRunner.TimelineSeconds`（真实秒，**预热不计入**）；
+- 刻度点＝模型算出的各回合起始秒（`RoundTiming.StartSeconds`，`开` ＝开场段）；
+- 读数「12.3s / 预估 216.6s 第 2 回合（预估 95.5~149.6s）」；
+- **点刻度点 → 跳到该回合**：走 `PerformanceRunner.PlayFrom(gameIndex, startSeq,
+  timelineOffset)`，起点之前的局与组静默落账（终态等价，同 SkipToEnd 口径），
+  时钟直接对齐到该刻度秒数 —— 于是可以只校验某一回合，不必等前面播完。
+
+对时判据：回合横幅弹出的那一刻，游标应正好压在对应刻度上（当前实测差 ≤1.2s）。
+
+### 4.4 停播/重播必须清全场表现
+
+`PerformanceRunner.ClearAllPresentation()` 是 R-1.2③ 的唯一实现处，
+HardStop（含每次重播/跳播）都走它。**逐个走全局单例**而不是只走
+`_session.Ctx`：重播会重建会话，旧 ctx 里的引用可能已丢，只清 ctx 就会留下
+「上一场的台词气泡还挂在场上」（2026-07-28 实测残留）。清单：cut-in / 震屏 /
+运镜还位 / 残影 / 光环 / 横幅 / **台词气泡** / 飘字 / 特效 / 音效，末尾
+`DOTween.KillAll` 兜底。新增任何常驻表现服务，必须在此登记一行。
+
+节奏参数：场上有 `PerformanceRunner` 时读它的实时值，否则用 Inspector 默认
+（正常速度＝`DurationMul=2` / `Speed=1` / 行动 0.55 / 单元 0.35）。
+`round_no=-1`（`label=开场`）＝首个 `RoundStart` 之前的登场/台词/单挑；
+`0+` 与战报 `round_no` 对齐。每行另给 `pause_sec`（其中多少是编排停顿）。
+菜单 `GreekMyth → 播放 → 估算回合用时` 只打 Console 不落盘。
+
+离线打印：
+
+```
+python battle/tools/estimate_playback_rounds.py path/to/report.playback.json
+```
+
+（若只给原始战报路径且同目录已有 `*.playback.json` 则读后者。）
+
 ## 五、扩展纪律（加法式接入）
 
 1. 新播放序语义 → 新 `IEventProcessor`，在 `BuildPipeline` 登记（注意链序）。

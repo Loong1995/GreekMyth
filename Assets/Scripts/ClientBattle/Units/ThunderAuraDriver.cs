@@ -117,7 +117,7 @@ namespace ClientBattle.Units
                 generations: gen,
                 // 常驻乱劈：短命、低亮饱和蓝；勿拉灰白
                 alpha: Random.Range(0.38f, 0.52f),
-                widthMul: Random.Range(0.18f, 0.28f),
+                widthMul: Random.Range(0.24f, 0.36f),
                 sortingOrder: 15,
                 tint: DrLightningUtil.Halo,
                 flicker: false);

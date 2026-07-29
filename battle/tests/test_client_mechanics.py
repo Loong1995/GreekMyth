@@ -11,7 +11,7 @@ Unity StreamingAssets 供 BattleDemo 切换人工验收。
   中毒 poison     skills_seed11.json
   控制 control    standard_seed42.json
   追击 pursuit    standard_seed20260705.json
-  准备 prepare    men_gods_seed12.json
+  准备 prepare    men_gods_seed0.json
 
 直接运行（仓库根目录）：
     python battle/tests/test_client_mechanics.py              # 校验覆盖
@@ -120,7 +120,7 @@ MECHANIC_CASES: dict[str, dict] = {
     },
     "准备": {
         # v4 冥界批后死神镰痕改即发；准备覆盖改用赫克托尔战吼（men_gods 场景）
-        "golden": "men_gods_seed12.json",
+        "golden": "men_gods_seed0.json",
         "scene": "特洛伊战吼 hector_warcry · skill_trigger kind=prepare",
         "check": _has_prepare,
     },

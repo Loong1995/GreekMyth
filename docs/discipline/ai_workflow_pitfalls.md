@@ -498,6 +498,67 @@ pipeline 的一律不买"筛过包。这个口径下会误杀一批只支持标�
 和一遍 pass**。全 unlit sprite 的 2D-ish 项目里，`MainLightShadowsSupported`
 默认是开的，没人会想起去关。
 
+## P-85 「清残留」只清会话上下文＝清不掉：重建会话后旧 ctx 引用已失效
+
+现象：重播战报时上一场的**回合台词气泡**还挂在场上（2026-07-28 人工发现）。
+
+根因：HardStop 只通过 `_session.Ctx.Bubbles/Floats/Vfx` 清理。重播/跳播会
+`HardStop → BuildSession` 重建会话，域重载或 Teardown 竞态下旧 ctx 里的引用可能
+已丢（null），于是「清了个空气」，而气泡本体挂在**全局单例**下继续活着。
+
+正确做法：停播清场必须**逐个走全局单例**（`ChatBubbleService.Instance` 等），
+ctx 侧再幂等清一遍即可。收口成 `PerformanceRunner.ClearAllPresentation()` 一处，
+新增任何常驻表现服务都要在那里登记一行——散在各调用点就一定会漏。
+通用判据：**清理入口不能依赖"正在被重建的那个对象"**。
+
+## P-87 Unity 已 Destroy 的对象禁止用 `?.`（P-85 清残留补丁的二次翻车）
+
+现象：点播放/重播首帧 `MissingReferenceException: VFXManager has been destroyed`
+（`CancelAll` ← `ClearAllPresentation` ← `HardStop`）。
+
+根因：P-85 改走全局单例时写了 `VFXManager.Instance?.CancelAll()`。C# 的 `?.`
+只看托管引用是否 null；Unity 已 Destroy 的对象**托管引用仍非 null**，只有
+重载后的 `== null` / `!= null` 才认作空。于是 `?.` 放行，随即对已毁
+MonoBehaviour 调 `StopAllCoroutines` 炸。
+
+正确做法：对一切 UnityEngine.Object 一律 `if (x != null) x.Foo()`；单例
+`OnDestroy` 里把静态 `Instance` 置 null。**不要**对 MonoBehaviour / ScriptableObject
+用 `?.` / `??`。
+
+## P-88 粒子地面环禁止用「整件包围盒」焊投影圆
+
+现象：雅典娜 `aura_aegis` 要求直径＝投影圆，实际却是投影圆内一小圈、且没对齐。
+
+根因两层叠：①标准件自带 `VfxFitter`（卡宽），再叠 `VfxCircleFit`（互斥、互殴
+localScale）；②`VfxCircleFit`/`FitToCardCircle` 量**整件**粒子包围盒，CFXR
+Aura 的 Rays/余波包络远大于 `Runes` 符文环，按大包络缩到投影圆直径 → 可见环
+被压成一小圈。量测若还挂在 45° 后倾卡下，水平尺寸也会歪。
+
+正确做法：拆掉 Fitter/CircleFit；根节点先世界竖直钉投影圆心；再按**主环层**
+（CFXR＝`Runes`）水平包围盒 `PinParticleRingToProjectionCircle` 焊直径；
+跟随走 `VfxShroudFollower`。Decal 圈继续用 `PinGroundRingToProjectionCircle`。
+
+## P-84 「按配置算时长」会算错：DOTween `WaitForCompletion()` 不等满时长
+
+现象：离线估算战报每回合用时，第一版拍常数（凭组形态猜）被判「完全不对」；
+第二版改成逐拍照抄演出配置，4 分钟战报仍系统性高估 **+14%**（2026-07-28）。
+
+根因：出手三拍里的**预备**与**收势**都靠 `tween.WaitForCompletion()` 阻塞，
+而它并不等满 tween 时长——逐拍实测：配置 0.24s 的预备只阻塞 **~0.05s**、
+配置 0.52s 的收势只阻塞 **~0.10s**（位移仍在后台跑，于是与下一拍重叠）。
+只有中间那拍（`TrailWhile` 自走时钟）是足额的。所以「配置写 0.52」≠「时间轴占 0.52」。
+
+正确做法：
+
+1. 任何「时长/节奏」结论都要**逐拍实测对齐**，别拿配置值当时间轴真值。
+   本项目的测量口子＝`PlaybackDirector.OnGroupPlayed`（静态钩子，默认 null 零开销）
+   → `battle/tools/compare_playback_timing.py` 按 kind 出 模型/真值 比值。
+2. 定位手法：**按类别看比值**而不是看总和。台词/落雷/取景/被动全 1.00、
+   只有近身与群攻偏 2.16/1.16 —— 一眼指到出手三拍，不必猜。
+3. 顺带暴露一个演出问题（待产品决定）：三拍中两拍实际几乎不阻塞，
+   与「预备—发力—收势」的设计意图和文档描述不一致。要改是**观感决策**，
+   不能为了让模型好看而顺手改节奏。
+
 ## P-83 「纯白闪电」是两层根因叠在一起，只修第一层会复发
 
 现象：宙斯竖雷渲成**纯白带子**。第一轮把材质从 Built-in 迁到 URP 后**仍然纯白**
@@ -548,3 +609,22 @@ URP 下这类 Built-in 粒子 shader 不可靠（编辑器 `isSupported` 还可�
 复算。备份/过渡件迁出 Resources（`Assets/_Archive/ClientBattleVFX/`）；
 画廊、预热、dump 共用 `VfxResourcesFilter.IsOursGalleryItem`。禁止再把
 `_bak_*`/`*_pre_magic` 放回 Resources。
+
+## P-86 表现层随机（台词/演出）绝不能取战斗 RNG
+
+场景：台词要「3 条随机」而不是确定性轮换（2026-07-28）。
+
+顺手的写法是 `engine.rng.rand_bps("voice", ...)` —— **禁止**。战斗 RNG 是单一流，
+多抽一次就把后续所有掷点整体位移：先手、暴击、闪避、战法触发全变，
+等于用一句台词改了战斗胜负，全部 golden 与标定同时作废。
+
+正确做法：另开**派生**流 `battle/voice_rng.py`——
+`blake2b(battle_seed | 语义键 | 该说话者在该键上的第 N 次触发)` 取索引。
+性质：同 seed 逐字节可重放、不同 seed 台词组合不同、**零掷点消耗**。
+
+验收手法（改台词类改动必做）：
+1. 单测断言 `engine.rng.index` 在发词前后不变；
+2. 与旧 golden 比对时**剔除 trait_trigger 事件**，其余事件（含 `t` 与 payload）
+   必须逐条全等——只有台词条数/文本与 seq 编号允许变化，然后才重生成 golden。
+
+同类推论：客户端演出随机（抖动/朝向差分）同理不得回灌服务端结算。

@@ -136,6 +136,57 @@ namespace ClientBattle.VFX
             }
         }
 
+        /// <summary>粒子地面环焊死投影圆（CFXR Magic Aura A Runic 等）。
+        /// 调用前根节点须已世界竖直、贴投影圆心；量指定环层水平包围盒，
+        /// 整件等比缩到直径＝<see cref="ArenaSlotLayout.ProjectionCircleDiameter"/>。
+        /// <para>
+        /// 禁止用 <see cref="VfxCircleFit"/> 量整件：Rays/余波包络远大于符文环，
+        /// 据此定径会把环压成投影圆内一小圈（P-88）。也禁止与 <see cref="VfxFitter"/>
+        /// 同挂（两者都写 localScale）。
+        /// </para></summary>
+        /// <param name="ringLayerName">主环层名（CFXR＝`Runes`）；null＝跳过 Rays 后取最大粒子层。</param>
+        public static void PinParticleRingToProjectionCircle(GameObject instance,
+            string ringLayerName = "Runes")
+        {
+            float target = ArenaSlotLayout.ProjectionCircleDiameter;
+            if (target < 0.001f || instance == null) return;
+
+            foreach (var ps in instance.GetComponentsInChildren<ParticleSystem>(true))
+                ps.Simulate(0.12f, true, true);
+
+            float extent = MeasureRingExtent(instance, ringLayerName);
+            Restart(instance);
+            if (extent < 0.001f) return;
+
+            float k = Mathf.Clamp(target / extent, MinScale, MaxScale);
+            instance.transform.localScale *= k;
+        }
+
+        static float MeasureRingExtent(GameObject instance, string ringLayerName)
+        {
+            float named = 0f;
+            float exact = 0f;
+            float fallback = 0f;
+            foreach (var r in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!r.enabled || r is not ParticleSystemRenderer) continue;
+                string n = r.gameObject.name;
+                if (n.IndexOf("Ray", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    continue;
+                float w = Mathf.Max(r.bounds.size.x, r.bounds.size.z);
+                if (w < 0.001f) continue;
+                fallback = Mathf.Max(fallback, w);
+                if (string.IsNullOrEmpty(ringLayerName)) continue;
+                if (string.Equals(n, ringLayerName, System.StringComparison.OrdinalIgnoreCase))
+                    exact = Mathf.Max(exact, w);
+                else if (n.IndexOf(ringLayerName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    named = Mathf.Max(named, w);
+            }
+            if (exact > 0.001f) return exact;
+            if (named > 0.001f) return named;
+            return fallback;
+        }
+
         /// <summary>量「结构件」的水平最大边 —— 定径基准。
         ///
         /// 结构件 = **最高的那个可见壳粒子渲染器**。其余粒子（烟、碎石）是碎屑，

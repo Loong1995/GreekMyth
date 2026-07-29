@@ -5,10 +5,11 @@ using UnityEngine;
 namespace ClientBattle.VFX
 {
     // =========================================================================
-    // 【裂地系统唯一入口】三个场景（弹道 / 命中 / 全局）的触发与几何。
+    // 【裂地系统唯一入口】场景：弹道 / 命中 / 轨迹。
     //
     // 每个场景 = **模式**（形状骨架：弹道类/命中类）+ **强度档**（缝宽/持续/亮度）
-    // + **面积**（只命中类）。全局大裂地不是第三个骨架，而是命中类配大面积＋档 3。
+    // + **面积**（只命中类）。满势能/巨伤＝档 3 + 命中面积 ×1.5（轨迹/弹道同档）；
+    // **不再**另叠场心大面积缝（2026-07-28 废止 PlayArena）。
     //
     // 演出模板（DefaultPerformance 等）只声明「有弹道飞了」「命中了谁」，
     // 由本服务决定是否播、播哪档、朝向与落点。演出代码里不得再出现
@@ -35,54 +36,39 @@ namespace ClientBattle.VFX
         /// <summary>弹道飞行途中的分段数。</summary>
         const int PathSteps = 3;
 
-        /// <summary>魔法伤害不裂地（裂地是「砸在地上」的语言）。</summary>
+        /// <summary>物理伤害（非 magic）。弹道裂地**仅**物理 lane 出；
+        /// 命中 / 轨迹与魔法共用同一套生效逻辑（见 ground_crack_config）。</summary>
         static bool IsPhysical(DamageEvent damage) =>
             damage != null && damage.DamageType != "magic";
 
-        /// <summary>本组是否**有任一条**物理伤害该出裂地：总开关 + 物理 + 近 3D 地面。
-        ///
-        /// 只判「有没有」，具体哪一路出裂地由 <see cref="FlightPathCracks"/> **逐 lane**
-        /// 判（2026-07-27 改）。曾只看 `damages[0]`，混合伤害组会整组跟着第一条走——
-        /// 纯魔法那一路也拖出裂缝，或物理那一路反而没有。</summary>
+        /// <summary>本组是否该出命中/轨迹裂地：总开关 + 近 3D 地面 + 有伤害。
+        /// 物理与魔法同规；弹道裂地另见 <see cref="HasPhysicalLane"/>。</summary>
         public static bool Active(List<DamageEvent> damages)
         {
             if (!Enabled || !Units.ArenaSlotLayout.GroundActive || damages == null) return false;
+            return damages.Count > 0;
+        }
+
+        /// <summary>本组是否有任一条物理伤害（弹道裂地门槛）。</summary>
+        static bool HasPhysicalLane(List<DamageEvent> damages)
+        {
+            if (damages == null) return false;
             foreach (var d in damages)
                 if (IsPhysical(d)) return true;
             return false;
         }
 
-        /// <summary>单条伤害是否该出命中裂地。
-        /// 默认与 <see cref="Active"/> 同判据（魔法不裂）；特例：profile 显式配了
-        /// <c>GroundStrengthTier ≥ 1</c> 时魔法也出命中裂地（神罚等，见
-        /// ground_crack_config）。由 SettleDamage 与 HitKey 同帧调用，模板勿再单独 PlayHit。</summary>
+        /// <summary>单条伤害是否该出命中裂地。物理/魔法同规（近 3D 地面即可）；
+        /// 档位仍走 <see cref="ResolveStrength"/>。由 SettleDamage 与 HitKey 同帧调用，
+        /// 模板勿再单独 PlayHit。</summary>
         public static bool ShouldPlayHit(DamageEvent damage, PerformanceProfile profile = null) =>
-            Enabled && damage != null && Units.ArenaSlotLayout.GroundActive
-            && (IsPhysical(damage)
-                || (profile != null && profile.GroundStrengthTier >= 1));
-
+            Enabled && damage != null && Units.ArenaSlotLayout.GroundActive;
         /// <summary>势能全开加强出手时，命中类面积倍率（在卡宽×1.5 上再乘）。</summary>
         const float EmpoweredHitArea = 1.5f;
 
-        /// <summary>场心大裂地的面积倍率：命中类骨架 ×这个数就是「全场被劈开」。
-        /// 它不是第三个模式 —— 骨架与命中裂地同一件，只是更大更猛（2026-07-26 重组）。
-        /// 仅叠加在势能加强出手上（与 Path/Hit 的档 3+1.5 并存）。</summary>
-        const float ArenaArea = 3.2f;
-
-        // ------------------------------------------------------------ 对外三场景
+        // ------------------------------------------------------------ 对外场景
         //
         // 场景 = 模式（形状骨架）+ 强度（缝宽/持续/亮度）+ 面积（只命中类）。
-
-        /// <summary>全局大裂地：势能全开的加强出手，场心起裂。
-        /// ＝命中类骨架 + 档 3 + 大面积，恒定不受技能专配影响。
-        /// Path/Hit 另由 <see cref="ResolveStrength"/> / <see cref="AreaOf"/>
-        /// 升到档 3 + 面积 1.5（见 ground_crack_config.md）。</summary>
-        public static void PlayArena(VFXContext ctx)
-        {
-            var mode = GroundCrackPalette.ImpactMode;
-            Play(ctx, mode, mode.Key, Units.ArenaSlotLayout.GroundCenter(), yaw: null,
-                 GroundCrackPalette.Strength.Blaze, ArenaArea);
-        }
 
         /// <summary>命中裂地：受击者「卡在地板上的中心点」起放射圆裂纹。
         /// 默认直径＝卡宽 ×1.5，可由 profile / 势能加强 / **巨伤**倍率放大。
@@ -106,11 +92,13 @@ namespace ClientBattle.VFX
         /// 之后才长完，命中拍被拖开半拍（P-57 / P-62）。
         ///
         /// 不该出裂地时返回 null（<see cref="StrikeSync.Attach"/> 对 null 免疫）。
-        /// lane 序 ＝ damages 序 ＝ StrikeSync 的 projectiles/aims 序。</summary>
+        /// **仅物理 lane** 起裂（魔法弹道无弹道裂地）；lane 序 ＝ damages 序
+        /// ＝ StrikeSync 的 projectiles/aims 序。</summary>
         public static IFlightDriven PathDriver(VFXContext ctx, PerformanceProfile profile,
                                                Vector3 from, List<DamageEvent> damages)
         {
-            if (ctx == null || !Active(damages)) return null;
+            if (ctx == null || !Enabled || !Units.ArenaSlotLayout.GroundActive) return null;
+            if (!HasPhysicalLane(damages)) return null;
             return new FlightPathCracks(ctx, profile, from, damages);
         }
 
@@ -118,12 +106,12 @@ namespace ClientBattle.VFX
         /// 只在「拉满出手」时给——势能全开（<c>EmpoweredStrike</c>）或巨伤
         /// （<c>MassiveStrike</c>，重创横幅同判据）。语义是「这一步踏得地面开裂」，
         /// 与弹道裂地同骨架（PathMode）但起点是脚下、终点是他冲向的地方。
+        /// 物理/魔法同规（与 <see cref="Active"/> 同源）；弹道裂地仍只跟物理。
         ///
         /// 例：赫克托尔准备技能满势能又打出巨伤 → 突进到场心一路大裂缝，
         /// 弹道再从场心拉满到目标，命中处再炸一发档 3 ×1.5。
         ///
-        /// 不该出时返回 null（调用方对 null 免疫）。物理判据与
-        /// <see cref="Active"/> 同源：魔法伤害不裂地。</summary>
+        /// 不该出时返回 null（调用方对 null 免疫）。</summary>
         public static MoveTrail MoveTrailDriver(VFXContext ctx, Units.UnitView mover,
                                                 Vector3 destination, List<DamageEvent> damages)
         {
@@ -132,7 +120,6 @@ namespace ClientBattle.VFX
             if (!Active(damages)) return null;
             return new MoveTrail(ctx, mover.transform.position, destination);
         }
-
         /// <summary>一条正在被踩出来的移动裂缝：按**实际位移进度**分段起裂并生长
         /// （不按墙钟——突进是 InQuint 加速，等分时间会让裂缝与脚步脱节）。</summary>
         public sealed class MoveTrail
@@ -226,7 +213,7 @@ namespace ClientBattle.VFX
                 _stamps = new Stamp[lanes * PathSteps];
                 for (int lane = 0; lane < lanes; lane++)
                 {
-                    // 逐 lane 判物理：同组里魔法那一路不出裂地（纯魔法弹道无裂地）
+                    // 弹道裂地仅物理 lane；同组魔法那一路跳过（magic_bolt 无缝）
                     if (!IsPhysical(damages[lane])) continue;
                     // 终点用原站位点，不跟 RestPosition 微抖；与定位圆同源
                     var unit = ctx.Unit(damages[lane].TargetId);
@@ -289,11 +276,12 @@ namespace ClientBattle.VFX
 
         /// <summary>强度档解析（权威规则见 docs/client/ground_crack_config.md）：
         /// 1. 巨伤（重创横幅同判据，<c>ctx.MassiveStrike</c>）或势能加强出手
-        ///    → 强制档 3；两者都是「这一组整段拉满」，弹道/轨迹/命中同档；
+        ///    → 强制档 3；「这一组整段拉满」，轨迹/弹道(物理)/命中同档；
         /// 2. 否则技能专配 <c>GroundStrengthTier</c>（0＝未配 → 档 1）；
         /// 3. 专配只升不降 —— 低于档 1 仍按档 1。
         ///
-        /// 配置约定：准备型物理主动群攻配 2，瞬发物理主动群攻留 0（＝1）。</summary>
+        /// 配置约定：准备型主动（skill_catalog <c>prepare_active</c>）群攻配 2，
+        /// 瞬发主动群攻留 0（＝1）；物理/魔法同约定，仅弹道裂地限物理。</summary>
         static GroundCrackPalette.Strength ResolveStrength(PerformanceProfile profile,
                                                            VFXContext ctx,
                                                            bool massive = false)

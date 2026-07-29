@@ -97,7 +97,7 @@ namespace ClientBattle.Names
             ["thunder"] = new(auraKey: "shroud_thunder", statsSkillId: "thunder_oracle",
                               collectiveMerge: true),
             ["aegis_shield"] = new(auraKey: "aura_aegis", statsSkillId: "athena_aegis"),
-            ["aegis_ward"] = new(statsSkillId: "athena_aegis"),
+            ["aegis_main_command"] = new(statsSkillId: "athena_aegis"),
             ["snake_staff_protection"] = new(statsSkillId: "asclepius_oracle"),
             ["snake_staff_tender"] = new(statsSkillId: "asclepius_oracle"),
             // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝Magic Effect18 罩身（奇数回合显）

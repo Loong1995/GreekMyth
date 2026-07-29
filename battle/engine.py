@@ -20,6 +20,7 @@ from typing import Any
 
 from battle import bonds as bn
 from battle import formulas, statuses as st, status_voice as sv, traits as tr
+from battle import voice_lines_highlight as vlh
 from battle import voice_lines_kill as vlk
 from battle.errors import BattleCoreError, SetupError
 from battle.events import (
@@ -95,6 +96,12 @@ MOMENTUM_TRACK_OF_KIND: dict[str, str] = {
 # 这些 kind 每次造成伤害即记势能（不要求暴击）；暴击不再额外 +1，避免双计。
 MOMENTUM_ON_TRIGGER_KINDS = frozenset({"fury"})
 
+# 巨伤台词门槛：单条真实落账伤害超过即由出击者发 effect=massive 台词
+# （与客户端「重创」cut-in 判据 CutInPlanner.HighDamageThreshold 同值 3000；
+# 被格挡/闪避/反弹的 0 结算不算）。**每武将每回合至多 1 条**，避免刷屏。
+# 词池与高光共用（battle/voice_lines_highlight.py）。
+MASSIVE_LINE_THRESHOLD = 3000
+
 
 class SeriesEngine:
     def __init__(self, setup: BattleSetup, seed: int, *, audit: bool = False) -> None:
@@ -134,6 +141,12 @@ class SeriesEngine:
         # （normal_attack / skill_trigger / damage）作为 target_select 可选字段带出
         # （payload 可选字段 target_select，契约加法式演进；见 mechanics/targeting.md）
         self._pending_target_selects: list[dict[str, Any]] = []
+        # 台词：单挑羁绊问答登记（叫阵方,防守方）→ (选词键, 触发序号, 问序号)，
+        # 供应战/拒战复用**同一问**的答案集（voice_lines.py）
+        self.duel_qa: dict[tuple[str, str], tuple[str, int, int]] = {}
+        # 巨伤台词限次：hero_id → 最近发词的 (局号, 回合号)，每回合至多 1 条
+        self._massive_line_mark: dict[str, tuple[int, int]] = {}
+        self.current_game = 0
         # 性格系统（Phase 3）：回合级旗标（每回合开始清空）与额外行动队列
         self._trait_flags: dict[str, set[str]] = {}
         self._extra_action_queue: list[str] = []
@@ -484,6 +497,7 @@ class SeriesEngine:
 
     def _run_game(self, game_no: int) -> tuple[str | None, str, int]:
         self._reset_game_state()
+        self.current_game = game_no
         self.writer.set_time(game_no, 0, PHASE_GAME_START, 0)
         self.writer.emit(
             "game_start",
@@ -1366,6 +1380,26 @@ class SeriesEngine:
 
     # ------------------------------------------------------------------ 势能（Phase 4）
 
+    def _maybe_emit_massive_line(
+        self, source: HeroState, target: HeroState, damage: int,
+        mitigation: str | None, damage_seq: int,
+    ) -> None:
+        """巨伤台词（effect=massive，与高光共用词池；docs/character.md §二）。
+
+        判据与客户端「重创」cut-in 同口径：单条**真实落账**伤害 >
+        MASSIVE_LINE_THRESHOLD（被格挡/闪避/反弹的 0 结算不算）。
+        限次：每武将每回合至多 1 条。自伤/施加者已亡不发。纯表现，不耗 RNG。
+        """
+        if mitigation is not None or damage <= MASSIVE_LINE_THRESHOLD:
+            return
+        if source.hero_id == target.hero_id or not source.is_alive():
+            return
+        mark = (self.current_game, self.current_round)
+        if self._massive_line_mark.get(source.hero_id) == mark:
+            return
+        if vlh.emit_massive_line(self, source, target, damage_seq):
+            self._massive_line_mark[source.hero_id] = mark
+
     def add_momentum(
         self, hero: HeroState, track: str, *, reason: str, parent_seq: int
     ) -> None:
@@ -1798,10 +1832,10 @@ class SeriesEngine:
         self, source: HeroState, target: HeroState, definition: StatusDef,
         parent_seq: int,
     ) -> bool:
-        """敌方硬控落地前的目标减免链（Phase 4 圣盾 v4）。
+        """敌方硬控落地前的目标减免链（圣盾等）。
 
         按施加序逐实例：次数型控制格挡（counters["control_block_charges"] 消耗
-        1 次并免疫，雅典娜个人格挡）→ 几率型控制反弹（control_reflect_bps roll，
+        1 次并免疫）→ 几率型控制反弹（control_reflect_bps roll，
         中则免疫并把同种控制反弹给**持有者的敌方随机存活单位**，受击率选取；
         反弹落地 can_mitigate=False 不可连锁）。任一实例拦下即返回 True，
         并以 status_tick 事件化（新组，供客户端播格挡/反弹演出）。
@@ -2072,6 +2106,9 @@ class SeriesEngine:
             "amount": damage, "is_crit": is_crit, "mitigation": mitigation,
             "target_id": target.hero_id, "damage_seq": damage_seq,
         }
+        # 巨伤台词：真实落账且超阈值，出击者对被击者发 effect=massive（与高光共用池）。
+        # 挂在本条伤害上（同组、紧随其后），每武将每回合至多 1 条。
+        self._maybe_emit_massive_line(source, target, damage, mitigation, damage_seq)
         # 踵之弱台词：判定在暴击前，弹词延到本条暴击伤害落账后。
         # 独立组根（parent=0）：契约不允许 trait_trigger 带 parent 时自开新组。
         if self.trait_flag(target.hero_id, "heel_line_pending"):
@@ -2124,9 +2161,24 @@ class SeriesEngine:
                         parent_seq=damage_seq,
                         new_group=True,
                     )
+                    bounce_parent = tick_seq
+                    on_reflect = mitigation_status.definition.on_reflect
+                    if on_reflect is not None:
+                        override = on_reflect(
+                            self, mitigation_status,
+                            {
+                                "reflected_amount": reflected_amount,
+                                "bounce": bounce,
+                                "tick_seq": tick_seq,
+                                "damage_seq": damage_seq,
+                                "damage_type": damage_type,
+                            },
+                        )
+                        if override is not None:
+                            bounce_parent = override
                     self.deal_damage(
                         target, bounce, damage_type=damage_type,
-                        fixed_amount=reflected_amount, parent_seq=tick_seq,
+                        fixed_amount=reflected_amount, parent_seq=bounce_parent,
                         kind="reflect", can_crit=False,
                         is_special=True, can_mitigate=False,
                     )

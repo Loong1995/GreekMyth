@@ -7,12 +7,13 @@
 - 时点：挂 hero_defeated 同组（parent=defeat_seq），客户端 TraitLineExtract
   抽成独占气泡，紧跟阵亡倒下之后播。
 - 击杀者已阵亡（互杀/反弹收尾）或击杀者==死者（自伤致死）→ 静默。
-- 轮换键 kill:{pool}，不耗 RNG（确定性）。
+- 选词键 kill:{pool}，走 seed 派生哈希流（`voice_rng.py`），不耗战斗 RNG。
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from battle import voice_rng as vr
 from battle.voice_kill_data import KILL_LINES
 
 if TYPE_CHECKING:
@@ -48,12 +49,9 @@ def emit_kill_line(
     if picked is None:
         return 0
     pool_key, lines = picked
-    if not lines:
+    line = vr.pick(engine.rng.seed, killer, f"kill:{pool_key}", lines)
+    if not line:
         return 0
-    rot_key = f"kill:{pool_key}"
-    idx = killer.trait_line_seq.get(rot_key, 0)
-    killer.trait_line_seq[rot_key] = idx + 1
-    line = lines[idx % len(lines)]
     trait_id = killer.trait_id or "voice"
     return engine.writer.emit(
         "trait_trigger",

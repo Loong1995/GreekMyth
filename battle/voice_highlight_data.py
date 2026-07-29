@@ -48,7 +48,7 @@ HIGHLIGHT_LINES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
     },
     'athena': {
         'highlight': {
-            'generic': ('埃癸斯反震——退！', '圣盾守心，控亦无效！', '此盾，即神意！'),
+            'aegis_reflect': ('埃癸斯反震——退！', '此盾，即神意！', '反震既出，谁敢再近？'),
         },
     },
     'castor': {

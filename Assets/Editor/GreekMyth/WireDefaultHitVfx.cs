@@ -26,8 +26,12 @@ namespace GreekMyth.EditorTools
         const string PhysKey = "hit_sword";
         const string MagicKey = "hit_petrify";
 
-        /// <summary>投影圆定径后再乘此倍率。</summary>
+        /// <summary>投影圆定径后再乘此倍率（整体外廓）。</summary>
         public const float HitCircleFitFactor = 2.5f;
+
+        /// <summary>物理 Impact_Cut 刀光线宽倍率（只加粗 Slash 层 startSize，
+        /// 不动 CircleFit——整体大小已定稿，只加粗「那条线」）。</summary>
+        public const float PhysSlashLineMul = 1.28f;
 
         const string MassiveSrc =
             "Assets/KriptoFX/Realistic Effects Pack v4/Effects/Prefabs/EffectParts/CollisionEffects/Effect15_Collision.prefab";
@@ -67,12 +71,17 @@ namespace GreekMyth.EditorTools
             }
             bool okP = VfxPackStandardizer.Standardize(PhysSrc, PhysKey, VfxUsage.Anchor);
             bool okM = VfxPackStandardizer.Standardize(MagicSrc, MagicKey, VfxUsage.Anchor);
-            if (okP) ApplyHitFitFactor(PhysKey, HitCircleFitFactor);
+            if (okP)
+            {
+                ApplyHitFitFactor(PhysKey, HitCircleFitFactor);
+                ApplyPhysSlashLineWidth(PhysKey, PhysSlashLineMul);
+            }
             if (okM) ApplyHitFitFactor(MagicKey, HitCircleFitFactor);
             AssetDatabase.SaveAssets();
             Debug.Log($"[WireHit] hit_sword←Impact_Cut_V1 {(okP ? "OK" : "失败")}；"
                       + $"hit_petrify←CFXR Magical Stars Pink {(okM ? "OK" : "失败")}；"
-                      + $"VfxCircleFit.Factor={HitCircleFitFactor}。");
+                      + $"VfxCircleFit.Factor={HitCircleFitFactor}；"
+                      + $"物理线宽×{PhysSlashLineMul}。");
         }
 
         [MenuItem("GreekMyth/特效/接线 巨伤命中（hit_massive ← RFX4 Effect15_Collision）")]
@@ -131,6 +140,62 @@ namespace GreekMyth.EditorTools
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        /// <summary>加粗 Impact_Cut 的 Slash 粒子 startSize（刀光线宽），
+        /// 根层与 CircleFit 不动，避免整体外廓再胀一圈。</summary>
+        static void ApplyPhysSlashLineWidth(string key, float mul)
+        {
+            string path = $"{VfxPackStandardizer.VfxDir}/{key}.prefab";
+            var root = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                int n = 0;
+                foreach (var ps in root.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    // 只动 Slash 刀光线；根层 hit_sword 是冲击核，不加粗
+                    if (!ps.gameObject.name.Contains("Slash")) continue;
+                    var main = ps.main;
+                    if (main.startSize3D)
+                    {
+                        var x = main.startSizeX;
+                        var y = main.startSizeY;
+                        var z = main.startSizeZ;
+                        // 厚度轴通常是较小那一维；两边都乘一点，线感更明显
+                        main.startSizeX = MulMinMaxCurve(x, mul);
+                        main.startSizeY = MulMinMaxCurve(y, mul);
+                        main.startSizeZ = MulMinMaxCurve(z, mul);
+                    }
+                    else
+                        main.startSize = MulMinMaxCurve(main.startSize, mul);
+                    n++;
+                }
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+                Debug.Log($"[WireHit] {key} Slash 线宽 ×{mul}（{n} 层）");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        static ParticleSystem.MinMaxCurve MulMinMaxCurve(ParticleSystem.MinMaxCurve c, float mul)
+        {
+            switch (c.mode)
+            {
+                case ParticleSystemCurveMode.Constant:
+                    c.constant *= mul;
+                    break;
+                case ParticleSystemCurveMode.TwoConstants:
+                    c.constantMin *= mul;
+                    c.constantMax *= mul;
+                    break;
+                case ParticleSystemCurveMode.Curve:
+                case ParticleSystemCurveMode.TwoCurves:
+                    c.curveMultiplier *= mul;
+                    break;
+            }
+            return c;
         }
     }
 }

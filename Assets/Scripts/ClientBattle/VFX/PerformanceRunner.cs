@@ -57,6 +57,23 @@ namespace ClientBattle.VFX
         PlaybackDirector _director;
         BattleBoardView _board;
 
+        // ---------------------------------------------------------- 播放时钟（手动校验用）
+
+        float _clockStart;      // 本次播放真正开播（预热之后）的时刻
+        float _clockOffset;     // 跳播起点在整场时间轴上的秒数
+        float _clockFrozen;     // 播完/停止后定格的读数
+
+        /// <summary>整场时间轴上的当前位置（秒）：跳播起点偏移 + 开播至今的真实秒。
+        /// 预热不计入。供 <see cref="PlaybackTimelineBar"/> 与人工对时用。</summary>
+        public float TimelineSeconds =>
+            State == PlaybackState.Playing
+                ? _clockOffset + (Time.realtimeSinceStartup - _clockStart)
+                : _clockFrozen;
+
+        /// <summary>编译产物（只读）：时间轴条据此算回合刻度。</summary>
+        public CompiledPlayback Compiled => _session?.Compiled;
+        public BattleReport Report => _session?.Report;
+
         public static PerformanceRunner Ensure()
         {
             if (Instance == null)
@@ -91,7 +108,21 @@ namespace ClientBattle.VFX
         {
             HardStop();
             BuildSession(report);
+            _clockOffset = 0f;
             StartCoroutine(PlayLoop());
+        }
+
+        /// <summary>跳播：从某局某 seq 起正常演出，之前的一律静默落账（终态等价）。
+        /// <paramref name="timelineOffset"/> 只影响播放时钟读数（对时用）。
+        /// 时间轴条点回合刻度即走本入口。</summary>
+        public void PlayFrom(int gameIndex, int startSeq, float timelineOffset = 0f)
+        {
+            if (_session?.Report == null) return;
+            var report = _session.Report;
+            HardStop();
+            BuildSession(report);
+            _clockOffset = Mathf.Max(0f, timelineOffset);
+            StartCoroutine(PlayLoop(gameIndex, startSeq));
         }
 
         /// <summary>跳到结尾：硬停止在飞演出，剩余事件按原始 seq 序静默落账（终态与
@@ -185,26 +216,45 @@ namespace ClientBattle.VFX
         void HardStop()
         {
             StopAllCoroutines();
-            // 全局服务即使会话已拆也要停（Teardown / 重播竞态）
+            _clockFrozen = TimelineSeconds;
+            ClearAllPresentation();
+            // 兜底核杀：单位位移/闪烁等 tween 已逐个 SetLink，但第三方/漏网 tween
+            // 仍可能在跑（R-7.1 允许 HardStop 作为唯一 KillAll 出现点）
+            DOTween.KillAll(complete: false);
+            if (BgmLayerService.Instance != null) BgmLayerService.Instance.StopBattle();
+            State = _session != null ? PlaybackState.Finished : PlaybackState.Idle;
+        }
+
+        /// <summary>清空**一切在飞表现**（R-1.2 ③ 的唯一实现处）。
+        ///
+        /// 逐个走**全局单例**而不是只走 `_session.Ctx`：重播/跳播会重建会话，
+        /// 上一份 ctx 里的引用可能已丢（域重载、Teardown 竞态），只清 ctx 就会
+        /// 留下「上一场的台词气泡/飘字还挂在场上」——2026-07-28 人工实测到的残留。
+        /// ctx 侧照旧再清一遍（幂等，覆盖自定义注入的实例）。
+        ///
+        /// **禁止**对 Unity 对象用 <c>?.</c>：已 Destroy 的实例 C# 引用非 null，
+        /// <c>?.</c> 会放行，随即 MissingReferenceException（VFXManager 重播首帧
+        /// 实锤）。一律 <c>if (x != null)</c>（走 Unity 重载）。</summary>
+        void ClearAllPresentation()
+        {
             if (CutInService.Instance != null) CutInService.Instance.CancelAll();
             CameraShaker.Cancel();
             StageCameraRig.ReleaseAll(); // 硬停止在推镜途中：不还位就一直卡在近机位
             AfterImageService.ClearAll();
             UnitAuraService.ClearAll();
-            BannerService.Instance?.Clear(); // 系列结束「胜者 X 队」等常驻横幅必须清（R-1.2③）
+            if (BannerService.Instance != null) BannerService.Instance.Clear();
+            if (ChatBubbleService.Instance != null) ChatBubbleService.Instance.CancelAll();
+            if (FloatingTextService.Instance != null) FloatingTextService.Instance.CancelAll();
+            if (VFXManager.Instance != null) VFXManager.Instance.CancelAll();
+            if (Audio.SfxManager.Instance != null) Audio.SfxManager.Instance.StopAll();
             var ctx = _session?.Ctx;
             if (ctx != null)
             {
-                ctx.Vfx?.CancelAll();
-                ctx.Floats?.CancelAll();
-                ctx.Bubbles?.CancelAll();
-                ctx.Sfx?.StopAll();
+                if (ctx.Vfx != null) ctx.Vfx.CancelAll();
+                if (ctx.Floats != null) ctx.Floats.CancelAll();
+                if (ctx.Bubbles != null) ctx.Bubbles.CancelAll();
+                if (ctx.Sfx != null) ctx.Sfx.StopAll();
             }
-            // 兜底核杀：单位位移/闪烁等 tween 已逐个 SetLink，但第三方/漏网 tween
-            // 仍可能在跑（R-7.1 允许 HardStop 作为唯一 KillAll 出现点）
-            DOTween.KillAll(complete: false);
-            BgmLayerService.Instance?.StopBattle();
-            State = _session != null ? PlaybackState.Finished : PlaybackState.Idle;
         }
 
         void BuildSession(BattleReport report)
@@ -228,14 +278,15 @@ namespace ClientBattle.VFX
             SettlementPanel.Ensure().Hide();
         }
 
-        IEnumerator PlayLoop()
+        IEnumerator PlayLoop(int fromGameIndex = 0, int fromSeq = 0)
         {
             // 渲染级预热收尾（约 3 帧，属于加载期而非战斗期）后再开播：
             // 首个特效出场时 shader 编译/贴图上传已全部付清，不在战斗中掉帧
             State = PlaybackState.Prewarming;
             yield return new WaitUntil(() => _session.Ctx.Vfx.PrewarmComplete);
             State = PlaybackState.Playing;
-            yield return _director.PlaySeries(_session);
+            _clockStart = Time.realtimeSinceStartup; // 预热不计入播放时钟
+            yield return _director.PlaySeries(_session, fromGameIndex, fromSeq);
             FinishPlayback(showSettlement: true);
         }
 
@@ -255,6 +306,7 @@ namespace ClientBattle.VFX
 
         void FinishPlayback(bool showSettlement)
         {
+            _clockFrozen = TimelineSeconds; // 定格读数（先算后改状态）
             State = PlaybackState.Finished;
             if (showSettlement && _session?.Report != null)
             {

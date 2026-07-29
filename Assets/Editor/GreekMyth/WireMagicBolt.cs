@@ -16,8 +16,8 @@ namespace GreekMyth.EditorTools
         const string Key = "magic_bolt";
         const string Dest = VfxPackStandardizer.VfxDir + "/" + Key + ".prefab";
 
-        /// <summary>投影圆定径后再乘。Effect1 缩到卡尺度后略放大一点更可读。</summary>
-        public const float CircleFitFactor = 0.7f;
+        /// <summary>投影圆定径后再乘。Effect1 缩到卡尺度后略放大，偏「重」可读。</summary>
+        public const float CircleFitFactor = 0.95f;
 
         [InitializeOnLoadMethod]
         static void AutoHeal()

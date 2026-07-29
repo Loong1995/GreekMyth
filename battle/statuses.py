@@ -108,6 +108,11 @@ class StatusDef:
     mitigation_gate: Callable | None = None  # (engine, status) -> bool：本实例的减免能力
                                              # （evade/block/reflect）是否生效（圣盾受
                                              # 匠心旁骛压制时返回 False）；None=恒生效
+    on_reflect: Callable | None = None       # 伤害反弹已选定 bounce、即将 deal 反伤前：
+                                             # (engine, status, ctx) -> int|None
+                                             # ctx=reflected_amount/bounce/tick_seq/
+                                             # damage_seq/damage_type；返回值覆盖反伤
+                                             # parent_seq（雅典娜高光等）；None=沿用 tick_seq
     # ---- 施加扩展点（2026-07-20 注册表化，替代 engine 内按 status_id 的特例） ----
     immune_when_forbid: str | None = None    # 目标持有该 forbid 键时本状态静默拒绝
                                              # （石化→"petrify_immune" 珀尔修斯镜盾）

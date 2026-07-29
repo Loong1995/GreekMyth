@@ -72,7 +72,7 @@ TEAM_B = [
     # 哈迪斯：谋略吸取——冥河汲魂 + 死亡凝望
     #{"template": "hades", "extra_skills": ("hades_soul_drain", "thanatos_gaze",)},
     #{"template": "patroclus", "extra_skills": ("patroclus_armor","athena_guard")}, # 帕特：代战+披甲（与阿喀琉斯 S1 羁绊）
-    {"template": "zeus", "extra_skills": ("zeus_bolt", "medusa_glance",)},
+    #{"template": "zeus", "extra_skills": ("zeus_bolt", "medusa_glance",)},
     # {"template": "hecate", "extra_skills": ("hecate_pyre","athena_guard")},         # 赫卡忒：三火炬+燔祭
     # {"template": "calypso", "extra_skills": ("calypso_rime","athena_guard")},       # 卡吕普索：羁留+霜潮
     #{"template": "ares", "extra_skills": ("siren_charm", "ajax_bulwark",)},
@@ -85,6 +85,7 @@ TEAM_B = [
     # {"template": "calypso", "extra_skills": ("calypso_rime", "siren_charm",)},
     # {"template": "heracles", "extra_skills": ("heracles_counter", "ajax_bulwark",)},
     #{"template": "hector", "extra_skills": ("hector_assault", "jason_command",)},
+    {"template": "athena", "extra_skills": ("athena_guard", "asclepius_kiss",)},
     # {"hero_id": "木桩", "force": 70, "command": 300, "speed": 60, "skills": ()},
 ]
 

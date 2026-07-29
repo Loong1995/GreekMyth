@@ -19,7 +19,7 @@ namespace ClientBattle.Units
     //              （多人同状态只一份）、持有者清零才撤；几何见 StagePerformanceConfig；
     //   其余       普通光环：单实例挂卡心。
     // 宙斯：雷霆神谕＝ambient_thunder_storm（Magic Effect19 电弧场域）；落雷见 RemoteStrike。
-    // 圣盾：All In 1 金色描边+辉光（UnitView.SetAegisAura）；
+    // 圣盾：CFXR aura_aegis 钉投影圆（直径重合）、贴地、卡下排序；
     // 阿瑞斯：血战＝卡框红呼吸；战神之勇＝shroud_* + VfxShroudPresence（显隐策略在注册表）。
     // 绕身显隐：VfxShroudPresence（IsPresent 闸受击抖动）；时机＝ShroudVisibility / SetShroudVisible。
     // 石化：UnitView.SetPetrified → All In 1 灰阶石色
@@ -290,14 +290,63 @@ namespace ClientBattle.Units
             }
         }
 
-        /// <summary>圣盾：All In 1 金描边+辉光（挂在 UnitView 材质上；不挂 Magic 粒子）。</summary>
+        /// <summary>圣盾常驻：CFXR Magic Aura A (Runic)＝`aura_aegis`。
+        /// 焊死投影圆：圆心＝投影圆心、直径＝投影圆（按 Runes 层钉）、贴地卡下。
+        /// 禁用 VfxFitter/VfxCircleFit（整件包络定径会把环压成一小圈，P-88）。</summary>
         static GameObject MountAegisAura(Transform host)
         {
             var unit = host.GetComponent<UnitView>() ?? host.GetComponentInParent<UnitView>();
-            unit?.SetAegisAura(true);
             var root = NewRoot("aura_aegis", host, Vector3.zero);
-            var marker = root.AddComponent<AegisAuraMarker>();
-            marker.Unit = unit;
+
+            var prefab = Resources.Load<GameObject>("ClientBattle/VFX/aura_aegis");
+            if (prefab == null)
+            {
+                FallbackPlaceholder("aura_aegis", root.transform);
+                return root;
+            }
+
+            var cell = Object.Instantiate(prefab, root.transform);
+            cell.name = "aura_aegis";
+            cell.transform.localPosition = Vector3.zero;
+            cell.transform.localRotation = Quaternion.identity;
+            cell.transform.localScale = prefab.transform.localScale;
+
+            // 标准件自带 VfxFitter（卡宽）；与投影圆焊死互斥，必须拆掉并回原生 scale
+            foreach (var f in cell.GetComponentsInChildren<VfxFitter>(true))
+            {
+                f.enabled = false;
+                Object.Destroy(f);
+            }
+            foreach (var c in cell.GetComponentsInChildren<VfxCircleFit>(true))
+            {
+                c.enabled = false;
+                Object.Destroy(c);
+            }
+            cell.transform.localScale = prefab.transform.localScale;
+
+            DisableAutoLifecycle(cell);
+            ForceLoop(cell);
+
+            if (cell.GetComponent<VfxGroundLayer>() == null)
+                cell.AddComponent<VfxGroundLayer>();
+            const int groundOrder = -2;
+            foreach (var r in cell.GetComponentsInChildren<Renderer>(true))
+                r.sortingOrder = groundOrder;
+
+            foreach (var ps in cell.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                var main = ps.main;
+                main.simulationSpace = ParticleSystemSimulationSpace.Local;
+            }
+
+            // 先落到投影圆心、世界竖直，再按 Runes 环量水平尺寸焊直径
+            Vector3 cardAnchor = unit != null ? unit.transform.position : host.position;
+            cell.transform.SetParent(null, true);
+            cell.transform.SetPositionAndRotation(
+                ArenaSlotLayout.ProjectionCircleCenter(cardAnchor), Quaternion.identity);
+            VfxShroudFitter.PinParticleRingToProjectionCircle(cell, "Runes");
+
+            VfxShroudFollower.Attach(unit, cell, root.transform);
             return root;
         }
 
@@ -473,16 +522,6 @@ namespace ClientBattle.Units
             if (entry.holders.Count > 0) return;
             if (entry.fx != null) Object.Destroy(entry.fx);
             _ambient.Remove(key);
-        }
-
-        /// <summary>圣盾挂载标记：销毁时关掉材质效果。</summary>
-        class AegisAuraMarker : MonoBehaviour
-        {
-            public UnitView Unit;
-            void OnDestroy()
-            {
-                if (Unit != null) Unit.SetAegisAura(false);
-            }
         }
 
         /// <summary>宙斯雷霆常驻：Digital Ruby 闪电 + 卡面乱劈调度。</summary>

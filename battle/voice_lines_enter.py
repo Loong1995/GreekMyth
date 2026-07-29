@@ -1,19 +1,25 @@
-"""登场台词：全场羁绊单元编排后发 trait_trigger（effect=enter）。
+"""登场台词：羁绊问答对依序播 trait_trigger（effect=enter）。
 
-规则（2026-07-22）：
-- 机器羁绊表 S1/S2（bonds.py）；场上存活双方构成一条羁绊播放单元。
-- **全部**羁绊单元按序播放（非只播最高档）。
-- 总序：weight↑ → 跨队伍优先 → 均速↓ → 成员 id。
-- 单元内发言序：A 队优先 → 速度↓ → position → hero_id。
+规则（2026-07-28 升级）：
+- 单元＝一条场上羁绊（`bonds.py` S1/S2 机器表）。**全部**单元按序播。
+- 单元总序：**跨队优先**（先与对方队伍的羁绊，再与本方队伍的羁绊）
+  → 羁绊表**定义序**（`BondDef.order`）。weight 不再参与排序（定义序已含档位）。
+- 单元内发言序＝**羁绊定义方向**：`BondDef.first` 发问、`second` 作答，
+  形成「有问有答」。问从该场景 3 问中派生随机取一条，答从**该问自己的**
+  3 条等价答句中取（登场＝9 种问答；`voice_bond_data.py`）。
+- 回退：该羁绊未写问答分册时，退回按武将扁平池（`voice_enter_data.py`，
+  同队 `{target}` / 跨队 `{target}_foe`），单向各说一句。
+- **无任何羁绊**：只播各队存活主将的 generic 登场（队序 A 优先）。
 - 同组：首条 parent=0 为组根，其余挂 parent，客户端一个 TraitLine 播完。
-- **无任何羁绊**：各队主将播 generic 登场；队序优先 A 队（setup.teams 序）。
-- **友/敌分池**：同队用 `{target}`，跨队用 `{target}_foe`；缺一侧回退另一侧再 generic。
+- 选词随机：seed 派生哈希流（`voice_rng.py`），**不消耗战斗 RNG**。
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 from battle import bonds as bn
+from battle import voice_rng as vr
+from battle.voice_bond_data import BOND_DIALOGUES
 from battle.voice_enter_data import ENTER_LINES
 
 if TYPE_CHECKING:
@@ -27,13 +33,12 @@ def pick_enter_pool(
     *,
     same_team: bool = True,
 ) -> tuple[str, tuple[str, ...]] | None:
-    """选登场池。有目标时按同队/跨队优先友池或敌池。"""
+    """选登场回退池（按武将扁平池）。有目标时按同队/跨队优先友池或敌池。"""
     by_scene = ENTER_LINES.get(speaker_template, {}).get("enter")
     if not by_scene:
         return None
     if target_template:
         foe_key = f"{target_template}_foe"
-        # 同队：友 → 敌回退；跨队：敌 → 友回退（兼容未补全分册）
         order = (
             (target_template, foe_key) if same_team
             else (foe_key, target_template)
@@ -48,6 +53,21 @@ def pick_enter_pool(
     return None
 
 
+def _emit(
+    engine: "SeriesEngine", speaker: "HeroState", line: str, parent_seq: int,
+) -> int:
+    return engine.writer.emit(
+        "trait_trigger",
+        {
+            "hero_id": speaker.hero_id,
+            "trait_id": speaker.trait_id or "voice",
+            "effect": "enter",
+            "line": line,
+        },
+        parent_seq=parent_seq,
+    )
+
+
 def emit_enter_line(
     engine: "SeriesEngine",
     speaker: "HeroState",
@@ -56,30 +76,17 @@ def emit_enter_line(
     *,
     same_team: bool = True,
 ) -> int:
-    """发一条登场台词；target_template=None 时只用 generic。无词库则静默 0。"""
+    """发一条登场台词（回退路径）；target_template=None 时只用 generic。"""
     picked = pick_enter_pool(
         speaker.template_id, target_template, same_team=same_team,
     )
     if picked is None:
         return 0
     pool_key, lines = picked
-    if not lines:
+    line = vr.pick(engine.rng.seed, speaker, f"enter:{pool_key}", lines)
+    if not line:
         return 0
-    rot_key = f"enter:{pool_key}"
-    idx = speaker.trait_line_seq.get(rot_key, 0)
-    speaker.trait_line_seq[rot_key] = idx + 1
-    line = lines[idx % len(lines)]
-    trait_id = speaker.trait_id or "voice"
-    return engine.writer.emit(
-        "trait_trigger",
-        {
-            "hero_id": speaker.hero_id,
-            "trait_id": trait_id,
-            "effect": "enter",
-            "line": line,
-        },
-        parent_seq=parent_seq,
-    )
+    return _emit(engine, speaker, line, parent_seq)
 
 
 def _alive_heroes(engine: "SeriesEngine") -> list["HeroState"]:
@@ -87,50 +94,59 @@ def _alive_heroes(engine: "SeriesEngine") -> list["HeroState"]:
             if engine.heroes[hid].is_alive()]
 
 
-def _team_a_id(engine: "SeriesEngine") -> str:
-    return engine.setup.teams[0].team_id
-
-
-def _speed(engine: "SeriesEngine", hero: "HeroState") -> int:
-    return engine.effective_attr(hero, "speed")
-
-
 def _collect_bond_units(
     engine: "SeriesEngine",
-) -> list[tuple[int, int, int, tuple[str, ...], list["HeroState"]]]:
-    """(weight, same_team_flag, -avg_speed, id_key, speakers_unsorted)."""
+) -> list[tuple[int, int, "bn.BondDef", "HeroState", "HeroState"]]:
+    """(cross_flag, 定义序, 羁绊, 发问者, 作答者)，已按播放序排好。
+
+    cross_flag：0＝跨队（先播），1＝同队。同一对武将只成一个单元。
+    """
     alive = _alive_heroes(engine)
     seen: set[frozenset[str]] = set()
-    units: list[tuple[int, int, int, tuple[str, ...], list]] = []
+    units: list[tuple[int, int, bn.BondDef, HeroState, HeroState]] = []
     for i, a in enumerate(alive):
         for b in alive[i + 1:]:
-            w = bn.bond_weight(a.template_id, b.template_id)
-            if w is None:
+            d = bn.bond_of(a.template_id, b.template_id)
+            if d is None:
                 continue
             key = frozenset({a.hero_id, b.hero_id})
             if key in seen:
                 continue
             seen.add(key)
+            asker, answerer = (a, b) if a.template_id == d.first else (b, a)
             cross = 0 if a.team_id != b.team_id else 1
-            avg = (_speed(engine, a) + _speed(engine, b)) // 2
-            id_key = tuple(sorted((a.hero_id, b.hero_id)))
-            units.append((w, cross, -avg, id_key, [a, b]))
-    units.sort(key=lambda u: (u[0], u[1], u[2], u[3]))
+            units.append((cross, d.order, d, asker, answerer))
+    # 跨队优先 → 定义序 → hero_id（同定义序的镜像对局兜底稳定序）
+    units.sort(key=lambda u: (u[0], u[1], u[3].hero_id, u[4].hero_id))
     return units
 
 
-def _sort_speakers(
-    engine: "SeriesEngine", speakers: list["HeroState"], team_a: str,
-) -> list["HeroState"]:
-    return sorted(
-        speakers,
-        key=lambda h: (
-            0 if h.team_id == team_a else 1,
-            -_speed(engine, h),
-            h.position,
-            h.hero_id,
-        ),
+def _emit_bond_dialogue(
+    engine: "SeriesEngine",
+    bond: "bn.BondDef",
+    asker: "HeroState",
+    answerer: "HeroState",
+    *,
+    cross: bool,
+) -> int:
+    """一条羁绊的问答对（问 → 该问的答）。无问答分册则返回 -1 表示需回退。"""
+    scene = "enter_foe" if cross else "enter_ally"
+    questions = BOND_DIALOGUES.get(bond.bond_id, {}).get(scene)
+    if not questions:
+        return -1
+    seed = engine.rng.seed
+    key = f"enter:{bond.bond_id}:{scene}"
+    occurrence = vr.next_occurrence(asker, key)
+    q_index = vr.pick_index(seed, key, occurrence, len(questions))
+    question, answers = questions[q_index]
+    root_seq = _emit(engine, asker, question, 0)
+    emitted = 1 if root_seq else 0
+    reply = vr.pick_with(
+        seed, f"{key}:q{q_index}:reply", occurrence, answers.get("reply", ()),
     )
+    if reply and root_seq and _emit(engine, answerer, reply, root_seq):
+        emitted += 1
+    return emitted
 
 
 def _emit_main_generic_fallback(engine: "SeriesEngine") -> int:
@@ -138,12 +154,10 @@ def _emit_main_generic_fallback(engine: "SeriesEngine") -> int:
     root_seq = 0
     emitted = 0
     for team in engine.setup.teams:
-        mid = team.main_hero_id
-        hero = engine.heroes.get(mid)
+        hero = engine.heroes.get(team.main_hero_id)
         if hero is None or not hero.is_alive():
             continue
-        parent = 0 if root_seq == 0 else root_seq
-        seq = emit_enter_line(engine, hero, None, parent)
+        seq = emit_enter_line(engine, hero, None, 0 if root_seq == 0 else root_seq)
         if seq:
             if root_seq == 0:
                 root_seq = seq
@@ -152,23 +166,24 @@ def _emit_main_generic_fallback(engine: "SeriesEngine") -> int:
 
 
 def emit_enter_dialogues(engine: "SeriesEngine") -> int:
-    """全场羁绊登场对话（全部单元按序）；无羁绊则主将 generic。返回台词条数。"""
+    """全场羁绊登场问答（跨队先、再同队，各按定义序）；无羁绊则主将 generic。"""
     units = _collect_bond_units(engine)
     if not units:
         return _emit_main_generic_fallback(engine)
-    team_a = _team_a_id(engine)
     emitted = 0
-    for _w, _cross, _avg, _ids, members in units:
-        speakers = _sort_speakers(engine, members, team_a)
+    for cross_flag, _order, bond, asker, answerer in units:
+        cross = cross_flag == 0
+        got = _emit_bond_dialogue(engine, bond, asker, answerer, cross=cross)
+        if got >= 0:
+            emitted += got
+            continue
+        # 回退：按武将扁平池，双方各说一句（问答不配对）
         root_seq = 0
-        for i, speaker in enumerate(speakers):
-            other = speakers[1 - i] if len(speakers) == 2 else next(
-                (s for s in speakers if s.hero_id != speaker.hero_id), speaker
-            )
-            parent = 0 if root_seq == 0 else root_seq
-            same = speaker.team_id == other.team_id
+        for speaker, other in ((asker, answerer), (answerer, asker)):
             seq = emit_enter_line(
-                engine, speaker, other.template_id, parent, same_team=same,
+                engine, speaker, other.template_id,
+                0 if root_seq == 0 else root_seq,
+                same_team=not cross,
             )
             if seq:
                 if root_seq == 0:

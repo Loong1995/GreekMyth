@@ -51,7 +51,8 @@
 - **宙斯 · 雷霆神谕**：`thunder` 落雷 → 统计进宙斯「雷霆神谕」；演出
   `RemoteStrike`（目标头顶宙斯头像标先亮，再落雷；头像 sortingOrder>特效，
   施法者不进中心）。
-- **雅典娜 · 埃癸斯**：`aegis_shield` 反弹/重击治疗 → 雅典娜「埃癸斯圣盾」；
+- **雅典娜 · 埃癸斯**：`aegis_shield` 反弹/重击治疗（统率×0.9）→ 雅典娜「埃癸斯圣盾」；
+  主将 `aegis_main_command`（统率+30）；反伤≥1500 → `athena_aegis_reflect` 高光。
   反弹演出持盾者 Melee（Cast 闪光后突进）。
 
 ## 3. 状态台词（控制 / 犹豫 / 先攻）
@@ -67,8 +68,8 @@
 | `thunder` | `RemoteStrike`，DR 程序化竖雷 | `PerformanceDatabase` |
 | `zeus_bolt` | `RemoteStrike` + Vefects Directional | 同上 |
 | `hector_warcry` / `hector_assault` | `Auto`（群攻→AoeCenter）；资源走主动物理默认；prepare 无伤害不进中心 | 同上 |
-| `aegis_shield` | `Melee` + Cast 闪光；Actor=`OwnerId` | 同上 |
-| `perseus_flash` | 单体主动 `Melee`（非弹道） | 同上 |
+| `aegis_shield` | `Melee` + `cast_oracle`；Actor=`OwnerId` | 同上 |
+| `athena_aegis_reflect` | PerSegment + cut-in；Hit=`cast_oracle` | 反伤≥1500 高光 || `perseus_flash` | 单体主动 `Melee`（非弹道） | 同上 |
 | `achilles_wrath` | 追伤 `Melee` | 同上 |
 
 总纲：[performance_mechanisms.md](../client/performance_mechanisms.md)。

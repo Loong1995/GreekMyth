@@ -165,21 +165,24 @@ class ZeusBolt(Skill):
 
 
 # =============================================================================
-# 埃癸斯圣盾（雅典娜）【皇·反制位】：神谕（Phase 4 v4 版，均整局）：
-# 1. 己方全体【圣盾】：受到伤害或控制时 15% 免疫，并将原伤害/控制反弹给
-#    **敌方随机存活单位**（受击率选取）。伤害走引擎减免通道（reflect_rate_bps
-#    + payload reflect_to_random_enemy），控制走控制减免链（control_reflect_bps）；
-#    反弹为特殊固定伤害/不可连锁（引擎口径）。与格挡/闪避先后 = 状态施加顺序。
-# 2. 己方统率最低单位单次受伤超过其受击前兵力 8% → 雅典娜为其回复
-#    （智力×0.9），**每回合最多 2 次**（按雅典娜自身圣盾实例回合计数）。
-# 3. 雅典娜额外获得 1 次控制格挡【圣盾·守心】：首次受到硬控消耗并免疫。
-# 性格·明睿联动：匠心旁骛（oracle_suppressed）本回合圣盾不生效（含反弹闸门）。
+# 埃癸斯圣盾（雅典娜）【皇·反制位】：神谕（均整局）：
+# 1. 己方全体【圣盾】：受伤或受控 15% 免疫，并把原伤害/控制反弹给敌方随机存活
+#    单位（受击率选取；特殊固定伤害/不可连锁）。
+# 2. 己方统率最低单位单次受伤超受击前兵力 8% → 雅典娜治疗（统率×0.9），
+#    每回合最多 2 次（按雅典娜自身圣盾实例回合计数）。
+# 3. 雅典娜为主将时，自身统率 +30。
+# 高光：单次反伤 ≥1500 → 台词 + cut-in（athena_aegis_reflect）。
+# 性格·明睿：匠心旁骛本回合圣盾不生效（含反弹闸门）。
 # =============================================================================
 
 AEGIS_COUNTER_RATE_BPS = 1500
 AEGIS_HEAL_THRESHOLD_BPS = 800
-AEGIS_HEAL_RATE = 9000  # 智力 ×0.9
+AEGIS_HEAL_RATE = 9000  # 统率 ×0.9
 AEGIS_HEAL_MAX_PER_ROUND = 2
+AEGIS_MAIN_COMMAND_DELTA = 30
+AEGIS_HIGHLIGHT_THRESHOLD = 1500
+AEGIS_HIGHLIGHT_KEY = "aegis_reflect"
+AEGIS_HIGHLIGHT_SKILL_ID = "athena_aegis_reflect"
 
 
 def _aegis_suppressed(engine, status) -> bool:
@@ -221,13 +224,30 @@ def _aegis_on_damage_taken(engine, status, ctx):
     counter_holder = engine.find_status(caster.hero_id, "aegis_shield") or status
     if counter_holder.round_counters.get("aegis_heal", 0) >= AEGIS_HEAL_MAX_PER_ROUND:
         return
-    base = engine.effective_attr(caster, "intelligence") * AEGIS_HEAL_RATE // BPS
+    base = engine.effective_attr(caster, "command") * AEGIS_HEAL_RATE // BPS
     if base > 0:
         counter_holder.round_counters["aegis_heal"] = (
             counter_holder.round_counters.get("aegis_heal", 0) + 1
         )
         tick_seq = emit_status_trigger(engine, status, ctx["damage_seq"])
-        engine.heal(caster, owner, fixed_base=base, parent_seq=tick_seq)
+        engine.heal(caster, owner, fixed_base=base, parent_seq=tick_seq,
+                    can_crit=False, apply_modifiers=False)
+
+
+def _aegis_on_reflect(engine, status, ctx) -> int:
+    """单次反伤 ≥1500 → 雅典娜专属高光；返回反弹伤害应挂的 parent_seq。"""
+    tick_seq = ctx["tick_seq"]
+    amount = ctx["reflected_amount"]
+    bounce = ctx["bounce"]
+    if amount < AEGIS_HIGHLIGHT_THRESHOLD or bounce is None:
+        return tick_seq
+    athena = engine.heroes.get(status.source_id)
+    if athena is None or not athena.is_alive():
+        return tick_seq
+    emit_highlight_line(engine, athena, AEGIS_HIGHLIGHT_KEY)
+    return emit_highlight_trigger(
+        engine, athena, AEGIS_HIGHLIGHT_SKILL_ID, [bounce], tick_seq,
+    )
 
 
 AEGIS_STATUS = StatusDef(
@@ -240,15 +260,16 @@ AEGIS_STATUS = StatusDef(
     payload={"reflect_to_random_enemy": True},
     mitigation_gate=_aegis_mitigation_gate,
     on_damage_taken=_aegis_on_damage_taken,
+    on_reflect=_aegis_on_reflect,
     # 圣盾反制/重击回血的演出是**持有者自己动**（反弹突进、回血闪光），
     # 且语义上要求「逐次触发」——禁止并组（statuses.SEQUENTIAL）。
     playback_tags=(SEQUENTIAL,),
 )
 
-# 效果 3：雅典娜个人 1 次控制格挡（首控消耗并免疫；耗尽摘除）
-AEGIS_WARD_STATUS = StatusDef(
-    status_id="aegis_ward", kind=SPECIAL, duration_rounds=PERMANENT,
-    payload={"remove_when_exhausted": True},
+# 效果 3：雅典娜为主将时自身统率 +30
+AEGIS_MAIN_COMMAND_STATUS = StatusDef(
+    status_id="aegis_main_command", kind=BUFF, duration_rounds=PERMANENT,
+    modifiers={"command_delta": AEGIS_MAIN_COMMAND_DELTA},
 )
 
 
@@ -260,9 +281,10 @@ class AthenaAegis(Skill):
     def execute(self, engine, actor, targets, trigger_seq):
         for target in targets:
             engine.apply_status(actor, target, AEGIS_STATUS, parent_seq=trigger_seq)
-        ward = engine.apply_status(actor, actor, AEGIS_WARD_STATUS, parent_seq=trigger_seq)
-        if ward is not None:
-            ward.counters["control_block_charges"] = 1
+        if actor.is_main:
+            engine.apply_status(
+                actor, actor, AEGIS_MAIN_COMMAND_STATUS, parent_seq=trigger_seq,
+            )
 
 
 # =============================================================================

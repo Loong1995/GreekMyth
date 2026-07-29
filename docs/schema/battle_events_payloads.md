@@ -293,8 +293,8 @@ phase_start（避免每武将两条冗余）。
 |---|---|---|
 | `hero_id` | 1 | 性格持有武将 |
 | `trait_id` | 2 | 性格 id（`battle/traits.py` 注册表）；状态台词复用本事件时为保留值 `"status"` |
-| `effect` | 3 | 触发效果标签（性格如 `aoman_ignore`；状态台词则为 `status_id`，如 `silence`/`hesitation`） |
-| `line` | 4 | 预设台词（后端确定性轮换，不消耗 RNG；可为空串） |
+| `effect` | 3 | 触发效果标签（性格如 `aoman_ignore`；状态台词则为 `status_id`，如 `silence`/`hesitation`；台词本五类为 `enter`/`duel_challenge`/`duel_accept`/`duel_reject`/`highlight`/`kill`，另有 `massive` 巨伤台词——与高光共用词池，core-0.4.3 起） |
+| `line` | 4 | 预设台词（后端 **seed 派生哈希流**选词，同 seed 可重放，**不消耗战斗 RNG**；可为空串）。羁绊交互台词为「问→答」配对，答句取自该问自己的等价答案集，见 `docs/character.md` §2.0 |
 
 ```json
 {"seq":88,"t":{"g":1,"r":2,"p":4,"s":1},"type":"trait_trigger","parent_seq":86,

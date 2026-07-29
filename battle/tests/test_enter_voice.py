@@ -12,6 +12,7 @@ from battle.events import PHASE_GAME_START
 from battle.roster import hero_setup
 from battle.setup import BattleSetup, TeamSetup
 from battle import voice_lines_enter as vle
+from battle.voice_bond_data import BOND_DIALOGUES
 
 
 def _setup_bond_cross() -> BattleSetup:
@@ -76,15 +77,16 @@ def test_enter_unit_same_group_id():
     assert any(len(v) >= 2 for v in by_g.values())
 
 
-def test_enter_sort_weight_then_cross_team():
+def test_enter_sort_cross_team_first_then_definition_order():
+    """排序主键=跨队优先（0 先于 1），次键=羁绊表定义序（2026-07-28）。"""
     engine = SeriesEngine(_setup_bond_cross(), seed=1)
     engine.writer.begin_game()
     units = vle._collect_bond_units(engine)
     assert units
     assert [u[0] for u in units] == sorted(u[0] for u in units)
-    s1 = [u for u in units if u[0] == 1]
-    if len(s1) >= 2:
-        assert [u[1] for u in s1] == sorted(u[1] for u in s1)
+    for flag in (0, 1):
+        same_side = [u[1] for u in units if u[0] == flag]
+        assert same_side == sorted(same_side)
 
 
 def test_enter_ally_vs_foe_pool_differs():
@@ -141,8 +143,10 @@ def test_enter_same_team_emits_ally_line():
         if e["type"] == "trait_trigger" and e["payload"].get("effect") == "enter"
     ]
     by_hero = {e["payload"]["hero_id"]: e["payload"]["line"] for e in enters}
-    assert "密友" in by_hero["a1"] or "跟紧" in by_hero["a1"] or "借甲" in by_hero["a1"]
-    assert "心安" in by_hero["a2"] or "并肩" in by_hero["a2"] or "做影" in by_hero["a2"]
+    # 有问答分册（bond.achilles_patroclus）：a1 问、a2 答**同一问**的答案集
+    questions = BOND_DIALOGUES["bond.achilles_patroclus"]["enter_ally"]
+    asked = next(q for q in questions if q[0] == by_hero["a1"])
+    assert by_hero["a2"] in asked[1]["reply"]
 
     engine = SeriesEngine(_setup_no_bond(), seed=2)
     engine.writer.begin_game()

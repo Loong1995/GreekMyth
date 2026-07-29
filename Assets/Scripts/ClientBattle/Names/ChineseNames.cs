@@ -20,7 +20,8 @@ namespace ClientBattle.Names
             ["thunder_oracle"] = "雷霆神谕", ["zeus_bolt"] = "天雷击",
             // 神罚：雷霆神谕的专属高光子效果，只作事件归因（不在 skill_catalog 内）
             ["zeus_divine_punishment"] = "神罚",
-            ["athena_aegis"] = "埃癸斯圣盾", ["athena_guard"] = "神盾格挡",
+            ["athena_aegis"] = "埃癸斯圣盾", ["athena_aegis_reflect"] = "埃癸斯反震",
+            ["athena_guard"] = "神盾格挡",
             ["ares_warfury"] = "战神怒火", ["ares_frenzy"] = "战争狂热",
             ["hermes_oracle"] = "赫尔墨斯神谕", ["hermes_jest"] = "神使戏言",
             ["delphi_revelation"] = "德尔斐启示", ["apollo_blessing"] = "日光祝祷",
@@ -81,10 +82,11 @@ namespace ClientBattle.Names
             ["stance"] = "攻守倾向",
             // ---- 神 ----
             ["thunder"] = "雷霆", ["divine_revelation"] = "神示",
-            ["aegis_shield"] = "埃癸斯圣盾", ["athena_guard"] = "神盾格挡",
+            ["aegis_shield"] = "埃癸斯圣盾", ["aegis_main_command"] = "埃癸斯·主将",
+            ["athena_guard"] = "神盾格挡",
             ["athena_guard_command"] = "神盾·固统", ["athena_guard_late"] = "神盾·后期",
             ["blood_battle"] = "血战", ["ares_might"] = "战神之勇",
-            ["war_frenzy"] = "战争狂热", ["aegis_ward"] = "圣盾·守心",
+            ["war_frenzy"] = "战争狂热",
             ["hermes_confusion_mark"] = "扰心印记", ["hermes_herald_mark"] = "神使印记",
             ["sun_blessing"] = "日光祝祷",
             ["snake_staff_protection"] = "蛇杖庇护", ["snake_staff_tender"] = "灵蛇看护",

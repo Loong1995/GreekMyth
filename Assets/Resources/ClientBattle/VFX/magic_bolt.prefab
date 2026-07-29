@@ -9639,7 +9639,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: ClientBattle::ClientBattle.VFX.VfxCircleFit
   Reference: 1
-  Factor: 0.7
+  Factor: 0.95
   RescueIfBuried: 0
 --- !u!114 &3270312098492400158
 MonoBehaviour:

@@ -14,13 +14,13 @@
 | [architecture.md](architecture.md) | **播放架构权威**：分层依赖规则、L4 拆分（控制器/建造器/导演/策略）、生命周期迁移表、子机制索引、服务端适配点 |
 | [performance_mechanisms.md](performance_mechanisms.md) | **演出机制总纲（改演出先看这里）**：全部机制一句话结论+代码位置+细则索引 |
 | [vfx_config_index.md](vfx_config_index.md) | **特效配置总索引（查「谁用什么特效」）**：普攻/主动默认 HitKey、解析顺序、查表入口；分文档只详述 |
-| [playback_script.md](playback_script.md) | **播放编译权威（2026-07-27 重整）**：skill_catalog 直读、PlaybackCompiler 链序、CutInPlanner 编译期注记（势能预演）、.playback.json 导出与扩展纪律 |
+| [playback_script.md](playback_script.md) | **播放编译权威（2026-07-27 重整）**：skill_catalog 直读、PlaybackCompiler 链序、CutInPlanner 编译期注记（势能预演）、.playback.json 导出、`timing` 回合用时估算（±5s）与扩展纪律 |
 | [playback_units.md](playback_units.md) | **播放单元机制**：一回合怎么在屏幕上展开、分组管线六 processor、时间轴阻塞规则、台词独占三原则、模板族节拍 |
 | [rendering_layout.md](rendering_layout.md) | **渲染/分辨率/层级**：机型适配、图像槽位缩放（contain/stretch）、sorting 层级总表、棋盘布局摘要 |
 | [battlefield_layout.md](battlefield_layout.md) | **战场分区与站位几何唯一权威**：UI/主战场/隔离带/矩形六等分、六套预设、单体制卡尺 |
 | [arena_stage.md](arena_stage.md) | **近 3D 舞台表现权威**：相机姿态、地/天底图拼接、卡牌姿态/浮空；站位引用 battlefield_layout |
-| [ground_crack_language.md](ground_crack_language.md) | **裂地表现语言权威**：模式×强度+面积；弹道熔岩＝同档命中×0.78；灭点消退、自烘遮罩、服务边界 |
-| [ground_crack_config.md](ground_crack_config.md) | **裂地技能配置登记表**：准备/瞬发物理群攻默认档、势能加强覆盖、按 skill_id 登记 |
+| [ground_crack_language.md](ground_crack_language.md) | **裂地表现语言权威**：模式×强度+面积；熔岩时序/遮罩；模块边界 |
+| [ground_crack_config.md](ground_crack_config.md) | **裂地触发与档位登记**：物魔同规（仅弹道限物理）；`skill_catalog` 定类别；按 skill 登记 |
 | [cutin_stage.md](cutin_stage.md) | **cut-in 横幅机制权威**：满档/巨伤「重创」/追击不止/战术变更四源判据；统一「推镜→横幅→出手命中→撤镜」独占单元；运镜参数与巨伤联动 |
 | [text_system.md](text_system.md) | **文字系统**：飘字（Tuning SO 调参）、台词气泡独占播放、横幅/cut-in、中文名注册表 |
 | [settlement_stats.md](settlement_stats.md) | **战后技能结算表**：分局 Tab、带技能（神谕）归因到施法者技能格、status→skill 映射 |

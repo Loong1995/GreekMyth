@@ -1,6 +1,155 @@
 
 # Changelog
 
+## 2026-07-29 人·黎明动态天幕实施方案（文档）
+
+- `stage_backdrop.md` 新增 §七：黎明动态设计（硬规则＝带日盘的远层禁滚，
+  改 90s 天光呼吸脉动；近层薄雾 0.01/s 滚动做视差）。
+- 资源获取双路径：首选 Poly Haven CC0 海上日出全景（Blouberg Sunrise 1，
+  4K Tonemapped JPG 裁带，等距柱状横向天然无缝）；备选 AI 生成 + 平移 50%
+  接缝重绘。近层雾用分层云滤镜/AI tileable。导入 Repeat/ASTC/关 mipmap。
+
+## 2026-07-29 横竖屏支持评估（文档）
+
+- `stage_skew_impl.md` 新增 §二b：横竖屏可支持——core 零涉及；舞台层
+  由 roll 机制免费覆盖（竖屏＝人/神 roll 90°、妖 roll 0°，
+  `StageCompositionConfig` 加朝向维度）；天幕屏/高台/反拧组件朝向无关。
+- 真实成本在 HUD/UI 横竖两套锚点与 cut-in/单挑竖屏变体，独立排期；
+  验收宽高比矩阵扩为 4:3/21:9/9:16/3:4；局中热切换按分辨率热切换策略。
+
+## 2026-07-29 天幕屏专项方案（文档）
+
+- 新增 `docs/dev/stage_backdrop.md`：天幕屏＝挂主相机的双层 Quad——远层
+  不透明盖满视锥截面×1.1（跟随滚转/运镜永不露边、写深度零 overdraw 浪费），
+  近层半透明 ≤1/3 屏 UV 滚动；动态用 C# 改 mainTextureOffset，不写 shader。
+- 画质三档联动 VfxTierScale；坑位：远裁剪面、offset 回卷、Repeat wrap、
+  cut-in 共存、迁移期禁双轨。stage_skew_impl.md §三b/§五 与 index 已索引。
+
+## 2026-07-29 舞台构图系统三修定稿：拧相机 roll（文档）
+
+- `stage_skew_impl.md` 三修：由转场地改**相机滚转**——人 roll 0°/神 −30°
+  （直接复用人全套资源）/妖 90° 左右对峙；roll＝屏幕角精确相等、零透视畸变。
+- 天幕屏改挂相机全屏（不透明，永不露边），滚转历史红线解禁（待同步
+  arena_stage.md）；跳字/血条全舞台反拧回正，妖卡牌反拧角可调。
+- 回放/测试入口先传舞台 id 再初始化（契约不改）；妖手机端负载评估＝
+  与人舞台同档，真实风险在 90° 布局装不下，实施步 1 验证。
+
+## 2026-07-29 舞台方案升级为可复用构图系统（文档）
+
+- `stage_skew_impl.md` 二修：一套机制（`RotationDeg` + `StageCompositionConfig`
+  + 天幕屏）做三种构图——人 0° 正面 / 神 +39° 斜视（崖缘⊥隔离带、双天幕屏）
+  / 妖 90° 左右对峙；战斗逻辑与事件契约零改动。
+- 天空动态选型：UV 滚动 shader（否决视频/GIF/常驻 flipbook）；新增天幕屏
+  防穿帮五条与中文 AI 出图指令。
+- 评估结论：可行且建议做；最大风险＝妖 90° 卡牌纵深遮挡，实施第一步验证。
+
+## 2026-07-29 斜摆舞台方案审核修订（文档）
+
+- `stage_skew_impl.md` 按人工反馈重写：构图定为 A 左下/B 右上、隔离带屏幕
+  −30°（`RotationDeg` 改 **+39** 顺时针）；天幕改**屏幕左侧**，场景语言定名
+  「临渊高台」（神=云海山巅/人=海崖城头/妖=裂渊礁台）。
+- 审核结论 §〇b：值得做、时机在三舞台美术量产之前；补坑位 §四.4~.10
+  （天幕 overdraw、崖壁侧面、UI 对比度、PBR 无光照、4K 无 LOD 等）。
+- 补妖（冥/海）采购：Atlantis Ruins $39.99 首选；总预算越额 ~¥500 需人工批准。
+
+## 2026-07-29 斜摆舞台方案立项（文档）
+
+- 新增 `docs/dev/stage_skew_impl.md`：浮台 + 全屏动态天幕 + 3D 道具；
+  角度公式 `α屏幕 = atan(tanθ · sin俯角)`，定起点 俯角 45° / `RotationDeg=−39` → 屏幕 30°。
+- 关键结论：角度固定 → 隔离带/渐变/破碎边全烤进贴图；地天接缝问题消失；
+  必须删 `StanceHalfDepth` 旋转修正（θ=39° 会把纵深压到 1.3）。
+- 3D 包核价并登记（Ancient Greek City Pack / City Starter ≈¥210）；
+  index.md 与 stage_plan.md 登记。本次仅文档，无代码改动。
+
+## 2026-07-28 废止满势能场心 PlayArena
+
+- 满势能/巨伤不再场心叠 ×3.2 大裂地；只保留轨迹档3 + 弹道档3 + 命中档3×面积1.5。
+- 删 `GroundCrackService.PlayArena`；同步 config / language / 演出说明。
+
+## 2026-07-28 圣盾光环焊死投影圆（修偏小）
+
+- 根因：`VfxCircleFit` 量整件（含 Rays）包络 + 与 `VfxFitter` 互殴 → 符文环缩成一小圈。
+- 改：拆 Fitter/CircleFit；`PinParticleRingToProjectionCircle(Runes)` 焊直径＝投影圆；
+  `VfxShroudFollower` 钉投影圆心贴地（P-88）。
+
+## 2026-07-28 圣盾光环钉投影圆贴地
+
+- `aura_aegis`：直径＝投影圆（`VfxCircleFit`×1）、`VfxShroudFollower` 钉投影圆心
+  贴地、排序 −2（卡下）；废止「面积×1/8」挂卡心。
+
+## 2026-07-28 修重播 HardStop：Unity 已销毁单例禁用 ?.
+
+- `ClearAllPresentation` / `HardStop` 对 VFXManager 等全局单例改 `if (x != null)`，
+  禁止 `?.`（已 Destroy 的 Unity 对象 C# 引用非 null，会 MissingReferenceException）。
+- `VFXManager.OnDestroy` 清静态 `Instance`，避免残留伪引用。
+
+## 2026-07-28 雅典娜埃癸斯圣盾改版（core-0.4.4）
+
+- ①圣盾 15% 受伤/受控反弹（不变）；②重击回血改**统率×0.9**（不暴击/不乘区）；
+  ③废止【圣盾·守心】，改**主将自身统率+30**（`aegis_main_command`）。
+- 高光：单次反伤≥1500 → `athena_aegis_reflect`（`StatusDef.on_reflect`）；
+  常驻 `aura_aegis`＝投影圆面积×1/8；反伤命中 `cast_oracle`。
+- golden 全量重生成；准备机制验收改 `men_gods_seed0`（seed12 局过短无战吼准备）。
+
+## 2026-07-28 魔法裂地同规（仅禁弹道）+ 裂地文档重整
+
+- `GroundCrackService`：命中 / 轨迹 T4 / 场心对魔法与物理同规；**仅弹道裂地**
+  仍逐物理 lane（`HasPhysicalLane` / `PathDriver`）。废止「魔法默不裂 +
+  GroundStrengthTier≥1 才放行命中」。
+- 重写 `ground_crack_config`（标签真源 `skill_catalog`、四场景物魔表、选档）与
+  `ground_crack_language`（表现语言；选档不再复述）；同步 index /
+  vfx_config_index / performance_mechanisms / extension_points / olympus 演出段。
+
+## 2026-07-28 魔法默认弹道加粗
+
+- `magic_bolt`（Magic Effect1）`VfxCircleFit.Factor` 0.7→**0.95**，飞行体量更重；
+  `WireMagicBolt.CircleFitFactor` 与 guide 同行同步。
+
+## 2026-07-28 台词系统升级：羁绊问答对 + 派生随机 + 巨伤台词（core-0.4.3）
+
+- 台词本收口五类（登场/单挑/性格/高光/击杀）；**巨伤**（`effect=massive`）与高光
+  共用词池：单条真实落账 >3000（与客户端「重创」同判据）、**每人每回合 1 条**。
+- 羁绊改**有序**定义（`bonds.py` `BondDef`：`first` 发问、`second` 作答、定义序）：
+  登场单元排序改「**跨队优先 → 定义序**」，单元内按定义方向问答；
+  `bond.poseidon_family` 按对拆为 amphitrite / triton。
+- 交互文案新权威分册 `docs/character/bond_dialogues_s1.md`＋`_s2.md`＋`_s2b.md`
+  （31 条羁绊 / 222 问 / 774 答，每场景 3 问×3 答＝9 种问答），
+  抽取工具 `battle/tools/_extract_bond_dialogues.py` → `battle/voice_bond_data.py`。
+- 选词由确定性轮换改 **seed 派生哈希流** `battle/voice_rng.py`（**不耗战斗 RNG**，
+  P-86）；性格台词新增逐武将覆盖口 `battle/voice_trait_data.py`。
+- 验证：非台词事件与旧 golden **逐条全等**（结算零影响）后重生成 6 条 golden；
+  新增 `battle/tests/test_voice_system.py`（13 例：派生随机/问答配对/顺序/
+  巨伤限次/覆盖口/条数硬性）。全套 284 通过。
+
+## 2026-07-28 播放计时条（可点刻度跳回合）+ 重播清残留
+
+- 新 `Test/PlaybackTimelineBar`：屏幕下方实时计时条，游标＝真实秒（预热不计），
+  刻度＝模型算出的各回合起始秒；**点刻度跳到该回合**并对齐时钟，便于人工校验。
+- `PerformanceRunner.PlayFrom(gameIndex, startSeq, offset)` + `TimelineSeconds`；
+  `PlaybackDirector.PlaySeries` 支持跳播起点（之前静默落账，终态等价）。
+- 重播残留（上一场台词气泡还在）：清表现收口成 `ClearAllPresentation()`，
+  改走**全局单例**（含 ChatBubble/Floats/Vfx/Sfx），不再只清旧 `_session.Ctx`。
+- `RoundTiming` 增 `GameIndex/StartSeq/StartSeconds`；导出 `timing` 增
+  `start_seq`/`start_sec`。
+
+## 2026-07-28 每回合用时改**解析模型**并对真播标定（弃启发式）
+
+- 删 `Events/PlaybackDurationEstimator`（拍常数猜时长，数值不可信）。
+- 新 `VFX/PlaybackDurationModel`：逐组照抄演出协程的时长算术——模板判定与
+  `DefaultPerformance` 同源，节拍取 `StagePerformanceConfig` / `CutInStage` /
+  `DuelStage` / `ChatBubbleService` 同一批配置常量，连发按 `BurstTempoScale`。
+- 新 `PlaybackDirector.OnGroupPlayed` 测量钩子（默认 null 零开销）+
+  `battle/tools/compare_playback_timing.py`：模型 vs 真播逐组比对。
+- 标定结果：**P-84** —— DOTween `WaitForCompletion` 不等满时长，出手三拍的
+  预备/收势实际只阻塞 ~0.05/~0.10s；模型据实测建模。单挑特效窗取实测 1.2s。
+- 精度（manual_3v3，DurationMul=2）：逐组比值 0.99、逐回合误差 ≤1.2s
+  （216.6s vs 真值 220.6s）。导出 `timing`＝`analytic-v2`（含 `pause_sec`）。
+
+## 2026-07-28 宙斯雷线 / 物理受击刀光线略加粗
+
+- 宙斯竖雷：晕/芯/分叉宽度约 +25%（晕 1.15、芯 0.36 起）。
+- 物理 `hit_sword`：CircleFit×2.5 不动；只把 Slash 层 startSize ×1.28（线宽）。
+
 ## 2026-07-28 魔法默认弹道 → Magic Effect1；竖雷加闪电感
 
 - `magic_bolt` ← Magic Pack **Effect1**（`VfxUsage.Projectile` 新用途：保留母件、

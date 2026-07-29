@@ -36,7 +36,7 @@ namespace ClientBattle.VFX
         /// 只能运行期定。只缩裂缝组，不动碎块粒子。</summary>
         public float CardWidthFactor;
         /// <summary>面积倍率：命中类在「卡宽 ×1.5」的默认大小上再乘这个数。
-        /// 场心大裂地就是同一骨架配大面积（由 `GroundCrackService` 出场写入）。</summary>
+        /// 场心大面积叠缝已废止；大小只靠面积倍率（由 `GroundCrackService` 出场写入）。</summary>
         public float AreaFactor = 1f;
 
         /// <summary>裂缝推进到满所需时间。裂开这个动作本身要被看见，
@@ -164,7 +164,7 @@ namespace ClientBattle.VFX
         //
         // 只接管「裂缝张开」这一条轴：透明度生命周期与熔岩仍走自身时钟，
         // 每发现摇的差异（_growMul/_lavaXxx）照旧保留，不退回齐刷刷的机关感（P-56）。
-        float _drivenGrowth = -1f; // <0＝自走时钟（命中/场心）；>=0＝外部驱动
+        float _drivenGrowth = -1f; // <0＝自走时钟（命中）；>=0＝外部驱动
 
         /// <summary>切到驱动式生长（出场后调用一次）。同时取消出场错峰——
         /// 错峰会让贴花在弹道飞过它时还压着 alpha=0，看着像漏了一段。</summary>

@@ -246,11 +246,8 @@ namespace ClientBattle.VFX
                     from, aims[i], flightBase - delay, delay);
                 projectiles[i] = launched != null ? launched.transform : null;
             }
-            // T3 全局大裂地：势能全开的加强出手，逻辑圆量级主缝从场心劈开。
-            // 与弹道同帧起，靠 T1/T2 在其上叠加，读作「一击震裂全场」
-            if (ctx.EmpoweredStrike && GroundCrackService.Active(damages))
-                GroundCrackService.PlayArena(ctx);
             // 飞行段：弹道裂地跟着弹道长；协程返回＝弹道抵达＝路径生长收满
+            // 满势能/巨伤：轨迹档3 + 弹道档3 + 命中档3×面积1.5（无场心额外叠缝）
             yield return StrikeSync.Fly(from, projectiles, aims, flightBase)
                 .Attach(GroundCrackService.PathDriver(ctx, profile, from, damages))
                 .Run();
@@ -318,25 +315,25 @@ namespace ClientBattle.VFX
 
             // 外晕：宽、饱和宝蓝、略低亮 —— 读作「电」而不是灰白带
             One("StrikeHalo", from, to, chaos: 0.32f, gen: 5,
-                alpha: divine ? 0.38f : 0.32f, width: divine ? 1.05f : 0.9f, order: 50,
+                alpha: divine ? 0.38f : 0.32f, width: divine ? 1.3f : 1.15f, order: 50,
                 DrLightningUtil.Halo);
-            // 电芯：细、白青、略亮
+            // 电芯：细、白青、略亮（比晕窄，但仍要比上一版略粗）
             One("StrikeCore", from, to, chaos: 0.42f, gen: 7,
-                alpha: divine ? 0.62f : 0.55f, width: divine ? 0.32f : 0.26f, order: 56,
+                alpha: divine ? 0.62f : 0.55f, width: divine ? 0.42f : 0.36f, order: 56,
                 DrLightningUtil.Core);
             Vector3 side = Vector3.Cross((to - from).normalized, Vector3.forward);
             if (side.sqrMagnitude < 1e-6f) side = Vector3.right;
             side = side.normalized * Random.Range(0.18f, 0.32f);
             One("StrikeForkL", from + side * 0.35f, to - side * 0.55f,
-                chaos: 0.55f, gen: 6, alpha: 0.36f, width: 0.22f, order: 53,
+                chaos: 0.55f, gen: 6, alpha: 0.36f, width: 0.3f, order: 53,
                 DrLightningUtil.Halo);
             One("StrikeForkR", from - side * 0.4f, to + side * 0.4f,
-                chaos: 0.5f, gen: 5, alpha: 0.28f, width: 0.18f, order: 52,
+                chaos: 0.5f, gen: 5, alpha: 0.28f, width: 0.24f, order: 52,
                 DrLightningUtil.Halo);
             if (divine)
             {
                 One("StrikeForkC", from + side * 0.1f, to - side * 0.15f,
-                    chaos: 0.7f, gen: 6, alpha: 0.45f, width: 0.24f, order: 54,
+                    chaos: 0.7f, gen: 6, alpha: 0.45f, width: 0.32f, order: 54,
                     DrLightningUtil.Core);
             }
         }
@@ -463,9 +460,9 @@ namespace ClientBattle.VFX
             return magic ? "magic_bolt" : "slash";
         }
 
-        /// <summary>主动飞行弹道默认（**逐条伤害**解析，文档 vfx_config_index.md §二）：
+        /// <summary>主动飞行弹道默认（**逐条伤害**解析，文档 vfx_config_index.md §一b）：
         ///   ① `profile.ProjectileKey` 非空 → 专配优先；
-        ///   ② 魔法伤害 → <c>magic_bolt</c>（画廊 1/8 件 54/62），**不带弹道裂地**；
+        ///   ② 魔法伤害 → <c>magic_bolt</c>（**无弹道裂地**；命中裂地同规）；
         ///   ③ 其余（物理）→ <c>proj_bolt200</c>，带弹道裂地（档位见 ground_crack_config）。
         ///
         /// 为什么按条而不按组：同组混合伤害时按 `damages[0]` 会让魔法那一路也飞物理弹、

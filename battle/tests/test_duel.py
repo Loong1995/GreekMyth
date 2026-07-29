@@ -19,6 +19,7 @@ from battle.engine import (
 from battle.events import PHASE_ACTION
 from battle.setup import BattleSetup, HeroSetup, TeamSetup
 from battle.tests.helpers import make_hero
+from battle.voice_bond_data import BOND_DIALOGUES
 
 
 def flat_events(report: dict) -> list[dict]:
@@ -133,7 +134,16 @@ def test_duel_emits_bond_voice_lines():
     assert "duel_challenge" in effects
     assert "duel_reject" in effects or "duel_accept" in effects
     chal = next(e for e in duel_lines if e["payload"]["effect"] == "duel_challenge")
-    assert "赫克托尔" in chal["payload"]["line"] or "单挑" in chal["payload"]["line"] or "矛" in chal["payload"]["line"]
+    # 阿喀琉斯（定义方 first）叫阵 → 走羁绊问答；应战/拒战取**同一问**的答案集
+    questions = BOND_DIALOGUES["bond.achilles_hector"]["duel"]
+    asked = next((q for q in questions if q[0] == chal["payload"]["line"]), None)
+    assert asked is not None, chal["payload"]["line"]
+    reply = next(
+        e for e in duel_lines
+        if e["payload"]["effect"] in ("duel_accept", "duel_reject")
+    )
+    answer_key = "accept" if reply["payload"]["effect"] == "duel_accept" else "reject"
+    assert reply["payload"]["line"] in asked[1][answer_key]
     # 叫阵挂在 duel_challenge 组下
     challenge = events_in_game(report, 1, "duel_challenge")[0]
     assert chal["group_id"] == challenge["group_id"]

@@ -113,7 +113,8 @@ namespace ClientBattle.VFX
                         HitKey = "none",
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
                 // 神罚（宙斯专属高光）：同落雷竖雷；无卡面雷粒子；抬高震屏；
-                // 取景 cut-in 由服务 hint 点名。魔法默不裂 → GroundStrengthTier=2。
+                // 取景 cut-in 由服务 hint 点名。高光抬档 → GroundStrengthTier=2
+                // （RemoteStrike 无弹道裂地；命中裂地物理/魔法同规）。
                 new() { SkillOrStatusId = "zeus_divine_punishment",
                         Template = PerformanceTemplate.RemoteStrike,
                         HitKey = "none",
@@ -126,22 +127,24 @@ namespace ClientBattle.VFX
                         SfxKey = "sfx_thunder_strike", PortraitMarkKey = "zeus" },
                 // 赫克托尔：走主动默认 Auto（群攻≥2→AoeCenter）；勿写死 AoeCenter，
                 // 否则 prepare（无伤害）也会空跑进中心，像没放技能。
-                // 裂地按类别约定：准备型群攻档 2、瞬发不配（＝档 1）；
-                // 势能加强出手由服务强制档 3 + 命中面积 1.5（见 ground_crack_config）。
+                // 裂地：skill_catalog prepare_active → 约定档 2；瞬发不配（＝档 1）；
+                // 势能/巨伤由服务强制档 3 + 命中面积 1.5（见 ground_crack_config）。
                 new() { SkillOrStatusId = "hector_warcry", Template = PerformanceTemplate.Auto,
                         CameraShakeOnHit = true, SfxKey = "sfx_active_default",
                         GroundStrengthTier = 2 },
                 new() { SkillOrStatusId = "hector_assault", Template = PerformanceTemplate.Auto,
                         CameraShakeOnHit = true },
-                // 神：埃癸斯圣盾——挂身 AllIn1 金描边；反弹命中=Magic Effect17_Collision
+                // 神：埃癸斯圣盾——常驻 aura_aegis（焊投影圆贴地）；
+                // 反伤命中＝cast_oracle（同货架神谕前摇件）
                 new() { SkillOrStatusId = "athena_aegis", Template = PerformanceTemplate.OracleAura,
                         AuraKey = "aura_aegis", SfxKey = "sfx_oracle_aegis" },
                 new() { SkillOrStatusId = "aegis_shield", Template = PerformanceTemplate.Melee,
-                        CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
+                        CastKey = "cast_oracle", HitKey = "cast_oracle",
                         SfxKey = "sfx_aegis_counter" },
-                // 圣盾·守心（次数控挡）：持有者格挡闪光
-                new() { SkillOrStatusId = "aegis_ward", Template = PerformanceTemplate.StatusTrigger,
-                        CastKey = "hit_shield_counter", HitKey = "hit_shield_counter",
+                // 专属高光：单次反伤 ≥1500（cut-in 后结算反伤；命中 cast_oracle）
+                new() { SkillOrStatusId = "athena_aegis_reflect",
+                        Template = PerformanceTemplate.PerSegment,
+                        HitKey = "cast_oracle",
                         SfxKey = "sfx_aegis_counter" },
                 // 神：战神怒火（自带）——血战卡框红呼吸；战神之勇 Effect18 罩身（奇偶显隐）
                 new() { SkillOrStatusId = "ares_warfury", Template = PerformanceTemplate.OracleAura,

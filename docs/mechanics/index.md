@@ -59,7 +59,8 @@ simulate(battle_setup, seed)                          battle/api.py
 | 伤害公式 | Phase 3 双公式：兵刃 `360+武-统`、谋略 `360+智-½统-½智`（min=1 截断）；兵力系数 `0.5+0.5x`；新增独立额外增伤乘区 | Phase 3 落地 | [damage.md](damage.md) |
 | 格挡/闪避/反弹 | 落账前 0 结算：按状态施加序逐实例判定（次数格挡→闪避→几率格挡→反弹）；damage.mitigation 事件化，不算实际受伤不触发响应；反弹把本应受伤害回敬攻击者（special 不连锁） | v3.2 落地 | [damage.md](damage.md) §五 |
 | 震荡/特殊伤害 | is_special 伤害正常播放（damage_class=special）但不触发任何产生伤害的响应 | Phase 3 落地 | [damage.md](damage.md) §六 |
-| 性格系统 | 每武将一条性格强制修正机制；trait_trigger 事件带台词（确定性轮换）；概率可测试覆盖 | Phase 3 落地 | [traits.md](traits.md) |
+| 性格系统 | 每武将一条性格强制修正机制；trait_trigger 事件带台词（**seed 派生哈希流选词**，不耗战斗 RNG，逐武将可覆盖池）；概率可测试覆盖 | Phase 3 落地；台词 core-0.4.3 升级 | [traits.md](traits.md) |
+| 台词系统 | 五类台词本（登场/单挑/性格/高光/击杀）＋巨伤（与高光共用池，>3000、每人每回合 1 条）；羁绊按**定义序**问答配对（3 问×3 答） | core-0.4.3 落地 | `docs/character.md` §2.0、`docs/character/bond_dialogues_s1.md` |
 | 治疗公式 | max_troops×5%×系数×智力修正(0.6~1.5)×增减疗×随机×暴击；只回伤兵 | B2 落地 | `battle/formulas.py` |
 | 兵力三池 | troops/伤兵/阵亡；受击 30/70 拆分；回合始伤兵 30% 损耗；治疗只回伤兵 | B2 全量落地 | `battle/formulas.py` |
 | 受击率选人 | 受击点数 5000 起（阵型可按站位覆盖）、按损兵比例扣减（每次重算）；敌方随机目标按点数加权；选人过程事件化（target_select，schema 1.1.0） | B1 落地，B4 事件化 | [targeting.md](targeting.md) |

@@ -39,7 +39,7 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `cast_aoe_burst` | （可选）魔法中心爆，**主动默认已取消 Cast** | Explosion_01_Pivot |
 | `hit_clash` | （库内）Magic Effect22_Collision 标准件；**不再作物理默认** | 画廊 Magic **2/8** 件 45 原料；专配/备用 |
 | `proj_bolt200` | **物理主动默认**弹道 | 029-Bolt200 Orange |
-| `magic_bolt` | **魔法主动默认**弹道 | Magic Pack **Effect1** 母件（`VfxUsage.Projectile`；摘 Motion/Target，位移归 LaunchProjectile；定径 ×0.7） |
+| `magic_bolt` | **魔法主动默认**弹道 | Magic Pack **Effect1** 母件（`VfxUsage.Projectile`；摘 Motion/Target，位移归 LaunchProjectile；定径 ×0.95，偏重） |
 | `hit_warcry` | （可选）Radial_Burst 放大命中 | 战吼已改走默认 `hit_sword` |
 | `cast_oracle` / `aura_generic` | 神谕前摇 / 默认光环 | |
 | `aura_fire_foot` / `aura_fire_head` | 阿瑞斯血战（脚） | 仅卡框红呼吸 `SetAresRage`（弱）；`aura_fire_head` 备用 |
@@ -55,9 +55,10 @@ Assets/VFX 四色弹道包）。**换演出＝替换对应 variant 或改其引�
 | `momentum_glow` | 势能卡后柔光（≥4 起） | **CFXR LightGlow A**（**已去 Small Stars**）；关点光；sorting −1；与火同灭 |
 | `aura_freeze` | 卡吕普索冰锢挂身 | **CFXR3 Ice Shield**；卡面下方约 y=−0.3 |
 | `dr_lightning_bolt_anim` | DR 贴图动画闪电 | Demo 下方 `SimpleLightningBoltAnimatedPrefab` |
-| `aura_aegis` / `hit_shield_counter` | 圣盾挂身 / 反制命中 | 挂身＝**AllIn1 金描边**（无 Magic 粒子）；反制 ← **Magic Effect17_Collision** |
+| `aura_aegis` / `cast_oracle`（反伤命中） | 圣盾挂身 / 反伤命中 | 挂身＝**CFXR3 Magic Aura A (Runic)**，`PinParticleRingToProjectionCircle(Runes)` 焊投影圆 + `VfxShroudFollower` 贴地卡下；反伤命中＝货架 `cast_oracle` |
+| `hit_shield_counter` | （留库）旧圣盾反制命中 | Magic Effect17_Collision；现行圣盾反伤改 `cast_oracle` |
 | `ground_crack_path` / `_0`~`_3` | **弹道类骨架变体**：蜿蜒主缝 + 树杈；飞行每段抽不同变体；三档熔岩＝同档命中×0.78（仅主缝烧） | G4 生成；兼容 key `ground_crack_path`＝变体 0 |
-| `ground_crack_hit` | **命中类骨架**：受击者脚下分形放射裂地；场心大裂地也用它（配大面积+档 3） | 同上；直径＝运行时卡宽 ×1.5 ×面积倍率 |
+| `ground_crack_hit` | **命中类骨架**：受击者脚下分形放射裂地 | 同上；直径＝运行时卡宽 ×1.5 ×面积倍率 |
 | `ground_lava_bloom` | 熔岩过曝层，**当前未接线**（熔岩走 shader 沿缝渐变+灭点，见 `ground_crack_language.md`），留库备用 | **Magic Pack v1 Effect8** 晋升，菜单 `GreekMyth/裂地/G12` |
 | `chunks_<stage>.png` | 碎块图集（4×3），工具保留、现行 ChunkCount=0 | 菜单 `GreekMyth/裂地/G3` 从 `arena_<stage>.png` 现切 |
 | `masks/mask_crack_{spine,radial}.png` | 弹道大小缝混排 / 命中分形放射（自烘） | G4 产出；旧 spur/arena 遮罩不再使用 |
